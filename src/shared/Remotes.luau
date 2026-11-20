@@ -1,32 +1,41 @@
 --!strict
--- Единый список всех RemoteEvent / RemoteFunction.
+-- Единый список всех RemoteEvent.
 -- Сервер создаёт их при первом require, клиент ждёт появления.
--- Аргументы всегда проверяются на сервере.
+-- Аргументы от клиента сервер ВСЕГДА проверяет сам: клиенту не доверяем.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local FOLDER_NAME = "Remotes"
 
-local EVENTS = {
-	"PhaseChanged", -- сервер -> клиенты: смена фазы
-	"ReadyChanged", -- клиент -> сервер: нажал «Готов»
-	"RoleChosen", -- клиент -> сервер: выбор роли
-	"SwitchCamera", -- клиент -> сервер: намерение переключить камеру
-	"NightResults", -- сервер -> клиенты: итог ночи
+local Remotes = {}
+
+local NAMES: { [string]: string } = {
+	-- клиент -> сервер
+	SetRole = "SetRole", -- (role: string) выбор роли в лобби
+	SetReady = "SetReady", -- (ready: boolean) кнопка READY
+	RequestCameras = "RequestCameras", -- (open: boolean) открыть/закрыть телефон или пульт
+	MarkThief = "MarkThief", -- (thief: Model) метка оператора на вора
+	QuickPhrase = "QuickPhrase", -- (index: number) готовая фраза
+
+	-- сервер -> клиенты
+	PhraseShown = "PhraseShown", -- (userId: number, index: number)
+	Banner = "Banner", -- (text: string, kind: string) крупная надпись вверху экрана
+	NightResults = "NightResults", -- (results: table) экран итога
 }
+Remotes.Names = NAMES
 
 local folder: Folder
 if RunService:IsServer() then
 	local existing = ReplicatedStorage:FindFirstChild(FOLDER_NAME)
-	if existing then
-		folder = existing :: Folder
+	if existing and existing:IsA("Folder") then
+		folder = existing
 	else
 		folder = Instance.new("Folder")
 		folder.Name = FOLDER_NAME
 		folder.Parent = ReplicatedStorage
 	end
-	for _, name in EVENTS do
+	for _, name in NAMES do
 		if not folder:FindFirstChild(name) then
 			local remote = Instance.new("RemoteEvent")
 			remote.Name = name
@@ -37,10 +46,10 @@ else
 	folder = ReplicatedStorage:WaitForChild(FOLDER_NAME) :: Folder
 end
 
-local Remotes = {}
-
 function Remotes.get(name: string): RemoteEvent
-	return folder:WaitForChild(name) :: RemoteEvent
+	local remote = folder:WaitForChild(name, 30)
+	assert(remote and remote:IsA("RemoteEvent"), "Нет такого RemoteEvent: " .. name)
+	return remote
 end
 
 return Remotes

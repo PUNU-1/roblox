@@ -21,13 +21,23 @@ local MapSchema = {
 	PatrolSpawn = "PatrolSpawn", -- куда переносит игроков в начале подготовки
 	LobbySpawn = "LobbySpawn", -- SpawnLocation в комнате охраны
 
+	-- Папки, которые появляются во время игры (прямо в Workspace)
+	Thieves = "Thieves", -- воры
+	PlacedTraps = "PlacedTraps", -- поставленные лазерные сетки
+
 	-- Имена моделей в ReplicatedStorage/Models (как в GEMINI.md)
 	Models = {
 		MonaLisa = "exhibit_monalisa_01",
 		Camera = "camera_wall_01",
+		LaserGrid = "trap_laser_01",
+		ThiefMask = "thief_mask_01",
 		Bench = "prop_bench_01",
 		Barrier = "prop_barrier_01",
 		Locker = "prop_locker_01",
+		Handcuffs = "prop_handcuffs_01",
+		GuardCap = "guard_cap_01",
+		GuardBadge = "guard_badge_01",
+		Phone = "prop_phone_01",
 	},
 }
 
