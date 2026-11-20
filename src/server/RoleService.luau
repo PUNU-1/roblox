@@ -134,7 +134,7 @@ end
 
 local function isRoundPhase(): boolean
 	local phase = GameState.phase()
-	return phase == Phase.Prep or phase == Phase.Night
+	return phase == Phase.Day or phase == Phase.Night
 end
 
 function RoleService.isSolo(): boolean

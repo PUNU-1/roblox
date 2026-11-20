@@ -10,7 +10,7 @@ local GameState = {}
 
 GameState.Phase = {
 	Lobby = "Lobby",
-	Prep = "Prep",
+	Day = "Day",
 	Night = "Night",
 	Results = "Results",
 }
@@ -45,6 +45,8 @@ GameState.Attr = {
 	ThievesSpawned = "ThievesSpawned", -- number, сколько воров уже пришло
 	LasersLeft = "LasersLeft", -- number, сколько сеток ещё можно поставить
 	Solo = "Solo", -- boolean, в игре один игрок
+	NightNumber = "NightNumber", -- number, какая по счёту ночь идёт (или будет после этого дня)
+	BestNights = "BestNights", -- number, рекорд сервера: сколько ночей продержались
 }
 
 -- Атрибуты Player

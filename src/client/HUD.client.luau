@@ -230,6 +230,8 @@ local resultsFooter = Theme.label({
 	Parent = resultsPanel,
 })
 
+local resultsGameOver = false
+
 local function showResults(results: { [string]: any })
 	for _, child in resultsList:GetChildren() do
 		if child:IsA("TextLabel") then
@@ -237,9 +239,19 @@ local function showResults(results: { [string]: any })
 		end
 	end
 	local survived = results.survived == true
-	resultsTitle.Text = if survived then "NIGHT SURVIVED" else "NIGHT FAILED"
+	local night = tonumber(results.night) or 0
+	resultsGameOver = results.gameOver == true
+	if resultsGameOver then
+		resultsTitle.Text = "GAME OVER"
+		resultsCaught.Text = ("You survived %d nights   •   Server record: %d"):format(
+			tonumber(results.nightsSurvived) or 0,
+			tonumber(results.best) or 0
+		)
+	else
+		resultsTitle.Text = ("NIGHT %d SURVIVED"):format(night)
+		resultsCaught.Text = ("Thieves caught: %d / %d"):format(tonumber(results.caught) or 0, tonumber(results.total) or 0)
+	end
 	resultsTitle.TextColor3 = if survived then Colors.Gold else Colors.Red
-	resultsCaught.Text = ("Thieves caught: %d / %d"):format(tonumber(results.caught) or 0, tonumber(results.total) or 0)
 
 	local earnings = if typeof(results.earnings) == "table" then results.earnings else {}
 	local catches = if typeof(results.catches) == "table" then results.catches else {}
@@ -325,11 +337,11 @@ local function hintText(phase: string): string?
 	end
 	local hasPhone = localPlayer:GetAttribute(PlayerAttr.Role) == Role.Operator or GameState.get(Attr.Solo) == true
 	local cameras = if hasPhone then HINT_PHONE else HINT_CONSOLE
-	if phase == Phase.Prep then
-		if (tonumber(GameState.get(Attr.LasersLeft)) or 0) > 0 then
+	if phase == Phase.Day then
+		if Config.Traps.LaserGrid.Enabled and (tonumber(GameState.get(Attr.LasersLeft)) or 0) > 0 then
 			return HINT_PLACE
 		end
-		return "Thieves come at midnight   •   " .. cameras
+		return "Thieves come at midnight. Don't let them take the Mona Lisa!   •   " .. cameras
 	elseif phase == Phase.Night then
 		if GameState.get(Attr.PaintingStolen) == true then
 			return HINT_STOLEN
@@ -345,17 +357,19 @@ local function topBarText(phase: string): string
 	local left = GameState.secondsLeft()
 	if phase == Phase.Lobby then
 		if left > 0 then
-			return "Night starts in " .. Theme.formatTime(left)
+			return "The museum opens in " .. Theme.formatTime(left)
 		end
 		return "Choose a role and press READY"
-	elseif phase == Phase.Prep then
-		local lasers = GameState.get(Attr.LasersLeft)
-		local laserText = if typeof(lasers) == "number" then ("   •   Laser grids left: %d"):format(lasers) else ""
-		return "PREPARE   " .. Theme.formatTime(left) .. laserText
+	elseif phase == Phase.Day then
+		return ("DAY %d   •   Night in %s"):format(tonumber(GameState.get(Attr.NightNumber)) or 1, Theme.formatTime(left))
 	elseif phase == Phase.Night then
 		local started = GameState.get(Attr.NightStartedAt)
 		local elapsed = if typeof(started) == "number" then Workspace:GetServerTimeNow() - started else 0
-		return ("%s   •   Caught: %d"):format(Theme.nightClock(elapsed), tonumber(GameState.get(Attr.Caught)) or 0)
+		return ("NIGHT %d   •   %s   •   Caught: %d"):format(
+			tonumber(GameState.get(Attr.NightNumber)) or 1,
+			Theme.nightClock(elapsed),
+			tonumber(GameState.get(Attr.Caught)) or 0
+		)
 	end
 	return ""
 end
@@ -386,8 +400,11 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 
 	if phase == Phase.Results then
-		resultsFooter.Text = "Back to the guard room in " .. Theme.formatTime(GameState.secondsLeft())
-	elseif phase == Phase.Lobby or phase == Phase.Prep then
+		local left = Theme.formatTime(GameState.secondsLeft())
+		resultsFooter.Text = if resultsGameOver
+			then "Back to the guard room in " .. left
+			else ("Day %d starts in %s"):format((tonumber(GameState.get(Attr.NightNumber)) or 0) + 1, left)
+	elseif phase == Phase.Lobby or phase == Phase.Day then
 		-- Прячем итог только в лобби: событие с итогом может прийти чуть раньше смены фазы
 		resultsFrame.Visible = false
 	end

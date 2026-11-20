@@ -11,9 +11,9 @@ local Config = {
 
 	Phases = {
 		LobbyCountdownSeconds = 30, -- отсчёт после первого READY
-		PrepSeconds = 60, -- подготовка: расстановка ловушек
+		DaySeconds = 90, -- день: туристы, покупки
 		NightSeconds = 300, -- ночь: 5 минут
-		ResultsSeconds = 10, -- экран итога, потом лобби
+		ResultsSeconds = 10, -- экран итога, потом новый день или лобби
 		TickSeconds = 0.25, -- как часто игровой цикл проверяет состояние
 	},
 
@@ -74,6 +74,7 @@ local Config = {
 
 	Traps = {
 		LaserGrid = {
+			Enabled = false, -- до магазина сеток в игре нет (решение 43)
 			MaxPerNight = 3, -- 3 сетки из 5 мест
 			PlaceHoldSeconds = 1, -- сколько держать E, чтобы поставить
 			PromptDistance = 10,
@@ -146,6 +147,12 @@ local Config = {
 	},
 
 	Lighting = {
+		Day = { -- день: светло, туристы
+			ClockTime = 14,
+			Brightness = 2,
+			Ambient = Color3.fromRGB(150, 150, 150),
+			OutdoorAmbient = Color3.fromRGB(170, 170, 170),
+		},
 		Night = { -- первая ночь: снаружи темно, в зале свет включён
 			ClockTime = 0,
 			Brightness = 1,

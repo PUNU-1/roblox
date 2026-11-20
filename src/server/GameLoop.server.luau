@@ -1,6 +1,8 @@
--- Игровой цикл: Lobby -> Prep -> Night -> Results -> снова Lobby.
+-- Игровой цикл — забег на выживание: Лобби -> (День -> Ночь -> Итог) x N -> снова Лобби.
+-- Цель — продержаться как можно больше ночей. Мону Лизу вынесли — игра окончена, всё с нуля.
 -- Сервер решает всё: когда начинается ночь, кто участвует, чем она закончилась.
 
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -32,6 +34,11 @@ TrapService.init(map)
 CommsService.init(map)
 
 local resultsRemote = Remotes.get(Remotes.Names.NightResults)
+local bannerRemote = Remotes.get(Remotes.Names.Banner)
+
+local bestNights = 0 -- рекорд сервера
+GameState.set(Attr.BestNights, 0)
+GameState.set(Attr.NightNumber, 0)
 
 local function now(): number
 	return Workspace:GetServerTimeNow()
@@ -48,6 +55,13 @@ end
 
 local function anyoneLeft(): boolean
 	return #RoleService.participants() > 0
+end
+
+local function setLighting(settings: { ClockTime: number, Brightness: number, Ambient: Color3, OutdoorAmbient: Color3 })
+	Lighting.ClockTime = settings.ClockTime
+	Lighting.Brightness = settings.Brightness
+	Lighting.Ambient = settings.Ambient
+	Lighting.OutdoorAmbient = settings.OutdoorAmbient
 end
 
 -- Лобби: ждём, пока все нажмут READY или пройдёт отсчёт после первого READY.
@@ -77,13 +91,15 @@ local function runLobby()
 	end
 end
 
--- Подготовка: игроки в зале, ставят сетки. Возвращает false, если все ушли.
-local function runPrep(): boolean
+-- День: светло, игроки в музее (позже — туристы и покупки). Возвращает false, если все ушли.
+local function runDay(night: number): boolean
 	PaintingService.returnToWall()
-	setPhase(Phase.Prep, Config.Phases.PrepSeconds)
-	RoleService.startRound()
+	setLighting(Config.Lighting.Day)
+	GameState.set(Attr.NightNumber, night)
+	setPhase(Phase.Day, Config.Phases.DaySeconds)
 	RoleService.setConsoleEnabled(true)
-	TrapService.beginPrep()
+	TrapService.beginDay()
+	bannerRemote:FireAllClients(("DAY %d"):format(night), "info")
 	while GameState.secondsLeft() > 0 do
 		if not anyoneLeft() then
 			return false
@@ -94,7 +110,8 @@ local function runPrep(): boolean
 end
 
 -- Ночь. Возвращает: survived (картина на месте), aborted (все ушли).
-local function runNight(): (boolean, boolean)
+local function runNight(night: number): (boolean, boolean)
+	setLighting(Config.Lighting.Night)
 	setPhase(Phase.Night, Config.Phases.NightSeconds)
 	GameState.set(Attr.NightStartedAt, now())
 	TrapService.beginNight()
@@ -107,6 +124,7 @@ local function runNight(): (boolean, boolean)
 		survived = false
 	end)
 	ThiefService.beginNight(#participants)
+	bannerRemote:FireAllClients(("NIGHT %d"):format(night), "danger")
 
 	while survived and GameState.secondsLeft() > 0 do
 		if not anyoneLeft() then
@@ -122,30 +140,54 @@ local function runNight(): (boolean, boolean)
 	return survived, aborted
 end
 
-local function runResults(survived: boolean)
+local function runResults(survived: boolean, night: number)
 	RoleService.closeAllViews()
-	RoleService.setConsoleEnabled(false)
 	setPhase(Phase.Results, Config.Phases.ResultsSeconds)
-	resultsRemote:FireAllClients(ScoreService.finish(survived))
+	local results = ScoreService.finish(survived)
+	local nightsSurvived = if survived then night else night - 1
+	if not survived then
+		bestNights = math.max(bestNights, nightsSurvived)
+		GameState.set(Attr.BestNights, bestNights)
+	end
+	results.night = night
+	results.gameOver = not survived
+	results.nightsSurvived = nightsSurvived
+	results.best = bestNights
+	resultsRemote:FireAllClients(results)
 	while GameState.secondsLeft() > 0 do
 		tick()
 	end
 end
 
-local function finishRound()
+-- Конец забега: всех обратно в комнату охраны, музей с нуля.
+local function finishRun()
 	ThiefService.endNight()
 	TrapService.clear()
 	RoleService.endRound()
+	RoleService.setConsoleEnabled(false)
 	PaintingService.returnToWall()
+	setLighting(Config.Lighting.Night)
+	GameState.set(Attr.NightNumber, 0)
 end
 
 while true do
 	runLobby()
-	if runPrep() then
-		local survived, aborted = runNight()
-		if not aborted then
-			runResults(survived)
+	local participants = RoleService.startRound()
+	ScoreService.beginRun(participants)
+	local night = 0
+	while true do
+		night += 1
+		if not runDay(night) then
+			break
+		end
+		local survived, aborted = runNight(night)
+		if aborted then
+			break
+		end
+		runResults(survived, night)
+		if not survived then
+			break
 		end
 	end
-	finishRound()
+	finishRun()
 end

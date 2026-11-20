@@ -131,7 +131,7 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 	accumulator = 0
 	local phase = GameState.phase()
-	local show = phase == Phase.Prep or phase == Phase.Night
+	local show = phase == Phase.Day or phase == Phase.Night
 	toggleButton.Visible = show
 	if not show then
 		list.Visible = false

@@ -1,5 +1,5 @@
 -- Счёт ночи: кто сколько поймал, деньги поровну, лучший охранник, данные для экрана итога.
--- Деньги в прототипе живут только в атрибуте Player.Money (без сохранения).
+-- Деньги живут только в атрибуте Player.Money и обнуляются в начале каждого забега.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,7 +22,18 @@ export type Results = {
 	earnings: { [string]: number }, -- userId (строкой) -> доллары за ночь
 	catches: { [string]: number }, -- userId (строкой) -> поймано
 	bestUserId: number, -- 0 — никто никого не поймал
+	night: number?, -- какая это была ночь
+	gameOver: boolean?, -- Мону Лизу вынесли, забег окончен
+	nightsSurvived: number?, -- сколько ночей продержались за этот забег
+	best: number?, -- рекорд сервера
 }
+
+-- Новый забег: всё с нуля, деньги тоже.
+function ScoreService.beginRun(participants: { Player })
+	for _, player in participants do
+		player:SetAttribute(GameState.PlayerAttr.Money, 0)
+	end
+end
 
 function ScoreService.beginNight(participants: { Player })
 	table.clear(catchesByUser)

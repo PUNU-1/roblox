@@ -554,7 +554,7 @@ local function openView()
 			local elapsed = if typeof(started) == "number" then Workspace:GetServerTimeNow() - started else 0
 			clockLabel.Text = Theme.nightClock(elapsed)
 		else
-			clockLabel.Text = "PREP " .. Theme.formatTime(GameState.secondsLeft())
+			clockLabel.Text = "DAY " .. Theme.formatTime(GameState.secondsLeft())
 		end
 		updatePlayerDots()
 	end)
@@ -597,7 +597,7 @@ local function canUsePhone(): boolean
 	local phase = GameState.phase()
 	local inRound = localPlayer:GetAttribute(PlayerAttr.InRound) == true
 	local operator = localPlayer:GetAttribute(PlayerAttr.Role) == Role.Operator or GameState.get(Attr.Solo) == true
-	return inRound and operator and (phase == Phase.Prep or phase == Phase.Night)
+	return inRound and operator and (phase == Phase.Day or phase == Phase.Night)
 end
 
 local phoneBound = false

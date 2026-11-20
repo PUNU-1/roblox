@@ -156,7 +156,7 @@ local function createBeams(model: PVInstance): { Beam }
 end
 
 local function refreshPrompts()
-	local canPlace = GameState.phase() == GameState.Phase.Prep and placedCount < Laser.MaxPerNight
+	local canPlace = Laser.Enabled and GameState.phase() == GameState.Phase.Day and placedCount < Laser.MaxPerNight
 	for slot, prompt in prompts do
 		prompt.Enabled = canPlace and traps[slot] == nil
 	end
@@ -212,7 +212,7 @@ local function placeTrap(slot: BasePart)
 end
 
 local function tryPlace(player: Player, slot: BasePart)
-	if GameState.phase() ~= GameState.Phase.Prep or traps[slot] or placedCount >= Laser.MaxPerNight then
+	if not Laser.Enabled or GameState.phase() ~= GameState.Phase.Day or traps[slot] or placedCount >= Laser.MaxPerNight then
 		return
 	end
 	if not RoleService.isParticipant(player) or RoleService.isViewing(player) then
@@ -304,11 +304,12 @@ local function showSlots(visible: boolean)
 	end
 end
 
-function TrapService.beginPrep()
+-- Начало дня: сетки ставятся днём. Пока сеток нет (Laser.Enabled = false), места не светятся.
+function TrapService.beginDay()
 	TrapService.clear()
 	placedCount = 0
 	setLasersLeft()
-	showSlots(true)
+	showSlots(Laser.Enabled)
 	refreshPrompts()
 end
 
