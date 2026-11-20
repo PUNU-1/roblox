@@ -391,26 +391,56 @@ end)
 
 ---------------------------------------------------------------- метка на вора
 
-local function tryMark(screenPosition: Vector2)
+-- Не надо попадать точно в вора: берём вора, который на экране ближе всего к нажатию
+-- (в пределах MarkTapRadius пикселей) и которого не закрывает стена.
+-- Позиция нажатия (input.Position) считается без верхней полосы Roblox,
+-- поэтому сравниваем с WorldToScreenPoint — он считает так же.
+local function isVisibleFromCamera(camera: Camera, position: Vector3, params: RaycastParams): boolean
+	local origin = camera.CFrame.Position
+	return Workspace:Raycast(origin, position - origin, params) == nil
+end
+
+local function thiefAt(screenPosition: Vector2): Model?
 	local thieves = Workspace:FindFirstChild(MapSchema.Thieves)
 	if not thieves then
-		return
+		return nil
 	end
 	local camera = Workspace.CurrentCamera
-	local ray = camera:ViewportPointToRay(screenPosition.X, screenPosition.Y)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { localPlayer.Character :: Instance }
-	local result = Workspace:Raycast(ray.Origin, ray.Direction * Config.Comms.MarkMaxDistance, params)
-	if not result then
-		return
+	params.RespectCanCollide = true -- картина у вора в руках и лучи сетки не закрывают обзор
+	local ignore: { Instance } = { thieves }
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(ignore, player.Character)
+		end
 	end
-	local hit: Instance? = result.Instance
-	while hit and hit.Parent ~= thieves do
-		hit = hit.Parent
+	params.FilterDescendantsInstances = ignore
+
+	local best: Model? = nil
+	local bestDistance = Config.Comms.MarkTapRadius
+	for _, thief in thieves:GetChildren() do
+		local root = thief:FindFirstChild("HumanoidRootPart")
+		if thief:IsA("Model") and root and root:IsA("BasePart") then
+			local head = thief:FindFirstChild("Head")
+			local headPosition = if head and head:IsA("BasePart") then head.Position else root.Position
+			local screen, onScreen = camera:WorldToScreenPoint(root.Position)
+			local distance = (Vector2.new(screen.X, screen.Y) - screenPosition).Magnitude
+			if onScreen and distance < bestDistance then
+				if isVisibleFromCamera(camera, root.Position, params) or isVisibleFromCamera(camera, headPosition, params) then
+					best = thief
+					bestDistance = distance
+				end
+			end
+		end
 	end
-	if hit and hit:IsA("Model") then
-		markThief:FireServer(hit)
+	return best
+end
+
+local function tryMark(screenPosition: Vector2)
+	local thief = thiefAt(screenPosition)
+	if thief then
+		markThief:FireServer(thief)
 	end
 end
 

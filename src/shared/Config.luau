@@ -98,6 +98,7 @@ local Config = {
 		MarkSeconds = 6, -- баланс: сколько висит метка оператора
 		MarkCooldown = 1,
 		MarkMaxDistance = 150, -- дальше этого от камеры метку поставить нельзя
+		MarkTapRadius = 60, -- в пикселях: насколько можно промахнуться мимо вора на картинке с камеры
 		PhraseCooldown = 2,
 		PhraseShowSeconds = 5,
 		Phrases = {
