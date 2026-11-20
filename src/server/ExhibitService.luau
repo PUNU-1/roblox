@@ -1,0 +1,478 @@
+-- Экспонаты: Мона Лиза (главная — если её вынесли, игра окончена) и дешёвые экспонаты на постаментах.
+-- Днём игроки покупают экспонаты вскладчину: у каждого постамента свой экспонат, держишь E —
+-- вкладываешь деньги. Ночью вор выбирает цель (чаще Мону Лизу), снимает её, несёт над головой.
+-- Поймали — экспонат возвращается на место. Унёс дешёвый — экспонат пропадает, его надо купить заново.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local GameState = require(Shared:WaitForChild("GameState"))
+local MapSchema = require(Shared:WaitForChild("MapSchema"))
+
+local Server = script.Parent
+local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
+local RoleService = require(Server:WaitForChild("RoleService"))
+
+local ExhibitConfig = Config.Exhibits
+
+local ExhibitService = {}
+
+export type Exhibit = {
+	title: string,
+	model: PVInstance,
+	home: CFrame,
+	stand: Vector3, -- где встаёт вор, чтобы снять
+	look: Vector3, -- куда смотрят туристы
+	appeal: number, -- привлекательность для туристов
+	isMain: boolean, -- Мона Лиза
+	hall: string,
+	carrier: Model?,
+	stealer: Model?,
+	originalCollide: { [BasePart]: boolean },
+}
+
+type Slot = {
+	pedestal: Model,
+	hall: string,
+	kind: string,
+	title: string,
+	price: number,
+	appeal: number,
+	paid: number,
+	exhibit: Exhibit?,
+	prompt: ProximityPrompt?,
+	label: TextLabel?,
+	billboard: BillboardGui?,
+}
+
+local GOLD = Color3.fromHex("D4A93A")
+local MARBLE = Color3.fromHex("F2EEE6")
+local WOOD = Color3.fromHex("7A5230")
+
+-- Заглушки экспонатов из деталей (друг может заменить моделью с тем же именем: exhibit_<вид>_01).
+local STUBS: { [string]: { ModelLibrary.StubPart } } = {
+	GoldVase = {
+		{ size = Vector3.new(1, 0.3, 1), offset = CFrame.new(0, 0.15, 0), color = GOLD, material = Enum.Material.Metal },
+		{ size = Vector3.new(1.5, 1.5, 1.5), offset = CFrame.new(0, 1.05, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ size = Vector3.new(0.6, 0.7, 0.6), offset = CFrame.new(0, 1.95, 0), color = GOLD, material = Enum.Material.Metal },
+	},
+	AncientClock = {
+		{ size = Vector3.new(1.4, 2.2, 1), offset = CFrame.new(0, 1.1, 0), color = WOOD, material = Enum.Material.Wood },
+		{ size = Vector3.new(1, 1, 0.1), offset = CFrame.new(0, 1.5, -0.52), color = MARBLE },
+		{ size = Vector3.new(1.6, 0.3, 1.2), offset = CFrame.new(0, 2.35, 0), color = GOLD, material = Enum.Material.Metal },
+	},
+	Necklace = {
+		{ size = Vector3.new(1.2, 0.2, 1.2), offset = CFrame.new(0, 0.1, 0), color = Color3.fromHex("2B1B3D"), material = Enum.Material.Fabric },
+		{ size = Vector3.new(0.35, 0.35, 0.35), offset = CFrame.new(-0.4, 0.4, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ size = Vector3.new(0.35, 0.35, 0.35), offset = CFrame.new(0.4, 0.4, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ size = Vector3.new(0.35, 0.35, 0.35), offset = CFrame.new(0, 0.4, 0.4), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ size = Vector3.new(0.45, 0.45, 0.45), offset = CFrame.new(0, 0.4, -0.4), color = Color3.fromHex("E0245E"), material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+	},
+	Crown = {
+		{ size = Vector3.new(1.6, 0.5, 1.6), offset = CFrame.new(0, 0.25, 0), color = GOLD, material = Enum.Material.Metal },
+		{ size = Vector3.new(0.3, 0.6, 0.3), offset = CFrame.new(-0.65, 0.8, -0.65), color = GOLD, material = Enum.Material.Metal },
+		{ size = Vector3.new(0.3, 0.6, 0.3), offset = CFrame.new(0.65, 0.8, -0.65), color = GOLD, material = Enum.Material.Metal },
+		{ size = Vector3.new(0.3, 0.6, 0.3), offset = CFrame.new(-0.65, 0.8, 0.65), color = GOLD, material = Enum.Material.Metal },
+		{ size = Vector3.new(0.3, 0.6, 0.3), offset = CFrame.new(0.65, 0.8, 0.65), color = GOLD, material = Enum.Material.Metal },
+		{ size = Vector3.new(0.45, 0.45, 0.45), offset = CFrame.new(0, 0.3, -0.85), color = Color3.fromHex("C8343A"), material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+	},
+	Scepter = {
+		{ size = Vector3.new(0.3, 2.4, 0.3), offset = CFrame.new(0, 1.2, 0), color = GOLD, material = Enum.Material.Metal },
+		{ size = Vector3.new(0.7, 0.7, 0.7), offset = CFrame.new(0, 2.6, 0), color = Color3.fromHex("8E44AD"), material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+	},
+	Diamond = {
+		{ size = Vector3.new(0.8, 0.4, 0.8), offset = CFrame.new(0, 0.2, 0), color = GOLD, material = Enum.Material.Metal },
+		{ size = Vector3.new(1, 1, 1), offset = CFrame.new(0, 1.2, 0) * CFrame.Angles(math.rad(45), 0, math.rad(45)), color = Color3.fromHex("7FE7FF"), material = Enum.Material.Glass, transparency = 0.15 },
+	},
+	Amphora = {
+		{ size = Vector3.new(0.8, 0.3, 0.8), offset = CFrame.new(0, 0.15, 0), color = Color3.fromHex("A0522D") },
+		{ size = Vector3.new(1.5, 1.8, 1.5), offset = CFrame.new(0, 1.2, 0), color = Color3.fromHex("C0703E"), shape = Enum.PartType.Ball },
+		{ size = Vector3.new(0.5, 0.7, 0.5), offset = CFrame.new(0, 2.3, 0), color = Color3.fromHex("C0703E") },
+	},
+	Bust = {
+		{ size = Vector3.new(1.2, 0.5, 1), offset = CFrame.new(0, 0.25, 0), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(1.8, 0.7, 0.8), offset = CFrame.new(0, 0.85, 0), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(1.1, 1.2, 1.1), offset = CFrame.new(0, 1.75, 0), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball },
+	},
+	Statue = {
+		{ size = Vector3.new(1, 0.4, 1), offset = CFrame.new(0, 0.2, 0), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(0.8, 2, 0.6), offset = CFrame.new(0, 1.4, 0), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(2.2, 0.3, 0.3), offset = CFrame.new(0, 2.1, 0) * CFrame.Angles(0, 0, 0.4), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(0.7, 0.7, 0.7), offset = CFrame.new(0, 2.75, 0), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball },
+	},
+	Lion = {
+		{ size = Vector3.new(2, 1, 1), offset = CFrame.new(0, 0.9, 0), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(1, 1.1, 1.1), offset = CFrame.new(0, 1.4, -1), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(0.3, 0.4, 0.3), offset = CFrame.new(-0.7, 0.2, -0.3), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(0.3, 0.4, 0.3), offset = CFrame.new(0.7, 0.2, -0.3), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(0.3, 0.4, 0.3), offset = CFrame.new(-0.7, 0.2, 0.4), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(0.3, 0.4, 0.3), offset = CFrame.new(0.7, 0.2, 0.4), color = MARBLE, material = Enum.Material.Marble },
+	},
+}
+
+local exhibits: { Exhibit } = {}
+local mainExhibit: Exhibit? = nil
+local slots: { Slot } = {}
+local exhibitsFolder: Instance? = nil
+local dayActive = false
+local random = Random.new()
+
+local function now(): number
+	return Workspace:GetServerTimeNow()
+end
+
+local function newExhibit(title: string, model: PVInstance, home: CFrame, appeal: number, isMain: boolean, hall: string): Exhibit
+	local front = home.Position + home.LookVector * Config.Thief.StandOffset
+	local exhibit: Exhibit = {
+		title = title,
+		model = model,
+		home = home,
+		stand = Vector3.new(front.X, 3, front.Z),
+		look = home.Position,
+		appeal = appeal,
+		isMain = isMain,
+		hall = hall,
+		carrier = nil,
+		stealer = nil,
+		originalCollide = {},
+	}
+	ModelLibrary.forEachPart(model, function(part)
+		exhibit.originalCollide[part] = part.CanCollide
+	end)
+	return exhibit
+end
+
+-- Полоска кражи у клиентов показывается только для Моны Лизы.
+local function setStealer(exhibit: Exhibit, thief: Model?)
+	exhibit.stealer = thief
+	if exhibit.isMain then
+		local endsAt = if thief then now() + Config.Thief.StealSeconds else 0
+		GameState.set(GameState.Attr.StealEndsAt, endsAt)
+	end
+end
+
+---------------------------------------------------------------- для воров
+
+-- Экспонат на месте и его никто не снимает (или снимает этот же вор).
+function ExhibitService.isFree(exhibit: Exhibit, thief: Model?): boolean
+	return exhibit.carrier == nil and (exhibit.stealer == nil or exhibit.stealer == thief or not (exhibit.stealer :: Model).Parent)
+		and table.find(exhibits, exhibit) ~= nil
+end
+
+-- Цель для нового вора: чаще Мона Лиза, иначе любой свободный купленный экспонат.
+function ExhibitService.pickTarget(thief: Model?): Exhibit?
+	local others = {}
+	for _, exhibit in exhibits do
+		if not exhibit.isMain and ExhibitService.isFree(exhibit, thief) and GameState.isHallOpen(exhibit.hall) then
+			table.insert(others, exhibit)
+		end
+	end
+	local main = mainExhibit
+	local mainFree = main ~= nil and ExhibitService.isFree(main, thief)
+	if mainFree and (#others == 0 or random:NextNumber() < ExhibitConfig.MonaLisaChance) then
+		return main
+	end
+	if #others > 0 then
+		return others[random:NextInteger(1, #others)]
+	end
+	return if mainFree then main else nil
+end
+
+function ExhibitService.getCarried(thief: Model): Exhibit?
+	for _, exhibit in exhibits do
+		if exhibit.carrier == thief then
+			return exhibit
+		end
+	end
+	return nil
+end
+
+-- Вор, который снимает или несёт Мону Лизу (остальные воры его загораживают).
+function ExhibitService.mainBusyBy(): Model?
+	local main = mainExhibit
+	if not main then
+		return nil
+	end
+	return main.carrier or main.stealer
+end
+
+function ExhibitService.tryStartSteal(exhibit: Exhibit, thief: Model): boolean
+	if not ExhibitService.isFree(exhibit, thief) then
+		return false
+	end
+	if exhibit.stealer ~= thief then
+		setStealer(exhibit, thief)
+	end
+	return true
+end
+
+function ExhibitService.cancelSteal(thief: Model)
+	for _, exhibit in exhibits do
+		if exhibit.stealer == thief then
+			setStealer(exhibit, nil)
+		end
+	end
+end
+
+-- Вор снял экспонат: он прилипает над его головой.
+function ExhibitService.take(exhibit: Exhibit, thief: Model): boolean
+	local head = thief:FindFirstChild("Head")
+	if not (head and head:IsA("BasePart")) or exhibit.carrier then
+		return false
+	end
+	setStealer(exhibit, nil)
+	exhibit.carrier = thief
+	local offset = Config.Painting.CarryOffset
+	-- Экспонат остаётся в своей папке (чтобы не пропал вместе с вором), но приварен к голове
+	ModelLibrary.weldTo(exhibit.model, head, head.CFrame * CFrame.new(offset.X, offset.Y, offset.Z))
+	if exhibit.isMain then
+		GameState.set(GameState.Attr.PaintingStolen, true)
+	end
+	return true
+end
+
+-- Экспонат возвращается на место (вора поймали, или ночь кончилась).
+function ExhibitService.returnHome(exhibit: Exhibit)
+	setStealer(exhibit, nil)
+	exhibit.carrier = nil
+	ModelLibrary.forEachPart(exhibit.model, function(part)
+		for _, child in part:GetChildren() do
+			if child:IsA("WeldConstraint") and child.Name == "CarryWeld" then
+				child:Destroy()
+			end
+		end
+		part.Anchored = true
+		part.Massless = false
+		part.CanCollide = if exhibit.originalCollide[part] ~= nil then exhibit.originalCollide[part] else true
+		part.CanQuery = true
+		part.CanTouch = true
+	end)
+	exhibit.model:PivotTo(exhibit.home)
+	if exhibit.isMain then
+		GameState.set(GameState.Attr.PaintingStolen, false)
+	end
+end
+
+function ExhibitService.returnAll()
+	for _, exhibit in exhibits do
+		ExhibitService.returnHome(exhibit)
+	end
+end
+
+local refreshSlot: (Slot) -> ()
+
+-- Вор унёс дешёвый экспонат: его больше нет, постамент снова пустой (можно купить заново).
+function ExhibitService.lose(exhibit: Exhibit)
+	local index = table.find(exhibits, exhibit)
+	if index then
+		table.remove(exhibits, index)
+	end
+	exhibit.model:Destroy()
+	for _, slot in slots do
+		if slot.exhibit == exhibit then
+			slot.exhibit = nil
+			slot.paid = 0
+			refreshSlot(slot)
+		end
+	end
+end
+
+---------------------------------------------------------------- для туристов
+
+function ExhibitService.attractions(): { { stand: Vector3, look: Vector3 } }
+	local list = {}
+	for _, exhibit in exhibits do
+		if exhibit.carrier == nil and GameState.isHallOpen(exhibit.hall) then
+			-- Туристы встают чуть дальше, чем вор
+			local direction = exhibit.stand - Vector3.new(exhibit.look.X, exhibit.stand.Y, exhibit.look.Z)
+			local away = if direction.Magnitude > 0.1 then direction.Unit else Vector3.new(0, 0, 1)
+			table.insert(list, { stand = exhibit.stand + away * 3, look = exhibit.look })
+		end
+	end
+	return list
+end
+
+-- Привлекательность купленных экспонатов (Мона Лиза — в базе числа туристов).
+function ExhibitService.totalAppeal(): number
+	local total = 0
+	for _, exhibit in exhibits do
+		if not exhibit.isMain and GameState.isHallOpen(exhibit.hall) then
+			total += exhibit.appeal
+		end
+	end
+	return total
+end
+
+---------------------------------------------------------------- покупка на постаментах
+
+local function slotTop(slot: Slot): CFrame
+	local pivot = slot.pedestal:GetPivot()
+	return CFrame.new(pivot.Position + Vector3.new(0, ExhibitConfig.PedestalHeight, 0))
+end
+
+refreshSlot = function(slot: Slot)
+	local open = GameState.isHallOpen(slot.hall)
+	local empty = slot.exhibit == nil
+	if slot.prompt then
+		slot.prompt.Enabled = dayActive and open and empty
+		slot.prompt.ObjectText = ("%s — $%d / $%d"):format(slot.title, slot.paid, slot.price)
+	end
+	if slot.label then
+		slot.label.Text = ("%s\n$%d / $%d"):format(slot.title, slot.paid, slot.price)
+	end
+	if slot.billboard then
+		slot.billboard.Enabled = dayActive and open and empty
+	end
+end
+
+local function placeExhibit(slot: Slot)
+	local folder = exhibitsFolder or Workspace
+	local stub = STUBS[slot.kind] or STUBS.GoldVase
+	local model = ModelLibrary.place("exhibit_" .. string.lower(slot.kind) .. "_01", slotTop(slot), stub, folder)
+	local exhibit = newExhibit(slot.title, model, slotTop(slot), slot.appeal, false, slot.hall)
+	slot.exhibit = exhibit
+	table.insert(exhibits, exhibit)
+	refreshSlot(slot)
+end
+
+local function contribute(slot: Slot, player: Player)
+	if not dayActive or slot.exhibit or not GameState.isHallOpen(slot.hall) then
+		return
+	end
+	if not RoleService.isParticipant(player) then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not (root and root:IsA("BasePart")) then
+		return
+	end
+	local distance = (root.Position - slot.pedestal:GetPivot().Position).Magnitude
+	if distance > Config.Halls.PromptDistance + Config.Catch.ServerDistanceSlack then
+		return
+	end
+	local money = tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0
+	local amount = math.min(Config.Halls.ContributeStep, money, slot.price - slot.paid)
+	if amount <= 0 then
+		return
+	end
+	player:SetAttribute(GameState.PlayerAttr.Money, money - amount)
+	slot.paid += amount
+	if slot.paid >= slot.price then
+		placeExhibit(slot)
+	else
+		refreshSlot(slot)
+	end
+end
+
+local function setupSlot(slot: Slot)
+	local base = slot.pedestal.PrimaryPart or slot.pedestal:FindFirstChildWhichIsA("BasePart", true)
+	if not base then
+		return
+	end
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "BuyPrompt"
+	prompt.ActionText = ("Add $%d"):format(Config.Halls.ContributeStep)
+	prompt.HoldDuration = Config.Halls.ContributeHoldSeconds
+	prompt.MaxActivationDistance = Config.Halls.PromptDistance
+	prompt.RequiresLineOfSight = false
+	prompt.Enabled = false
+	prompt.Parent = base
+	prompt.Triggered:Connect(function(player)
+		contribute(slot, player)
+	end)
+	slot.prompt = prompt
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "PriceTag"
+	billboard.Size = UDim2.fromScale(4, 1.4)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, ExhibitConfig.PedestalHeight + 1.6, 0)
+	billboard.MaxDistance = 40
+	billboard.LightInfluence = 0
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = GOLD
+	label.TextStrokeTransparency = 0
+	label.Parent = billboard
+	billboard.Parent = base
+	slot.billboard = billboard
+	slot.label = label
+	refreshSlot(slot)
+end
+
+-- Днём можно покупать экспонаты.
+function ExhibitService.setDayActive(active: boolean)
+	dayActive = active
+	for _, slot in slots do
+		refreshSlot(slot)
+	end
+end
+
+-- Новый забег: купленные экспонаты убираем, деньги в постаментах обнуляются.
+function ExhibitService.reset()
+	for _, slot in slots do
+		local exhibit = slot.exhibit
+		if exhibit then
+			local index = table.find(exhibits, exhibit)
+			if index then
+				table.remove(exhibits, index)
+			end
+			exhibit.model:Destroy()
+			slot.exhibit = nil
+		end
+		slot.paid = 0
+		refreshSlot(slot)
+	end
+	if mainExhibit then
+		ExhibitService.returnHome(mainExhibit)
+	end
+end
+
+function ExhibitService.init(map: Instance)
+	exhibitsFolder = map:FindFirstChild(MapSchema.Exhibits)
+	local spot = map:FindFirstChild(MapSchema.PaintingSpot, true)
+	local painting = exhibitsFolder and exhibitsFolder:FindFirstChild(MapSchema.Models.MonaLisa)
+	if painting and painting:IsA("PVInstance") then
+		local home = if spot and spot:IsA("BasePart") then spot.CFrame else painting:GetPivot()
+		mainExhibit = newExhibit("Mona Lisa", painting, home, 0, true, GameState.Hall.Main)
+		table.insert(exhibits, mainExhibit :: Exhibit)
+	else
+		warn("[ExhibitService] На карте нет Моны Лизы")
+	end
+	GameState.set(GameState.Attr.PaintingStolen, false)
+	GameState.set(GameState.Attr.StealEndsAt, 0)
+
+	local pedestals = map:FindFirstChild(MapSchema.Pedestals)
+	if pedestals then
+		for _, pedestal in pedestals:GetChildren() do
+			local slotIndex = pedestal:GetAttribute("Slot")
+			local hall = pedestal:GetAttribute("Hall")
+			local kind = typeof(slotIndex) == "number" and ExhibitConfig.Slots[slotIndex] or nil
+			local info = kind and (ExhibitConfig.Kinds :: any)[kind]
+			if pedestal:IsA("Model") and typeof(hall) == "string" and kind and info then
+				local slot: Slot = {
+					pedestal = pedestal,
+					hall = hall,
+					kind = kind,
+					title = info.Title,
+					price = info.Price,
+					appeal = info.Appeal,
+					paid = 0,
+					exhibit = nil,
+					prompt = nil,
+					label = nil,
+					billboard = nil,
+				}
+				table.insert(slots, slot)
+				setupSlot(slot)
+			end
+		end
+	end
+end
+
+return ExhibitService

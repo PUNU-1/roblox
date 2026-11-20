@@ -42,6 +42,26 @@ local Config = {
 		BoardsFallSeconds = 1.2, -- доски падают, когда зал оплачен
 	},
 
+	Exhibits = {
+		MonaLisaChance = 0.5, -- баланс: как часто вор идёт за Моной Лизой, если есть другие экспонаты
+		PedestalHeight = 3.3, -- верх постамента
+		-- Экспонат для каждого постамента (атрибут Slot у постамента)
+		Slots = { "GoldVase", "AncientClock", "Necklace", "Crown", "Scepter", "Diamond", "Amphora", "Bust", "Statue", "Lion" },
+		-- баланс: цена и привлекательность (сколько туристов добавляет за день)
+		Kinds = {
+			GoldVase = { Title = "Golden Vase", Price = 120, Appeal = 1 },
+			AncientClock = { Title = "Ancient Clock", Price = 180, Appeal = 2 },
+			Necklace = { Title = "Necklace", Price = 100, Appeal = 1 },
+			Crown = { Title = "Crown", Price = 150, Appeal = 2 },
+			Scepter = { Title = "Scepter", Price = 200, Appeal = 2 },
+			Diamond = { Title = "Diamond", Price = 300, Appeal = 3 },
+			Amphora = { Title = "Amphora", Price = 100, Appeal = 1 },
+			Bust = { Title = "Bust", Price = 150, Appeal = 2 },
+			Statue = { Title = "Statue", Price = 250, Appeal = 3 },
+			Lion = { Title = "Stone Lion", Price = 300, Appeal = 3 },
+		},
+	},
+
 	Thief = {
 		StealSeconds = 3, -- сколько вор снимает картину
 		SneakSpeed = 12, -- баланс: пока крадётся к картине

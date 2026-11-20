@@ -17,7 +17,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
-local PaintingService = require(Server:WaitForChild("PaintingService"))
+local ExhibitService = require(Server:WaitForChild("ExhibitService"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
 local RoleService = require(Server:WaitForChild("RoleService"))
 local Audio = require(Server:WaitForChild("Audio"))
@@ -43,6 +43,7 @@ type Thief = {
 	pathTime: number,
 	computing: boolean,
 	stealStarted: number,
+	target: ExhibitService.Exhibit?, -- какой экспонат крадёт
 	fleeUntil: number,
 	fleeTarget: Vector3,
 	footsteps: Sound?,
@@ -245,10 +246,10 @@ local function showSpotted(thief: Thief)
 	Debris:AddItem(billboard, spotted.Seconds)
 end
 
-local function startEscape(thief: Thief)
+local function startEscape(thief: Thief, exhibit: ExhibitService.Exhibit)
 	thief.state = "Escape"
 	syncAnim(thief)
-	bannerRemote:FireAllClients("THE PAINTING IS STOLEN!", "danger")
+	bannerRemote:FireAllClients(("THE %s IS STOLEN!"):format(string.upper(exhibit.title)), "danger")
 	Audio.playOnce(Config.Sounds.Alarm, nil, Config.Sounds.AlarmVolume)
 end
 
@@ -258,13 +259,13 @@ local function updateThief(thief: Thief)
 	end
 	local model = thief.model
 	local position = thief.root.Position
-	local carrier = PaintingService.getCarrier()
-	local stealer = PaintingService.getStealer()
+	local carried = ExhibitService.getCarried(model)
+	local mainBusy = ExhibitService.mainBusyBy() -- кто снимает или несёт Мону Лизу
 
 	-- Выбираем, что делать
-	if carrier == model then
+	if carried then
 		thief.state = "Escape"
-	elseif carrier or (stealer and stealer ~= model) then
+	elseif mainBusy and mainBusy ~= model then
 		thief.state = "Block"
 	elseif thief.state == "Block" or thief.state == "Escape" then
 		thief.state = "Approach"
@@ -289,36 +290,53 @@ local function updateThief(thief: Thief)
 
 	-- Делаем
 	if thief.state == "Approach" then
-		local standPosition = PaintingService.standPosition()
-		if flatDistance(position, standPosition) < ThiefConfig.StealReachDistance and PaintingService.tryStartSteal(model) then
+		-- Цель пропала (её унёс другой вор или снимает другой) — выбираем новую
+		local target = thief.target
+		if not target or not ExhibitService.isFree(target, model) then
+			target = ExhibitService.pickTarget(model)
+			thief.target = target
+		end
+		if not target then
+			stand(thief)
+		elseif flatDistance(position, target.stand) < ThiefConfig.StealReachDistance and ExhibitService.tryStartSteal(target, model) then
 			thief.state = "Steal"
 			thief.stealStarted = now()
 			stand(thief)
-			local wall = PaintingService.wallPosition()
-			thief.root.CFrame = CFrame.lookAt(position, Vector3.new(wall.X, position.Y, wall.Z))
+			local look = target.look
+			thief.root.CFrame = CFrame.lookAt(position, Vector3.new(look.X, position.Y, look.Z))
 		else
-			moveTowards(thief, standPosition, speedFor(thief, ThiefConfig.SneakSpeed))
+			moveTowards(thief, target.stand, speedFor(thief, ThiefConfig.SneakSpeed))
 		end
 	elseif thief.state == "Steal" then
 		stand(thief)
-		if not PaintingService.isOnWall() then
-			PaintingService.cancelSteal(model)
-			thief.state = "Block"
+		local target = thief.target
+		if not target or target.stealer ~= model then
+			ExhibitService.cancelSteal(model)
+			thief.state = "Approach"
 		elseif now() - thief.stealStarted >= ThiefConfig.StealSeconds then
-			if PaintingService.take(model) then
-				startEscape(thief)
+			if ExhibitService.take(target, model) then
+				startEscape(thief, target)
 			else
-				PaintingService.cancelSteal(model)
+				ExhibitService.cancelSteal(model)
 				thief.state = "Approach"
 			end
 		end
 	elseif thief.state == "Escape" then
 		local exit = nearestEntrance(position)
-		if exit then
+		if exit and carried then
 			if flatDistance(position, exit) < ThiefConfig.EscapeReachDistance then
-				thief.state = "Escaped"
-				stand(thief)
-				ThiefService.Escaped:Fire(model)
+				if carried.isMain then
+					-- Унёс Мону Лизу — игра окончена
+					thief.state = "Escaped"
+					stand(thief)
+					ThiefService.Escaped:Fire(model)
+				else
+					-- Унёс дешёвый экспонат: экспоната больше нет, вор уходит, ночь продолжается
+					bannerRemote:FireAllClients(("THE %s IS GONE!"):format(string.upper(carried.title)), "danger")
+					ExhibitService.lose(carried)
+					ThiefService.remove(model)
+					return
+				end
 			else
 				moveTowards(thief, exit, speedFor(thief, ThiefConfig.CarrySpeed))
 			end
@@ -326,8 +344,8 @@ local function updateThief(thief: Thief)
 	elseif thief.state == "Flee" then
 		moveTowards(thief, thief.fleeTarget, speedFor(thief, ThiefConfig.RunSpeed))
 	elseif thief.state == "Block" then
-		-- Встаёт между охранником и тем, кто снимает или несёт картину
-		local protected = carrier or stealer
+		-- Встаёт между охранником и тем, кто снимает или несёт Мону Лизу
+		local protected = mainBusy
 		local protectedRoot = protected and protected:FindFirstChild("HumanoidRootPart")
 		if protectedRoot and protectedRoot:IsA("BasePart") then
 			local base = protectedRoot.Position
@@ -413,6 +431,7 @@ local function spawnThief(): boolean
 		pathTime = 0,
 		computing = false,
 		stealStarted = 0,
+		target = nil,
 		fleeUntil = 0,
 		fleeTarget = root.Position,
 		footsteps = nil,
@@ -435,9 +454,10 @@ function ThiefService.remove(model: Model)
 		end
 		thieves[model] = nil
 	end
-	PaintingService.cancelSteal(model)
-	if PaintingService.getCarrier() == model then
-		PaintingService.returnToWall()
+	ExhibitService.cancelSteal(model)
+	local carried = ExhibitService.getCarried(model)
+	if carried then
+		ExhibitService.returnHome(carried)
 	end
 	model:Destroy()
 end
@@ -466,9 +486,10 @@ function ThiefService.arrest(model: Model): boolean
 	if thief.footsteps then
 		thief.footsteps:Stop()
 	end
-	PaintingService.cancelSteal(model)
-	if PaintingService.getCarrier() == model then
-		PaintingService.returnToWall()
+	ExhibitService.cancelSteal(model)
+	local carried = ExhibitService.getCarried(model)
+	if carried then
+		ExhibitService.returnHome(carried)
 	end
 	return true
 end
@@ -525,8 +546,8 @@ function ThiefService.endNight()
 		updateConnection:Disconnect()
 		updateConnection = nil
 	end
-	-- Сначала картина на стену, потом убираем воров, иначе она упадёт вместе с ними
-	PaintingService.returnToWall()
+	-- Сначала экспонаты на место, потом убираем воров, иначе экспонаты упадут вместе с ними
+	ExhibitService.returnAll()
 	local models = {}
 	for model in thieves do
 		table.insert(models, model)

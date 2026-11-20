@@ -15,7 +15,7 @@ local Server = script.Parent
 local MapBuilder = require(Server:WaitForChild("MapBuilder"))
 local RoleService = require(Server:WaitForChild("RoleService"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
-local PaintingService = require(Server:WaitForChild("PaintingService"))
+local ExhibitService = require(Server:WaitForChild("ExhibitService"))
 local ThiefService = require(Server:WaitForChild("ThiefService"))
 local CatchService = require(Server:WaitForChild("CatchService"))
 local TrapService = require(Server:WaitForChild("TrapService"))
@@ -29,7 +29,7 @@ local Attr = GameState.Attr
 
 local map = MapBuilder.build()
 RoleService.init(map)
-PaintingService.init(map)
+ExhibitService.init(map)
 ThiefService.init(map)
 CatchService.init()
 TrapService.init(map)
@@ -37,13 +37,8 @@ CommsService.init(map)
 TouristService.init(map)
 HallService.init(map)
 
--- Что смотрят туристы: Мону Лизу (чуть дальше места, где встаёт вор). Экспонаты добавятся позже.
-TouristService.setAttractions(function()
-	local wall = PaintingService.wallPosition()
-	local front = PaintingService.standPosition() - wall
-	local direction = Vector3.new(front.X, 0, front.Z).Unit
-	return { { stand = Vector3.new(wall.X, 3, wall.Z) + direction * 6, look = wall } }
-end)
+-- Что смотрят туристы: Мону Лизу и купленные экспонаты в открытых залах.
+TouristService.setAttractions(ExhibitService.attractions)
 
 local resultsRemote = Remotes.get(Remotes.Names.NightResults)
 local bannerRemote = Remotes.get(Remotes.Names.Banner)
@@ -105,15 +100,16 @@ end
 
 -- День: светло, игроки в музее (позже — туристы и покупки). Возвращает false, если все ушли.
 local function runDay(night: number): boolean
-	PaintingService.returnToWall()
+	ExhibitService.returnAll()
 	setLighting(Config.Lighting.Day)
 	GameState.set(Attr.NightNumber, night)
 	setPhase(Phase.Day, Config.Phases.DaySeconds)
 	RoleService.setConsoleEnabled(true)
 	TrapService.beginDay()
 	ScoreService.beginDay()
-	TouristService.beginDay(0)
+	TouristService.beginDay(ExhibitService.totalAppeal())
 	HallService.setDayActive(true)
+	ExhibitService.setDayActive(true)
 	bannerRemote:FireAllClients(("DAY %d"):format(night), "info")
 	while GameState.secondsLeft() > 0 do
 		if not anyoneLeft() then
@@ -128,6 +124,7 @@ end
 local function runNight(night: number): (boolean, boolean)
 	TouristService.endDay()
 	HallService.setDayActive(false)
+	ExhibitService.setDayActive(false)
 	setLighting(Config.Lighting.Night)
 	setPhase(Phase.Night, Config.Phases.NightSeconds)
 	GameState.set(Attr.NightStartedAt, now())
@@ -185,7 +182,8 @@ local function finishRun()
 	TrapService.clear()
 	RoleService.endRound()
 	RoleService.setConsoleEnabled(false)
-	PaintingService.returnToWall()
+	ExhibitService.setDayActive(false)
+	ExhibitService.reset()
 	setLighting(Config.Lighting.Night)
 	GameState.set(Attr.NightNumber, 0)
 end
