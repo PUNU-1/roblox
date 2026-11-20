@@ -64,6 +64,40 @@ local function attachHandcuffs(model: Model)
 	cuffs.Parent = model
 end
 
+-- «+$50» всплывает над головой пойманного вора и тает к моменту «пуф».
+local function showReward(model: Model)
+	local head = model:FindFirstChild("Head")
+	if not (head and head:IsA("BasePart")) then
+		return
+	end
+	local reward = Config.Effects.Reward
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "Reward"
+	billboard.Size = UDim2.fromScale(reward.Width, reward.Height)
+	billboard.StudsOffset = Vector3.new(0, reward.StartHeight, 0)
+	billboard.MaxDistance = reward.MaxDistance
+	billboard.LightInfluence = 0
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Text = "+$" .. tostring(Config.Money.PerThief)
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = reward.Color
+	label.TextStrokeTransparency = 0
+	label.Parent = billboard
+	billboard.Parent = head
+	local seconds = Config.Thief.ArrestSeconds
+	TweenService:Create(billboard, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		StudsOffset = Vector3.new(0, reward.EndHeight, 0),
+	}):Play()
+	-- Тает в конце, чтобы надпись успели прочитать
+	TweenService:Create(label, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		TextTransparency = 1,
+		TextStrokeTransparency = 1,
+	}):Play()
+end
+
 local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt)
 	if GameState.phase() ~= GameState.Phase.Night then
 		return
@@ -88,6 +122,7 @@ local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt)
 	prompt.Enabled = false
 	ScoreService.addCatch(player)
 	attachHandcuffs(model)
+	showReward(model)
 	Audio.playOnce(Config.Sounds.Arrest, thiefRoot, Config.Sounds.ArrestVolume)
 
 	task.delay(Config.Thief.ArrestSeconds, function()

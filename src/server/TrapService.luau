@@ -113,6 +113,23 @@ local function setBeams(trap: Trap, enabled: boolean)
 	end
 end
 
+-- Срабатывание: лучи вспыхивают белым и гаснут до конца перезарядки.
+local function flashThenRecharge(trap: Trap)
+	for _, beam in trap.beams do
+		beam.Color = ColorSequence.new(Laser.FlashColor)
+		beam.Width0 = Laser.FlashWidth
+		beam.Width1 = Laser.FlashWidth
+	end
+	task.delay(Laser.FlashSeconds, function()
+		for _, beam in trap.beams do
+			beam.Color = ColorSequence.new(Laser.BeamColor)
+			beam.Width0 = Laser.BeamWidth
+			beam.Width1 = Laser.BeamWidth
+		end
+		setBeams(trap, false)
+	end)
+end
+
 local function createBeams(model: PVInstance): { Beam }
 	local beams = {}
 	for index = 1, #EMITTER_HEIGHTS do
@@ -273,7 +290,7 @@ local function checkTraps()
 			end
 			if next(hit) then
 				trap.readyAt = time + Laser.RechargeSeconds
-				setBeams(trap, false)
+				flashThenRecharge(trap)
 			end
 		end
 	end

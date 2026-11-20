@@ -87,6 +87,9 @@ local Config = {
 			ZoneHeight = 5, -- высота невидимой зоны срабатывания
 			ZoneThickness = 1.5,
 			SlotGlowTransparency = 0.4, -- как светятся места в подготовке
+			FlashSeconds = 0.25, -- при срабатывании лучи вспыхивают и гаснут на перезарядку
+			FlashColor = Color3.fromHex("FFFFFF"),
+			FlashWidth = 0.6,
 		},
 	},
 
@@ -174,6 +177,14 @@ local Config = {
 			Size = 1.6, -- в стадах
 			MaxDistance = 100,
 			Color = Color3.fromHex("FFD23F"),
+		},
+		Reward = { -- «+$50» над пойманным вором (размеры в стадах)
+			Width = 3,
+			Height = 1.2,
+			StartHeight = 1.5, -- над центром головы
+			EndHeight = 3.5, -- всплывает сюда, пока вор не исчез
+			MaxDistance = 100,
+			Color = Color3.fromHex("3FB56B"),
 		},
 		Tap = { -- круг на месте нажатия оператора (размеры в пикселях)
 			Seconds = 0.45,
