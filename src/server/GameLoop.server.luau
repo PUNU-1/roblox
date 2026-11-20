@@ -23,6 +23,7 @@ local CommsService = require(Server:WaitForChild("CommsService"))
 local TouristService = require(Server:WaitForChild("TouristService"))
 local HallService = require(Server:WaitForChild("HallService"))
 local CameraService = require(Server:WaitForChild("CameraService"))
+local VoteService = require(Server:WaitForChild("VoteService"))
 local Audio = require(Server:WaitForChild("Audio"))
 
 local Phase = GameState.Phase
@@ -38,6 +39,7 @@ CommsService.init(map)
 TouristService.init(map)
 HallService.init(map)
 CameraService.init(map)
+VoteService.init()
 
 -- Что смотрят туристы: Мону Лизу и купленные экспонаты в открытых залах.
 TouristService.setAttractions(ExhibitService.attractions)
@@ -102,6 +104,7 @@ end
 
 -- День: светло, игроки в музее (позже — туристы и покупки). Возвращает false, если все ушли.
 local function runDay(night: number): boolean
+	VoteService.admitApproved() -- кого пустили голосованием, входят с утра
 	ExhibitService.returnAll()
 	setLighting(Config.Lighting.Day)
 	GameState.set(Attr.NightNumber, night)
@@ -177,6 +180,7 @@ end
 
 -- Конец забега: всех обратно в комнату охраны, музей с нуля.
 local function finishRun()
+	VoteService.setRunActive(false)
 	TouristService.endDay()
 	HallService.setDayActive(false)
 	HallService.reset()
@@ -195,6 +199,7 @@ while true do
 	runLobby()
 	local participants = RoleService.startRound()
 	ScoreService.beginRun(participants)
+	VoteService.setRunActive(true)
 	local night = 0
 	while true do
 		night += 1

@@ -17,11 +17,13 @@ local NAMES: { [string]: string } = {
 	RequestCameras = "RequestCameras", -- (open: boolean) открыть/закрыть телефон или пульт
 	MarkThief = "MarkThief", -- (thief: Model) метка оператора на вора
 	QuickPhrase = "QuickPhrase", -- (index: number) готовая фраза
+	VoteCast = "VoteCast", -- (voteId: number, yes: boolean) голос за опоздавшего
 
 	-- сервер -> клиенты
 	PhraseShown = "PhraseShown", -- (userId: number, index: number)
 	Banner = "Banner", -- (text: string, kind: string) крупная надпись вверху экрана
 	NightResults = "NightResults", -- (results: table) экран итога
+	VoteRequest = "VoteRequest", -- (voteId: number, name: string, seconds: number) пустить ли опоздавшего
 }
 Remotes.Names = NAMES
 

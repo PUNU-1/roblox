@@ -82,7 +82,8 @@ GameState.PlayerAttr = {
 	InRound = "InRound", -- boolean, игрок участвует в текущей ночи
 	ViewingCameras = "ViewingCameras", -- boolean, открыт телефон или пульт
 	ViewSource = "ViewSource", -- string: "Phone" | "Console"
-	Money = "Money", -- number, доллары за эту сессию
+	Money = "Money", -- number, доллары за этот забег
+	JoinStatus = "JoinStatus", -- string?, опоздавший: Voting | Approved | Rejected | Full
 }
 
 local FOLDER_NAME = "GameState"

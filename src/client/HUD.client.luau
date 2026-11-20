@@ -356,8 +356,21 @@ end
 
 ---------------------------------------------------------------- обновление каждый кадр
 
+local JOIN_STATUS_TEXT = {
+	Voting = "The team is voting to let you in...",
+	Approved = "You're in! You join the team at the start of the next day",
+	Rejected = "Not this time — wait for the next game in the guard room",
+	Full = "The team is full — wait for the next game in the guard room",
+}
+
 local function topBarText(phase: string): string
 	local left = GameState.secondsLeft()
+	-- Опоздавший: игра уже идёт, а он в комнате охраны
+	if phase ~= Phase.Lobby and localPlayer:GetAttribute(PlayerAttr.InRound) ~= true then
+		local status = localPlayer:GetAttribute(PlayerAttr.JoinStatus)
+		local text = if typeof(status) == "string" then JOIN_STATUS_TEXT[status] else nil
+		return text or ("Game in progress — night %d"):format(tonumber(GameState.get(Attr.NightNumber)) or 1)
+	end
 	if phase == Phase.Lobby then
 		if left > 0 then
 			return "The museum opens in " .. Theme.formatTime(left)

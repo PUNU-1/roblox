@@ -204,11 +204,21 @@ end
 function RoleService.startRound(): { Player }
 	local list = {}
 	for index, player in Players:GetPlayers() do
+		if index > Config.Players.Max then
+			break -- лишние ждут в комнате охраны
+		end
 		player:SetAttribute(PlayerAttr.InRound, true)
 		table.insert(list, player)
 		placeInHall(player, index)
 	end
 	return list
+end
+
+-- Опоздавший, которого пустили голосованием, входит в игру (с начала дня).
+function RoleService.addToRound(player: Player)
+	player:SetAttribute(PlayerAttr.InRound, true)
+	player:SetAttribute(PlayerAttr.Money, 0)
+	placeInHall(player, #RoleService.participants())
 end
 
 function RoleService.endRound()
