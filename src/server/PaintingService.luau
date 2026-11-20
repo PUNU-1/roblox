@@ -1,6 +1,7 @@
 -- Мона Лиза: висит на стене, её снимает вор, несёт над головой, после ареста она возвращается.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -15,6 +16,13 @@ local wallCFrame = CFrame.identity
 local carrier: Model? = nil
 local stealer: Model? = nil
 local originalCollide: { [BasePart]: boolean } = {}
+
+-- Полоска кражи у клиентов: время, когда вор снимет картину (0 — никто не снимает).
+local function setStealer(thief: Model?)
+	stealer = thief
+	local endsAt = if thief then Workspace:GetServerTimeNow() + Config.Thief.StealSeconds else 0
+	GameState.set(GameState.Attr.StealEndsAt, endsAt)
+end
 
 function PaintingService.init(map: Instance)
 	local exhibits = map:FindFirstChild(MapSchema.Exhibits)
@@ -37,6 +45,7 @@ function PaintingService.init(map: Instance)
 		warn("[PaintingService] На карте нет Моны Лизы")
 	end
 	GameState.set(GameState.Attr.PaintingStolen, false)
+	setStealer(nil)
 end
 
 -- Точка перед картиной, куда подходит вор.
@@ -66,13 +75,15 @@ function PaintingService.tryStartSteal(thief: Model): boolean
 	if carrier or (stealer and stealer ~= thief and stealer.Parent) then
 		return false
 	end
-	stealer = thief
+	if stealer ~= thief then
+		setStealer(thief)
+	end
 	return true
 end
 
 function PaintingService.cancelSteal(thief: Model)
 	if stealer == thief then
-		stealer = nil
+		setStealer(nil)
 	end
 end
 
@@ -82,7 +93,7 @@ function PaintingService.take(thief: Model): boolean
 	if not (painting and head and head:IsA("BasePart")) or carrier then
 		return false
 	end
-	stealer = nil
+	setStealer(nil)
 	carrier = thief
 	local offset = Config.Painting.CarryOffset
 	-- Картина остаётся в папке Exhibits (чтобы не пропала вместе с вором), но приварена к его голове
@@ -93,7 +104,7 @@ end
 
 -- Картина возвращается на стену (после ареста вора или в начале ночи).
 function PaintingService.returnToWall()
-	stealer = nil
+	setStealer(nil)
 	carrier = nil
 	if not painting then
 		return

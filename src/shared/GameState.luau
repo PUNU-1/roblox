@@ -26,6 +26,7 @@ GameState.Attr = {
 	PhaseEndsAt = "PhaseEndsAt", -- number, workspace:GetServerTimeNow(); 0 — таймера нет
 	NightStartedAt = "NightStartedAt", -- number, для часов 00:00 -> 06:00
 	PaintingStolen = "PaintingStolen", -- boolean, картину сейчас несёт вор
+	StealEndsAt = "StealEndsAt", -- number, когда вор снимет картину; 0 — никто не снимает
 	Caught = "Caught", -- number, поймано воров за ночь
 	ThievesSpawned = "ThievesSpawned", -- number, сколько воров уже пришло
 	LasersLeft = "LasersLeft", -- number, сколько сеток ещё можно поставить

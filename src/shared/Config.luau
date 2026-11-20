@@ -164,6 +164,12 @@ local Config = {
 		MarkSize = 70, -- размер стрелки в пикселях
 		SlowHighlightColor = Color3.fromHex("C8343A"),
 		BannerSeconds = 3,
+		StealBar = { -- полоска кражи над картиной (размеры в стадах)
+			Width = 4,
+			Height = 0.7,
+			Gap = 1, -- над верхним краем рамы
+			MaxDistance = 120, -- дальше не видно (камеры ближе)
+		},
 	},
 }
 
