@@ -3,6 +3,7 @@
 -- Пока один вор несёт картину (или снимает её), остальные загораживают путь охране.
 -- Всё поведение считает сервер.
 
+local Debris = game:GetService("Debris")
 local PathfindingService = game:GetService("PathfindingService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -237,6 +238,36 @@ local function speedFor(thief: Thief, base: number): number
 	return base
 end
 
+-- «!» над головой: вор заметил охранника. Сквозь стены не видно.
+local function showSpotted(thief: Thief)
+	local head = thief.model:FindFirstChild("Head")
+	if not (head and head:IsA("BasePart")) then
+		return
+	end
+	local old = head:FindFirstChild("SpottedAlert")
+	if old then
+		old:Destroy()
+	end
+	local spotted = Config.Effects.Spotted
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "SpottedAlert"
+	billboard.Size = UDim2.fromScale(spotted.Size, spotted.Size)
+	billboard.StudsOffset = Vector3.new(0, spotted.Height, 0)
+	billboard.MaxDistance = spotted.MaxDistance
+	billboard.LightInfluence = 0
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Text = "!"
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = spotted.Color
+	label.TextStrokeTransparency = 0
+	label.Parent = billboard
+	billboard.Parent = head
+	Debris:AddItem(billboard, spotted.Seconds)
+end
+
 local function startEscape(thief: Thief)
 	thief.state = "Escape"
 	setArmsUp(thief, true)
@@ -275,6 +306,7 @@ local function updateThief(thief: Thief)
 				away = Vector3.new(1, 0, 0)
 			end
 			thief.fleeTarget = position + away.Unit * ThiefConfig.FleeDistance
+			showSpotted(thief)
 		end
 	end
 

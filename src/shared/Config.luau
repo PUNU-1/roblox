@@ -164,6 +164,13 @@ local Config = {
 		MarkSize = 70, -- размер стрелки в пикселях
 		SlowHighlightColor = Color3.fromHex("C8343A"),
 		BannerSeconds = 3,
+		Spotted = { -- «!» над вором, который заметил охранника
+			Seconds = 1.5,
+			Height = 2.2, -- над центром головы, ниже стрелки метки
+			Size = 1.6, -- в стадах
+			MaxDistance = 100,
+			Color = Color3.fromHex("FFD23F"),
+		},
 		StealBar = { -- полоска кражи над картиной (размеры в стадах)
 			Width = 4,
 			Height = 0.7,
