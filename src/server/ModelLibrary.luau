@@ -22,6 +22,11 @@ local function findTemplate(name: string): Instance?
 	return folder and folder:FindFirstChild(name)
 end
 
+-- Есть ли готовая модель друга с таким именем.
+function ModelLibrary.has(name: string): boolean
+	return findTemplate(name) ~= nil
+end
+
 local function stripScripts(root: Instance)
 	for _, descendant in root:GetDescendants() do
 		if descendant:IsA("LuaSourceContainer") then

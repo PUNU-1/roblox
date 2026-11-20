@@ -16,6 +16,7 @@ local ScoreService = require(Server:WaitForChild("ScoreService"))
 local PaintingService = require(Server:WaitForChild("PaintingService"))
 local ThiefService = require(Server:WaitForChild("ThiefService"))
 local CatchService = require(Server:WaitForChild("CatchService"))
+local TrapService = require(Server:WaitForChild("TrapService"))
 local Audio = require(Server:WaitForChild("Audio"))
 
 local Phase = GameState.Phase
@@ -26,6 +27,7 @@ RoleService.init(map)
 PaintingService.init(map)
 ThiefService.init(map)
 CatchService.init()
+TrapService.init(map)
 
 local resultsRemote = Remotes.get(Remotes.Names.NightResults)
 
@@ -79,6 +81,7 @@ local function runPrep(): boolean
 	setPhase(Phase.Prep, Config.Phases.PrepSeconds)
 	RoleService.startRound()
 	RoleService.setConsoleEnabled(true)
+	TrapService.beginPrep()
 	while GameState.secondsLeft() > 0 do
 		if not anyoneLeft() then
 			return false
@@ -92,6 +95,7 @@ end
 local function runNight(): (boolean, boolean)
 	setPhase(Phase.Night, Config.Phases.NightSeconds)
 	GameState.set(Attr.NightStartedAt, now())
+	TrapService.beginNight()
 	local participants = RoleService.participants()
 	ScoreService.beginNight(participants)
 	Audio.startMusic()
@@ -127,6 +131,8 @@ local function runResults(survived: boolean)
 end
 
 local function finishRound()
+	ThiefService.endNight()
+	TrapService.clear()
 	RoleService.endRound()
 	PaintingService.returnToWall()
 end
