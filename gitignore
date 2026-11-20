@@ -1,0 +1,19 @@
+# Blender
+*.blend1
+*.blend2
+*.blend@
+
+# Roblox / Rojo
+*.rbxlx.lock
+*.rbxl.lock
+sourcemap.json
+
+# Системные и редакторы
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Секреты
+.env
+*.key
