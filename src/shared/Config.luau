@@ -24,6 +24,20 @@ local Config = {
 			SlowSeconds = 5, -- замедление и подсветка вора
 		},
 	},
+
+	Lighting = {
+		Night = { -- первая ночь: снаружи темно, в зале свет включён
+			ClockTime = 0,
+			Brightness = 1,
+			Ambient = Color3.fromRGB(150, 150, 165),
+			OutdoorAmbient = Color3.fromRGB(150, 150, 165),
+		},
+		PaintingLight = { -- мягкая подсветка Моны Лизы, чтобы её было видно
+			Range = 18,
+			Brightness = 1.2,
+			Color = Color3.fromRGB(255, 225, 170),
+		},
+	},
 }
 
 return Config

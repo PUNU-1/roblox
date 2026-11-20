@@ -1,0 +1,34 @@
+--!strict
+-- Имена объектов карты в Workspace. Весь код ищет карту только через этот модуль.
+-- Если владелец соберёт настоящую карту в Studio, она должна использовать эти же имена.
+
+local MapSchema = {
+	Root = "Map", -- Workspace.Map
+
+	-- Папки внутри Map
+	Geometry = "Geometry", -- стены, полы
+	Props = "Props", -- декор и видимые камеры
+	Exhibits = "Exhibits", -- Мона Лиза
+	Markers = "Markers", -- невидимые точки: спавны, место картины
+	ThiefEntrances = "ThiefEntrances", -- входы воров (они же выходы)
+	CameraPoints = "CameraPoints", -- точки обзора камер Camera1..CameraN
+	TrapSlots = "TrapSlots", -- отмеченные места для лазерных сеток Slot1..SlotN
+
+	-- Отдельные объекты
+	ControlConsole = "ControlConsole", -- пульт камер в диспетчерской
+	PaintingSpot = "PaintingSpot", -- где висит картина (для возврата)
+	PaintingLight = "PaintingLight", -- подсветка картины
+	PatrolSpawn = "PatrolSpawn", -- куда переносит игроков в начале подготовки
+	LobbySpawn = "LobbySpawn", -- SpawnLocation в комнате охраны
+
+	-- Имена моделей в ReplicatedStorage/Models (как в GEMINI.md)
+	Models = {
+		MonaLisa = "exhibit_monalisa_01",
+		Camera = "camera_wall_01",
+		Bench = "prop_bench_01",
+		Barrier = "prop_barrier_01",
+		Locker = "prop_locker_01",
+	},
+}
+
+return MapSchema
