@@ -162,7 +162,9 @@ local function placeTrap(slot: BasePart)
 	local zone = Instance.new("Part")
 	zone.Name = "LaserZone"
 	zone.Size = Vector3.new(length, Laser.ZoneHeight, Laser.ZoneThickness)
-	zone.CFrame = target * CFrame.new(0, Laser.ZoneHeight / 2, 0)
+	-- Зона лежит внутри модели и поднимается вместе со стойками, поэтому ставим её
+	-- от начальной (подземной) точки: после подъёма она окажется ровно на полу.
+	zone.CFrame = start * CFrame.new(0, Laser.ZoneHeight / 2, 0)
 	zone.Anchored = true
 	zone.CanCollide = false
 	zone.CanQuery = false
