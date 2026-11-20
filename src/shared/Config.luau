@@ -69,6 +69,7 @@ local Config = {
 		HoldSeconds = 1, -- удержание кнопки для ареста
 		MaxDistance = 8, -- дальше подсказка пропадает, удержание сбрасывается
 		ServerDistanceSlack = 3, -- запас на задержку сети при проверке на сервере
+		HandcuffsOffset = Vector3.new(0, 2, 0), -- наручники над головой (руки вора подняты)
 	},
 
 	Traps = {
@@ -125,6 +126,7 @@ local Config = {
 		StepRollOff = 30, -- шаги слышно только рядом
 		MusicVolume = 0.3,
 		AlarmVolume = 0.8,
+		ArrestVolume = 0.8,
 	},
 
 	-- Номера анимаций. Стандартные анимации Roblox можно использовать в любой игре.
