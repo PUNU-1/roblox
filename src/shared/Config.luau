@@ -167,6 +167,7 @@ local Config = {
 		PoofSeconds = 0.4, -- облачко при аресте
 		PoofSize = 6,
 		MarkColor = Color3.fromHex("C8343A"),
+		MarkStrokeColor = Color3.fromHex("FFFFFF"),
 		MarkHeight = 4, -- стрелка метки над головой вора
 		MarkSize = 70, -- размер стрелки в пикселях
 		SlowHighlightColor = Color3.fromHex("C8343A"),

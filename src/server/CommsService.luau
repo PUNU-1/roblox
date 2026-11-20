@@ -55,6 +55,7 @@ local function placeMark(thief: Model)
 		arrow.TextScaled = true
 		arrow.Font = Enum.Font.FredokaOne
 		arrow.TextColor3 = Config.Effects.MarkColor
+		arrow.TextStrokeColor3 = Config.Effects.MarkStrokeColor -- светлая обводка видна на ч/б картинке камер
 		arrow.TextStrokeTransparency = 0
 		arrow.Parent = created
 		created.Parent = head
