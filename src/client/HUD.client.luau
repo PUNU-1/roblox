@@ -4,6 +4,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -276,6 +277,68 @@ Remotes.get(Remotes.Names.NightResults).OnClientEvent:Connect(function(results)
 	end
 end)
 
+---------------------------------------------------------------- подсказки новичку
+
+local hintFrame = Theme.new("Frame", {
+	Name = "Hint",
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -16),
+	Size = UDim2.new(0.55, 0, 0, 40),
+	BackgroundColor3 = Colors.Navy,
+	BackgroundTransparency = 0.25,
+	Visible = false,
+	Parent = gui,
+}, { Theme.corner(12), Theme.padding(6), Theme.new("UISizeConstraint", { MinSize = Vector2.new(300, 0) }) })
+local hintLabel = Theme.label({ Size = UDim2.fromScale(1, 1), Font = Theme.BodyFont, MaxTextSize = 20, Parent = hintFrame })
+
+-- На телефоне и планшете без клавиатуры вместо клавиш — кнопки на экране
+local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local HINT_PLACE = if touchOnly
+	then "Hold the button on a glowing spot to place a laser grid"
+	else "Hold E on a glowing spot to place a laser grid"
+local HINT_ARREST = if touchOnly then "Hold the button next to a thief to arrest him" else "Hold E next to a thief to arrest him"
+local HINT_PHONE = if touchOnly then "Phone button — cameras" else "Tab — cameras"
+local HINT_CONSOLE = "Camera console: end of the north corridor"
+local HINT_STOLEN = "The thief has the painting — catch him before he gets out!"
+
+-- Раунд засчитан, когда закончилась ночь, в которой игрок участвовал
+local roundsPlayed = 0
+local playedThisNight = false
+
+local function countRounds(phase: string)
+	if phase == Phase.Night then
+		if localPlayer:GetAttribute(PlayerAttr.InRound) == true then
+			playedThisNight = true
+		end
+	elseif playedThisNight then
+		playedThisNight = false
+		roundsPlayed += 1
+	end
+end
+
+local function hintText(phase: string): string?
+	if roundsPlayed >= Config.Hints.Rounds or localPlayer:GetAttribute(PlayerAttr.InRound) ~= true then
+		return nil
+	end
+	if localPlayer:GetAttribute(PlayerAttr.ViewingCameras) == true then
+		return nil -- у экрана камер своя подсказка
+	end
+	local hasPhone = localPlayer:GetAttribute(PlayerAttr.Role) == Role.Operator or GameState.get(Attr.Solo) == true
+	local cameras = if hasPhone then HINT_PHONE else HINT_CONSOLE
+	if phase == Phase.Prep then
+		if (tonumber(GameState.get(Attr.LasersLeft)) or 0) > 0 then
+			return HINT_PLACE
+		end
+		return "Thieves come at midnight   •   " .. cameras
+	elseif phase == Phase.Night then
+		if GameState.get(Attr.PaintingStolen) == true then
+			return HINT_STOLEN
+		end
+		return HINT_ARREST .. "   •   " .. cameras
+	end
+	return nil
+end
+
 ---------------------------------------------------------------- обновление каждый кадр
 
 local function topBarText(phase: string): string
@@ -309,6 +372,13 @@ RunService.Heartbeat:Connect(function(dt)
 	topBar.Visible = phase ~= Phase.Results
 	topLabel.Text = topBarText(phase)
 	moneyLabel.Text = "$" .. tostring(localPlayer:GetAttribute(PlayerAttr.Money) or 0)
+
+	countRounds(phase)
+	local hint = hintText(phase)
+	hintFrame.Visible = hint ~= nil
+	if hint then
+		hintLabel.Text = hint
+	end
 
 	lobbyPanel.Visible = phase == Phase.Lobby
 	if lobbyPanel.Visible then
