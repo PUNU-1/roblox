@@ -20,6 +20,20 @@ GameState.Role = {
 	Operator = "Operator",
 }
 
+-- Атрибуты модели вора: сервер пишет, что вор сейчас делает, клиенты по этому двигают его руки и ноги.
+GameState.ThiefAttr = {
+	AnimState = "AnimState", -- string, одна из GameState.ThiefAnim
+	AnimStateAt = "AnimStateAt", -- number, workspace:GetServerTimeNow(), когда началось это состояние
+}
+
+GameState.ThiefAnim = {
+	Sneak = "Sneak", -- крадётся к экспонату на цыпочках
+	Run = "Run", -- убегает от охранника или загораживает путь
+	Steal = "Steal", -- оглядывается и снимает экспонат
+	Carry = "Carry", -- несёт экспонат над головой
+	Arrest = "Arrest", -- руки вверх, потом руки вперёд в наручники
+}
+
 -- Атрибуты ReplicatedStorage.GameState
 GameState.Attr = {
 	Phase = "Phase", -- string, одна из GameState.Phase

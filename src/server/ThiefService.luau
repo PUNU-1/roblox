@@ -12,6 +12,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local GameState = require(Shared:WaitForChild("GameState"))
 local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 
@@ -45,8 +46,6 @@ type Thief = {
 	stealStarted: number,
 	fleeUntil: number,
 	fleeTarget: Vector3,
-	shoulders: { [Motor6D]: CFrame },
-	tracks: { AnimationTrack },
 	footsteps: Sound?,
 	connections: { RBXScriptConnection },
 }
@@ -109,75 +108,43 @@ local function nearestEntrance(position: Vector3): Vector3?
 	return best
 end
 
----------------------------------------------------------------- позы и анимации
+---------------------------------------------------------------- анимации и шаги
 
-local function setArmsUp(thief: Thief, up: boolean)
-	for motor, original in thief.shoulders do
-		if motor.Parent then
-			motor.C0 = if up then original * CFrame.Angles(math.pi, 0, 0) else original
-		end
+-- Сами движения рук и ног делает каждый клиент (ThiefAnimator.client.luau).
+-- Сервер только сообщает, что вор сейчас делает.
+local ANIM_FOR_STATE: { [string]: string } = {
+	Approach = GameState.ThiefAnim.Sneak,
+	Flee = GameState.ThiefAnim.Run,
+	Block = GameState.ThiefAnim.Run,
+	Steal = GameState.ThiefAnim.Steal,
+	Escape = GameState.ThiefAnim.Carry,
+	Escaped = GameState.ThiefAnim.Carry,
+	Arrested = GameState.ThiefAnim.Arrest,
+}
+
+local function syncAnim(thief: Thief)
+	local anim = ANIM_FOR_STATE[thief.state] or GameState.ThiefAnim.Sneak
+	if thief.model:GetAttribute(GameState.ThiefAttr.AnimState) ~= anim then
+		thief.model:SetAttribute(GameState.ThiefAttr.AnimStateAt, now())
+		thief.model:SetAttribute(GameState.ThiefAttr.AnimState, anim)
 	end
 end
 
-local function loadTrack(animator: Animator, id: number): AnimationTrack?
-	if id == 0 then
-		return nil
-	end
-	local animation = Instance.new("Animation")
-	animation.AnimationId = "rbxassetid://" .. id
-	local ok, track = pcall(function()
-		return animator:LoadAnimation(animation)
-	end)
-	return if ok then track else nil
-end
-
-local function setupAnimations(thief: Thief)
-	local humanoid = thief.humanoid
-	local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
-	animator.Parent = humanoid
-	local walkId = if Config.Animations.ThiefSneak ~= 0 then Config.Animations.ThiefSneak else Config.Animations.Walk
-	local walk = loadTrack(animator, walkId)
-	local run = loadTrack(animator, Config.Animations.Run)
-	if walk then
-		walk.Looped = true
-		table.insert(thief.tracks, walk)
-	end
-	if run then
-		run.Looped = true
-		table.insert(thief.tracks, run)
-	end
-
+local function setupFootsteps(thief: Thief)
 	local footsteps = Audio.create(Config.Sounds.ThiefStep, thief.root, Config.Sounds.StepVolume, true)
-	if footsteps then
-		footsteps.RollOffMaxDistance = Config.Sounds.StepRollOff
-		thief.footsteps = footsteps
+	if not footsteps then
+		return
 	end
-
+	footsteps.RollOffMaxDistance = Config.Sounds.StepRollOff
+	thief.footsteps = footsteps
 	table.insert(
 		thief.connections,
-		humanoid.Running:Connect(function(speed)
+		thief.humanoid.Running:Connect(function(speed)
 			local moving = speed > 0.5
-			local running = speed >= Config.Animations.RunSpeedThreshold
-			if walk then
-				if moving and not running and not walk.IsPlaying then
-					walk:Play()
-				elseif (not moving or running) and walk.IsPlaying then
-					walk:Stop()
-				end
-			end
-			if run then
-				if running and not run.IsPlaying then
-					run:Play()
-				elseif not running and run.IsPlaying then
-					run:Stop()
-				end
-			end
-			if footsteps then
-				if moving and not footsteps.IsPlaying then
-					footsteps:Play()
-				elseif not moving and footsteps.IsPlaying then
-					footsteps:Stop()
-				end
+			if moving and not footsteps.IsPlaying then
+				footsteps:Play()
+			elseif not moving and footsteps.IsPlaying then
+				footsteps:Stop()
 			end
 		end)
 	)
@@ -270,7 +237,7 @@ end
 
 local function startEscape(thief: Thief)
 	thief.state = "Escape"
-	setArmsUp(thief, true)
+	syncAnim(thief)
 	bannerRemote:FireAllClients("THE PAINTING IS STOLEN!", "danger")
 	Audio.playOnce(Config.Sounds.Alarm, nil, Config.Sounds.AlarmVolume)
 end
@@ -366,9 +333,33 @@ local function updateThief(thief: Thief)
 			stand(thief)
 		end
 	end
+	syncAnim(thief)
 end
 
 ---------------------------------------------------------------- появление и удаление
+
+-- Новые персонажи Roblox соединены суставами AnimationConstraint. Их положение приходит с сервера
+-- вместе с физикой, и клиентская анимация (ThiefAnimator) на них не держится. Меняем их на
+-- классические Motor6D: у Motor6D свойство Transform локальное, каждый клиент двигает его сам.
+local function useMotorJoints(model: Model)
+	for _, joint in model:GetDescendants() do
+		if joint:IsA("AnimationConstraint") then
+			local a0, a1 = joint.Attachment0, joint.Attachment1
+			local part0 = a0 and a0.Parent
+			local part1 = a1 and a1.Parent
+			if a0 and a1 and part0 and part0:IsA("BasePart") and part1 and part1:IsA("BasePart") then
+				local motor = Instance.new("Motor6D")
+				motor.Name = joint.Name
+				motor.Part0 = part0
+				motor.Part1 = part1
+				motor.C0 = a0.CFrame
+				motor.C1 = a1.CFrame
+				motor.Parent = part1
+				joint:Destroy()
+			end
+		end
+	end
+end
 
 local function createRig(): Model?
 	local description = Instance.new("HumanoidDescription")
@@ -386,6 +377,7 @@ local function createRig(): Model?
 		warn("[ThiefService] Не удалось создать вора:", result)
 		return nil
 	end
+	useMotorJoints(result)
 	return result
 end
 
@@ -425,14 +417,6 @@ local function spawnThief(): boolean
 		root:SetNetworkOwner(nil) -- воров двигает только сервер
 	end)
 
-	local shoulders = {}
-	for _, name in { "RightShoulder", "LeftShoulder" } do
-		local motor = model:FindFirstChild(name, true)
-		if motor and motor:IsA("Motor6D") then
-			shoulders[motor] = motor.C0
-		end
-	end
-
 	local thief: Thief = {
 		model = model,
 		humanoid = humanoid,
@@ -447,13 +431,12 @@ local function spawnThief(): boolean
 		stealStarted = 0,
 		fleeUntil = 0,
 		fleeTarget = root.Position,
-		shoulders = shoulders,
-		tracks = {},
 		footsteps = nil,
 		connections = {},
 	}
 	thieves[model] = thief
-	setupAnimations(thief)
+	syncAnim(thief)
+	setupFootsteps(thief)
 	ScoreService.addSpawned()
 	ThiefService.Spawned:Fire(model)
 	return true
@@ -465,9 +448,6 @@ function ThiefService.remove(model: Model)
 	if thief then
 		for _, connection in thief.connections do
 			connection:Disconnect()
-		end
-		for _, track in thief.tracks do
-			track:Stop()
 		end
 		thieves[model] = nil
 	end
@@ -487,7 +467,7 @@ function ThiefService.isArrested(model: Model): boolean
 	return thief == nil or thief.state == "Arrested"
 end
 
--- Арест: вор замирает с поднятыми руками. Картина, если была у него, возвращается на стену.
+-- Арест: вор замирает (руки вверх, потом в наручники — анимация на клиентах). Картина, если была у него, возвращается на стену.
 -- Возвращает true, если арест получился.
 function ThiefService.arrest(model: Model): boolean
 	local thief = thieves[model]
@@ -498,9 +478,7 @@ function ThiefService.arrest(model: Model): boolean
 	thief.humanoid.WalkSpeed = 0
 	stand(thief)
 	thief.root.Anchored = true
-	for _, track in thief.tracks do
-		track:Stop()
-	end
+	syncAnim(thief)
 	if thief.footsteps then
 		thief.footsteps:Stop()
 	end
@@ -508,7 +486,6 @@ function ThiefService.arrest(model: Model): boolean
 	if PaintingService.getCarrier() == model then
 		PaintingService.returnToWall()
 	end
-	setArmsUp(thief, true)
 	return true
 end
 

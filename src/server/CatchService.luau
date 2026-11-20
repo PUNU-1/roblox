@@ -54,13 +54,15 @@ local function poof(position: Vector3)
 end
 
 local function attachHandcuffs(model: Model)
-	local head = model:FindFirstChild("Head")
-	if not (head and head:IsA("BasePart")) then
+	local hand = model:FindFirstChild("LeftHand")
+	if not (hand and hand:IsA("BasePart")) then
 		return
 	end
 	local cuffs = ModelLibrary.build(MapSchema.Models.Handcuffs, HANDCUFFS_STUB)
-	-- Руки вора подняты, поэтому наручники — над головой, на запястьях
-	ModelLibrary.weldTo(cuffs, head, head.CFrame + head.CFrame:VectorToWorldSpace(Config.Catch.HandcuffsOffset))
+	-- Наручники привариваются к левой кисти: у клиентов кисть двигает анимация ареста,
+	-- и наручники оказываются между сведёнными руками
+	local offset = Config.Catch.HandcuffsOffset
+	ModelLibrary.weldTo(cuffs, hand, hand.CFrame * CFrame.new(offset.X, offset.Y, offset.Z))
 	cuffs.Parent = model
 end
 
