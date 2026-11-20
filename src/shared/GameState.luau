@@ -69,7 +69,6 @@ GameState.Attr = {
 	StealEndsAt = "StealEndsAt", -- number, когда вор снимет картину; 0 — никто не снимает
 	Caught = "Caught", -- number, поймано воров за ночь
 	ThievesSpawned = "ThievesSpawned", -- number, сколько воров уже пришло
-	LasersLeft = "LasersLeft", -- number, сколько сеток ещё можно поставить
 	Solo = "Solo", -- boolean, в игре один игрок
 	NightNumber = "NightNumber", -- number, какая по счёту ночь идёт (или будет после этого дня)
 	BestNights = "BestNights", -- number, рекорд сервера: сколько ночей продержались

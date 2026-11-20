@@ -102,24 +102,26 @@ local Config = {
 	},
 
 	Traps = {
-		LaserGrid = {
-			Enabled = false, -- до магазина сеток в игре нет (решение 43)
-			MaxPerNight = 3, -- 3 сетки из 5 мест
-			PlaceHoldSeconds = 1, -- сколько держать E, чтобы поставить
-			PromptDistance = 10,
-			RiseSeconds = 0.6, -- стойки вырастают из пола
-			RiseDepth = 6,
+		LaserGrid = { -- лазерная сетка вокруг экспоната (покупается в магазине, решение 43)
+			Price = 150, -- баланс
 			SlowSeconds = 5, -- замедление и подсветка вора
 			RechargeSeconds = 10, -- баланс: перезарядка после срабатывания
-			CheckSeconds = 0.1, -- как часто сетка проверяет, не прошёл ли вор
+			CheckSeconds = 0.1, -- как часто сетка проверяет воров
+			TriggerRadius = 3.4, -- вор ближе этого к центру сетки — срабатывание
+			FenceHalf = 2.6, -- половина стороны квадрата стоек вокруг постамента
+			MainFenceWidth = 7, -- у Моны Лизы сетка перед картиной
+			MainFenceDepth = 4,
+			MainTriggerRadius = 4.2,
+			PostHeight = 3,
+			BeamHeights = { 1, 2.2 },
 			BeamWidth = 0.15,
 			BeamColor = Color3.fromHex("C8343A"),
-			ZoneHeight = 5, -- высота невидимой зоны срабатывания
-			ZoneThickness = 1.5,
-			SlotGlowTransparency = 0.4, -- как светятся места в подготовке
 			FlashSeconds = 0.25, -- при срабатывании лучи вспыхивают и гаснут на перезарядку
 			FlashColor = Color3.fromHex("FFFFFF"),
 			FlashWidth = 0.6,
+		},
+		Alarm = { -- сигнализация на Мону Лизу
+			Price = 200, -- баланс
 		},
 	},
 

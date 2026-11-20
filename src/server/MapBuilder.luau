@@ -340,23 +340,6 @@ local function buildCameras(props: Folder, cameraPoints: Folder)
 	end
 end
 
-local function buildTrapSlots(trapSlots: Folder)
-	local slots = {
-		{ cframe = CFrame.new(-46, 0.05, 20), size = Vector3.new(2, 0.1, 8) }, -- у двери
-		{ cframe = CFrame.new(46, 0.05, -20), size = Vector3.new(2, 0.1, 8) }, -- у окна
-		{ cframe = CFrame.new(30, 0.05, 31), size = Vector3.new(8, 0.1, 2) }, -- у люка
-		{ cframe = CFrame.new(-18, 0.05, 6), size = Vector3.new(2, 0.1, 8) }, -- проход слева от картины
-		{ cframe = CFrame.new(18, 0.05, 6), size = Vector3.new(2, 0.1, 8) }, -- проход справа от картины
-	}
-	for index, slot in slots do
-		local part = newPart(trapSlots, "Slot" .. index, slot.size, slot.cframe, COLORS.Turquoise, Enum.Material.Neon)
-		part.Transparency = 0.5
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-	end
-end
-
 local function buildEntrances(entrances: Folder)
 	-- Точки снаружи у каждого входа воров: тут они появляются и сюда убегают.
 	-- Входы боковых залов работают, только когда зал открыт (атрибут Hall).
@@ -438,7 +421,6 @@ function MapBuilder.build(): Instance
 	local markers = newFolder(map, MapSchema.Markers)
 	local entrances = newFolder(map, MapSchema.ThiefEntrances)
 	local cameraPoints = newFolder(map, MapSchema.CameraPoints)
-	local trapSlots = newFolder(map, MapSchema.TrapSlots)
 	local hallDoors = newFolder(map, MapSchema.HallDoors)
 	local pedestals = newFolder(map, MapSchema.Pedestals)
 
@@ -450,7 +432,6 @@ function MapBuilder.build(): Instance
 	buildMonaLisa(map, exhibits, markers)
 	buildProps(props)
 	buildCameras(props, cameraPoints)
-	buildTrapSlots(trapSlots)
 	buildEntrances(entrances)
 	buildControlRoom(map, geometry)
 	buildLobby(geometry, props, markers)

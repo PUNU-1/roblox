@@ -309,9 +309,6 @@ local hintLabel = Theme.label({ Size = UDim2.fromScale(1, 1), Font = Theme.BodyF
 
 -- На телефоне и планшете без клавиатуры вместо клавиш — кнопки на экране
 local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local HINT_PLACE = if touchOnly
-	then "Hold the button on a glowing spot to place a laser grid"
-	else "Hold E on a glowing spot to place a laser grid"
 local HINT_ARREST = if touchOnly then "Hold the button next to a thief to arrest him" else "Hold E next to a thief to arrest him"
 local HINT_PHONE = if touchOnly then "Phone button — cameras" else "Tab — cameras"
 local HINT_CONSOLE = "Camera console: end of the north corridor"
@@ -342,13 +339,10 @@ local function hintText(phase: string): string?
 	local hasPhone = localPlayer:GetAttribute(PlayerAttr.Role) == Role.Operator or GameState.get(Attr.Solo) == true
 	local cameras = if hasPhone then HINT_PHONE else HINT_CONSOLE
 	if phase == Phase.Day then
-		if Config.Traps.LaserGrid.Enabled and (tonumber(GameState.get(Attr.LasersLeft)) or 0) > 0 then
-			return HINT_PLACE
-		end
 		local money = tonumber(localPlayer:GetAttribute(PlayerAttr.Money)) or 0
 		local closedHall = not GameState.isHallOpen(GameState.Hall.Jewelry) or not GameState.isHallOpen(GameState.Hall.Sculptures)
 		if closedHall and money >= Config.Halls.ContributeStep then
-			return "Hold E at a boarded door to chip in for a new hall   •   " .. cameras
+			return "Chip in at boarded doors and pedestals (hold E): new halls, exhibits, laser grids"
 		end
 		return "Thieves come at midnight. Don't let them take the Mona Lisa!   •   " .. cameras
 	elseif phase == Phase.Night then

@@ -19,6 +19,13 @@ local ExhibitConfig = Config.Exhibits
 
 local ExhibitService = {}
 
+-- Вор начал снимать экспонат (exhibit). Сигнализация на Мону Лизу слушает его.
+ExhibitService.StealStarted = Instance.new("BindableEvent")
+-- Экспонат купили (exhibit): для него можно купить лазерную сетку.
+ExhibitService.Added = Instance.new("BindableEvent")
+-- Экспонат унесли насовсем (exhibit): его сетка пропадает.
+ExhibitService.Lost = Instance.new("BindableEvent")
+
 export type Exhibit = {
 	title: string,
 	model: PVInstance,
@@ -204,6 +211,7 @@ function ExhibitService.tryStartSteal(exhibit: Exhibit, thief: Model): boolean
 	end
 	if exhibit.stealer ~= thief then
 		setStealer(exhibit, thief)
+		ExhibitService.StealStarted:Fire(exhibit)
 	end
 	return true
 end
@@ -270,6 +278,7 @@ function ExhibitService.lose(exhibit: Exhibit)
 		table.remove(exhibits, index)
 	end
 	exhibit.model:Destroy()
+	ExhibitService.Lost:Fire(exhibit)
 	for _, slot in slots do
 		if slot.exhibit == exhibit then
 			slot.exhibit = nil
@@ -277,6 +286,11 @@ function ExhibitService.lose(exhibit: Exhibit)
 			refreshSlot(slot)
 		end
 	end
+end
+
+-- Все экспонаты, что сейчас есть в музее (Мона Лиза и купленные).
+function ExhibitService.list(): { Exhibit }
+	return table.clone(exhibits)
 end
 
 ---------------------------------------------------------------- для туристов
@@ -335,6 +349,7 @@ local function placeExhibit(slot: Slot)
 	slot.exhibit = exhibit
 	table.insert(exhibits, exhibit)
 	refreshSlot(slot)
+	ExhibitService.Added:Fire(exhibit)
 end
 
 local function contribute(slot: Slot, player: Player)

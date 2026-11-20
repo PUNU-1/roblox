@@ -12,7 +12,6 @@ local MapSchema = {
 	Markers = "Markers", -- невидимые точки: спавны, место картины
 	ThiefEntrances = "ThiefEntrances", -- входы воров (они же выходы)
 	CameraPoints = "CameraPoints", -- точки обзора камер Camera1..CameraN
-	TrapSlots = "TrapSlots", -- отмеченные места для лазерных сеток Slot1..SlotN
 
 	-- Отдельные объекты
 	ControlConsole = "ControlConsole", -- пульт камер в диспетчерской
