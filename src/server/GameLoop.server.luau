@@ -14,6 +14,7 @@ local MapBuilder = require(Server:WaitForChild("MapBuilder"))
 local RoleService = require(Server:WaitForChild("RoleService"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
 local PaintingService = require(Server:WaitForChild("PaintingService"))
+local ThiefService = require(Server:WaitForChild("ThiefService"))
 local Audio = require(Server:WaitForChild("Audio"))
 
 local Phase = GameState.Phase
@@ -22,6 +23,7 @@ local Attr = GameState.Attr
 local map = MapBuilder.build()
 RoleService.init(map)
 PaintingService.init(map)
+ThiefService.init(map)
 
 local resultsRemote = Remotes.get(Remotes.Names.NightResults)
 
@@ -88,11 +90,17 @@ end
 local function runNight(): (boolean, boolean)
 	setPhase(Phase.Night, Config.Phases.NightSeconds)
 	GameState.set(Attr.NightStartedAt, now())
-	ScoreService.beginNight(RoleService.participants())
+	local participants = RoleService.participants()
+	ScoreService.beginNight(participants)
 	Audio.startMusic()
 
 	local survived, aborted = true, false
-	while GameState.secondsLeft() > 0 do
+	local escapedConnection = ThiefService.Escaped.Event:Connect(function()
+		survived = false
+	end)
+	ThiefService.beginNight(#participants)
+
+	while survived and GameState.secondsLeft() > 0 do
 		if not anyoneLeft() then
 			aborted = true
 			break
@@ -100,6 +108,8 @@ local function runNight(): (boolean, boolean)
 		tick()
 	end
 
+	escapedConnection:Disconnect()
+	ThiefService.endNight()
 	Audio.stopMusic()
 	return survived, aborted
 end
