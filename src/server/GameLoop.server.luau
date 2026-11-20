@@ -17,6 +17,7 @@ local PaintingService = require(Server:WaitForChild("PaintingService"))
 local ThiefService = require(Server:WaitForChild("ThiefService"))
 local CatchService = require(Server:WaitForChild("CatchService"))
 local TrapService = require(Server:WaitForChild("TrapService"))
+local CommsService = require(Server:WaitForChild("CommsService"))
 local Audio = require(Server:WaitForChild("Audio"))
 
 local Phase = GameState.Phase
@@ -28,6 +29,7 @@ PaintingService.init(map)
 ThiefService.init(map)
 CatchService.init()
 TrapService.init(map)
+CommsService.init(map)
 
 local resultsRemote = Remotes.get(Remotes.Names.NightResults)
 
