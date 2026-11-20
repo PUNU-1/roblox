@@ -31,6 +31,23 @@ local Config = {
 		NightContrast = 0.15,
 		ConsoleHoldSeconds = 0.5, -- сколько держать E у пульта
 		ConsolePromptDistance = 8,
+		RepairHoldSeconds = 2, -- сколько держать F у пульта, чтобы перезапустить сломанные камеры
+	},
+
+	Difficulty = { -- каждая следующая ночь сложнее (решение 50)
+		ExtraThievesPerNight = 1, -- баланс: на сколько воров больше каждую ночь
+		SpeedGrowthPerNight = 0.04, -- баланс: воры быстрее на 4% каждую ночь
+		MaxSpeedMultiplier = 1.3, -- но не быстрее, чем в 1,3 раза
+		IntervalShrinkPerNight = 0.05, -- паузы между ворами короче на 5% каждую ночь
+		MinIntervalMultiplier = 0.6,
+	},
+
+	CameraBreaker = { -- вор, который выключает камеру
+		FromNight = 3, -- баланс: с какой ночи появляется
+		Chance = 0.3, -- баланс: какая доля воров — взломщики
+		BreakSeconds = 2, -- сколько ломает камеру
+		StandInset = 3, -- встаёт под камерой, чуть ближе к середине зала
+		Color = Color3.fromHex("5A1A1A"), -- тёмно-красный костюм, чтобы отличался
 	},
 
 	Halls = {

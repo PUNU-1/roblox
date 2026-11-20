@@ -28,7 +28,7 @@ end
 
 local function visibleFromSomeCamera(position: Vector3): boolean
 	for _, point in cameraPoints do
-		if (point.Position - position).Magnitude <= Config.Comms.MarkMaxDistance then
+		if point:GetAttribute("Broken") ~= true and (point.Position - position).Magnitude <= Config.Comms.MarkMaxDistance then
 			return true
 		end
 	end

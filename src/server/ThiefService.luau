@@ -18,6 +18,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local ExhibitService = require(Server:WaitForChild("ExhibitService"))
+local CameraService = require(Server:WaitForChild("CameraService"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
 local RoleService = require(Server:WaitForChild("RoleService"))
 local Audio = require(Server:WaitForChild("Audio"))
@@ -36,7 +37,11 @@ type Thief = {
 	humanoid: Humanoid,
 	root: BasePart,
 	path: Path,
-	state: string, -- Approach | Steal | Escape | Flee | Block | Arrested | Escaped
+	state: string, -- Approach | GoBreak | Break | Steal | Escape | Flee | Block | Arrested | Escaped
+	kind: string, -- Pickpocket | Breaker (ломает камеру, потом крадёт как обычный)
+	breakTarget: BasePart?, -- камера, которую ломает
+	breakStarted: number,
+	cameraDone: boolean,
 	waypoints: { PathWaypoint },
 	waypointIndex: number,
 	pathTarget: Vector3?,
@@ -57,6 +62,8 @@ local active = false
 local spawnThread: thread? = nil
 local updateConnection: RBXScriptConnection? = nil
 local random = Random.new()
+local currentNight = 1
+local speedMultiplier = 1
 
 local bannerRemote = Remotes.get(Remotes.Names.Banner)
 
@@ -125,6 +132,8 @@ end
 -- Сервер только сообщает, что вор сейчас делает.
 local ANIM_FOR_STATE: { [string]: string } = {
 	Approach = GameState.ThiefAnim.Sneak,
+	GoBreak = GameState.ThiefAnim.Sneak,
+	Break = GameState.ThiefAnim.Steal,
 	Flee = GameState.ThiefAnim.Run,
 	Block = GameState.ThiefAnim.Run,
 	Steal = GameState.ThiefAnim.Steal,
@@ -209,11 +218,12 @@ end
 ---------------------------------------------------------------- поведение
 
 local function speedFor(thief: Thief, base: number): number
+	local speed = base * speedMultiplier
 	local slowedUntil = thief.model:GetAttribute("SlowedUntil")
 	if typeof(slowedUntil) == "number" and slowedUntil > now() then
-		return base * ThiefConfig.SlowMultiplier
+		return speed * ThiefConfig.SlowMultiplier
 	end
-	return base
+	return speed
 end
 
 -- «!» над головой: вор заметил охранника. Сквозь стены не видно.
@@ -272,8 +282,11 @@ local function updateThief(thief: Thief)
 	elseif thief.state == "Flee" and now() >= thief.fleeUntil then
 		thief.state = "Approach"
 	end
+	if thief.state == "Approach" and thief.kind == "Breaker" and not thief.cameraDone then
+		thief.state = "GoBreak"
+	end
 
-	if thief.state == "Approach" then
+	if thief.state == "Approach" or thief.state == "GoBreak" then
 		local guardPosition, guardDistance = nearestGuard(position)
 		if guardPosition and guardDistance < ThiefConfig.FleeRadius then
 			-- Заметил охранника — убегает в другую сторону
@@ -289,7 +302,36 @@ local function updateThief(thief: Thief)
 	end
 
 	-- Делаем
-	if thief.state == "Approach" then
+	if thief.state == "GoBreak" then
+		local camera = thief.breakTarget
+		if not camera or CameraService.isBroken(camera) then
+			camera = CameraService.nearestWorking(position)
+			thief.breakTarget = camera
+		end
+		if not camera then
+			thief.cameraDone = true -- ломать нечего — крадёт как обычный
+			thief.state = "Approach"
+		else
+			local spot = CameraService.standPoint(camera)
+			if flatDistance(position, spot) < ThiefConfig.StealReachDistance then
+				thief.state = "Break"
+				thief.breakStarted = now()
+				stand(thief)
+				thief.root.CFrame = CFrame.lookAt(position, Vector3.new(camera.Position.X, position.Y, camera.Position.Z))
+			else
+				moveTowards(thief, spot, speedFor(thief, ThiefConfig.SneakSpeed))
+			end
+		end
+	elseif thief.state == "Break" then
+		stand(thief)
+		if now() - thief.breakStarted >= Config.CameraBreaker.BreakSeconds then
+			if thief.breakTarget then
+				CameraService.breakCamera(thief.breakTarget)
+			end
+			thief.cameraDone = true
+			thief.state = "Approach"
+		end
+	elseif thief.state == "Approach" then
 		-- Цель пропала (её унёс другой вор или снимает другой) — выбираем новую
 		local target = thief.target
 		if not target or not ExhibitService.isFree(target, model) then
@@ -366,9 +408,8 @@ end
 
 ---------------------------------------------------------------- появление и удаление
 
-local function createRig(): Model?
+local function createRig(color: Color3): Model?
 	local description = Instance.new("HumanoidDescription")
-	local color = ThiefConfig.Color
 	description.HeadColor = color
 	description.TorsoColor = color
 	description.LeftArmColor = color
@@ -392,7 +433,8 @@ local function spawnThief(): boolean
 	if #entrances == 0 then
 		return false
 	end
-	local model = createRig()
+	local breaker = currentNight >= Config.CameraBreaker.FromNight and random:NextNumber() < Config.CameraBreaker.Chance
+	local model = createRig(if breaker then Config.CameraBreaker.Color else ThiefConfig.Color)
 	if not model then
 		return false
 	end
@@ -425,6 +467,10 @@ local function spawnThief(): boolean
 		root = root,
 		path = PathfindingService:CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = false, WaypointSpacing = 4 }),
 		state = "Approach",
+		kind = if breaker then "Breaker" else "Pickpocket",
+		breakTarget = nil,
+		breakStarted = 0,
+		cameraDone = false,
 		waypoints = {},
 		waypointIndex = 1,
 		pathTarget = nil,
@@ -498,7 +544,9 @@ end
 
 local function spawnLoop(playerCount: number)
 	local perNight = ThiefConfig.PerNight
-	local total = perNight[math.clamp(playerCount, 1, #perNight)]
+	local difficulty = Config.Difficulty
+	local total = perNight[math.clamp(playerCount, 1, #perNight)] + (currentNight - 1) * difficulty.ExtraThievesPerNight
+	local intervalScale = math.max(difficulty.MinIntervalMultiplier, 1 - (currentNight - 1) * difficulty.IntervalShrinkPerNight)
 	local maxAlive = playerCount + ThiefConfig.MaxAliveExtra
 	local nightStart = now()
 
@@ -510,15 +558,19 @@ local function spawnLoop(playerCount: number)
 			local fraction = math.clamp((now() - nightStart) / Config.Phases.NightSeconds, 0, 1)
 			local interval = ThiefConfig.IntervalStart + (ThiefConfig.IntervalEnd - ThiefConfig.IntervalStart) * fraction
 			local jitter = 1 + ThiefConfig.IntervalJitter * (random:NextNumber() * 2 - 1)
-			task.wait(interval * jitter)
+			task.wait(interval * jitter * intervalScale)
 		else
 			task.wait(1)
 		end
 	end
 end
 
-function ThiefService.beginNight(playerCount: number)
+-- night — какая по счёту ночь: чем дальше, тем больше воров, они быстрее, появляются взломщики.
+function ThiefService.beginNight(playerCount: number, night: number)
 	ThiefService.endNight()
+	currentNight = math.max(1, night)
+	local difficulty = Config.Difficulty
+	speedMultiplier = math.min(difficulty.MaxSpeedMultiplier, 1 + (currentNight - 1) * difficulty.SpeedGrowthPerNight)
 	active = true
 	spawnThread = task.spawn(spawnLoop, playerCount)
 	local accumulator = 0

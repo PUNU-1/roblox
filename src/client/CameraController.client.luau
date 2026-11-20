@@ -274,6 +274,37 @@ do
 end
 
 local cameraDots: { Frame } = {}
+
+-- Сломанная камера: вместо картинки помехи и «NO SIGNAL» (камеру перезапускают на пульте)
+local noSignal = Theme.new("Frame", {
+	Name = "NoSignal",
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = Colors.Dark,
+	BackgroundTransparency = 0.05,
+	Visible = false,
+	ZIndex = 1,
+	Parent = gui,
+})
+Theme.label({
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.35),
+	Size = UDim2.new(0.6, 0, 0, 60),
+	Text = "NO SIGNAL",
+	TextColor3 = Colors.Red,
+	MaxTextSize = 56,
+	ZIndex = 1,
+	Parent = noSignal,
+})
+Theme.label({
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.45),
+	Size = UDim2.new(0.6, 0, 0, 26),
+	Font = Theme.BodyFont,
+	Text = "Restart the cameras at the control room console (hold F)",
+	MaxTextSize = 20,
+	ZIndex = 1,
+	Parent = noSignal,
+})
 local playerDots: { [Player]: Frame } = {}
 
 local function cameraPoint(index: number): BasePart?
@@ -399,6 +430,11 @@ local function showCamera(index: number)
 	playStatic()
 end
 
+local function cameraBroken(index: number): boolean
+	local point = cameraPoint(index)
+	return point ~= nil and point:GetAttribute("Broken") == true
+end
+
 -- Камера работает, только если её зал открыт.
 local function cameraAvailable(index: number): boolean
 	local point = cameraPoint(index)
@@ -409,12 +445,18 @@ local function refreshCameraButtons()
 	for index, button in cameraButtons do
 		local available = cameraAvailable(index)
 		button.AutoButtonColor = available
-		button.Text = if available then tostring(index) else "🔒"
+		button.Text = if not available then "🔒" elseif cameraBroken(index) then "✖" else tostring(index)
 		if index ~= currentIndex then
 			button.BackgroundColor3 = if available then Colors.NavyLight else Colors.Dark
 		end
 	end
 	refreshFloors()
+	noSignal.Visible = cameraBroken(currentIndex)
+	for index, dot in cameraDots do
+		if index ~= currentIndex then
+			dot.BackgroundColor3 = if cameraBroken(index) then Colors.Gray else Colors.Red
+		end
+	end
 end
 
 local function switchTo(index: number)

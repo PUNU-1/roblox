@@ -22,6 +22,7 @@ local TrapService = require(Server:WaitForChild("TrapService"))
 local CommsService = require(Server:WaitForChild("CommsService"))
 local TouristService = require(Server:WaitForChild("TouristService"))
 local HallService = require(Server:WaitForChild("HallService"))
+local CameraService = require(Server:WaitForChild("CameraService"))
 local Audio = require(Server:WaitForChild("Audio"))
 
 local Phase = GameState.Phase
@@ -36,6 +37,7 @@ TrapService.init(map)
 CommsService.init(map)
 TouristService.init(map)
 HallService.init(map)
+CameraService.init(map)
 
 -- Что смотрят туристы: Мону Лизу и купленные экспонаты в открытых залах.
 TouristService.setAttractions(ExhibitService.attractions)
@@ -137,7 +139,7 @@ local function runNight(night: number): (boolean, boolean)
 	local escapedConnection = ThiefService.Escaped.Event:Connect(function()
 		survived = false
 	end)
-	ThiefService.beginNight(#participants)
+	ThiefService.beginNight(#participants, night)
 	bannerRemote:FireAllClients(("NIGHT %d"):format(night), "danger")
 
 	while survived and GameState.secondsLeft() > 0 do
@@ -178,6 +180,7 @@ local function finishRun()
 	TouristService.endDay()
 	HallService.setDayActive(false)
 	HallService.reset()
+	CameraService.repairAll()
 	ThiefService.endNight()
 	TrapService.clear()
 	RoleService.endRound()
