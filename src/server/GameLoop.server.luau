@@ -21,6 +21,7 @@ local CatchService = require(Server:WaitForChild("CatchService"))
 local TrapService = require(Server:WaitForChild("TrapService"))
 local CommsService = require(Server:WaitForChild("CommsService"))
 local TouristService = require(Server:WaitForChild("TouristService"))
+local HallService = require(Server:WaitForChild("HallService"))
 local Audio = require(Server:WaitForChild("Audio"))
 
 local Phase = GameState.Phase
@@ -34,6 +35,7 @@ CatchService.init()
 TrapService.init(map)
 CommsService.init(map)
 TouristService.init(map)
+HallService.init(map)
 
 -- Что смотрят туристы: Мону Лизу (чуть дальше места, где встаёт вор). Экспонаты добавятся позже.
 TouristService.setAttractions(function()
@@ -111,6 +113,7 @@ local function runDay(night: number): boolean
 	TrapService.beginDay()
 	ScoreService.beginDay()
 	TouristService.beginDay(0)
+	HallService.setDayActive(true)
 	bannerRemote:FireAllClients(("DAY %d"):format(night), "info")
 	while GameState.secondsLeft() > 0 do
 		if not anyoneLeft() then
@@ -124,6 +127,7 @@ end
 -- Ночь. Возвращает: survived (картина на месте), aborted (все ушли).
 local function runNight(night: number): (boolean, boolean)
 	TouristService.endDay()
+	HallService.setDayActive(false)
 	setLighting(Config.Lighting.Night)
 	setPhase(Phase.Night, Config.Phases.NightSeconds)
 	GameState.set(Attr.NightStartedAt, now())
@@ -175,6 +179,8 @@ end
 -- Конец забега: всех обратно в комнату охраны, музей с нуля.
 local function finishRun()
 	TouristService.endDay()
+	HallService.setDayActive(false)
+	HallService.reset()
 	ThiefService.endNight()
 	TrapService.clear()
 	RoleService.endRound()

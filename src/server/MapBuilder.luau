@@ -6,13 +6,14 @@
 --
 --   комната охраны (лобби)          — далеко на юге, Z 150..170
 --   диспетчерская с пультом         — далеко на севере, Z -127..-115
---        | коридор 80 стадов
---   +----[ ]------------------------+  Z = -35
---   |                     [окно]    |  вход вора «Window» (восток)
---   |        [стена с Моной Лизой]  |
---   | [дверь]                       |  вход вора «Door» (запад)
---   +---------------------[люк]-----+  Z = 35, вход вора «Hatch» (юг)
---   X = -50                         X = 50
+--                       | коридор          служебная дверь (вход вора)
+--   +-------------+----[ ]------------[ ]---+-------------+  Z = -35 / -25
+--   | ДРАГОЦЕН-   |                         |  СКУЛЬПТУРЫ |
+--   окно  НОСТИ  [доски]  [стена с Моной Лизой]  [доски]  дверь (вход вора)
+--   | (вход вора) |                         |             |
+--   +-------------+------[вход]--------[люк]+-------------+  Z = 25 / 35
+--   X = -100     -50   туристы       вор    50           100
+--   Боковые залы закрыты досками, пока их не купят (HallService).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -26,6 +27,11 @@ local ModelLibrary = require(script.Parent:WaitForChild("ModelLibrary"))
 -- Палитра из GEMINI.md
 local COLORS = {
 	Wall = Color3.fromHex("1E2A44"),
+	JewelryWall = Color3.fromHex("3B2559"),
+	JewelryFloor = Color3.fromHex("6E1E2E"),
+	SculptureWall = Color3.fromHex("CFC8B8"),
+	SculptureFloor = Color3.fromHex("F2EEE6"),
+	Plank = Color3.fromHex("8A5A2B"),
 	Marble = Color3.fromHex("E8DCC4"),
 	Gold = Color3.fromHex("D4A93A"),
 	Red = Color3.fromHex("C8343A"),
@@ -141,26 +147,132 @@ local function warnAboutDefaultPlace()
 	end
 end
 
+local function floorPart(geometry: Folder, name: string, size: Vector3, center: Vector3, color: Color3, material: Enum.Material, hall: string): Part
+	local floor = newPart(geometry, name, size, CFrame.new(center), color, material)
+	floor:SetAttribute("Hall", hall) -- по этим полам рисуется схема и гуляют туристы
+	return floor
+end
+
 local function buildHall(geometry: Folder)
 	local half = WALL_T / 2
 
 	newPart(geometry, "Ground", Vector3.new(500, 1, 500), CFrame.new(0, -0.55, 0), COLORS.Ground, Enum.Material.Grass)
-	newPart(geometry, "HallFloor", Vector3.new(100, 1, 70), CFrame.new(0, -0.5, 0), COLORS.Marble, Enum.Material.Marble)
+	floorPart(geometry, "HallFloor", Vector3.new(100, 1, 70), Vector3.new(0, -0.5, 0), COLORS.Marble, Enum.Material.Marble, "Main")
 
-	-- Внешние стены зала. В прототипе все проёмы на уровне пола, даже «окно».
-	newWall(geometry, "X", -35, -50 - half, 50 + half, HALL_WALL_H, { { -44, -36 } }) -- север: проход в коридор
-	newWall(geometry, "X", 35, -50 - half, 50 + half, HALL_WALL_H, { { 26, 34 } }) -- юг: люк
-	newWall(geometry, "Z", -50, -35, 35, HALL_WALL_H, { { 16, 24 } }) -- запад: дверь
-	newWall(geometry, "Z", 50, -35, 35, HALL_WALL_H, { { -24, -16 } }) -- восток: окно
+	-- Внешние стены главного зала. Проёмы на уровне пола.
+	newWall(geometry, "X", -35, -50 - half, 50 + half, HALL_WALL_H, { { -44, -36 }, { 30, 38 } }) -- север: коридор, служебная дверь
+	newWall(geometry, "X", 35, -50 - half, 50 + half, HALL_WALL_H, { { -4, 4 }, { 38, 46 } }) -- юг: главный вход, люк
+	newWall(geometry, "Z", -50, -35, 35, HALL_WALL_H, { { -4, 4 } }) -- запад: дверь в Драгоценности
+	newWall(geometry, "Z", 50, -35, 35, HALL_WALL_H, { { -4, 4 } }) -- восток: дверь в Скульптуры
 
 	-- Стена в центре, на ней висит Мона Лиза (лицом на юг)
 	newPart(geometry, "DisplayWall", Vector3.new(24, 12, 2), CFrame.new(0, 6, 0), COLORS.Wall)
 
-	-- Перегородки и колонны: укрытия и слепые зоны для камер (примерные, проверим в игре)
+	-- Перегородки и колонны: укрытия и слепые зоны для камер
 	newPart(geometry, "Partition", Vector3.new(1, 12, 20), CFrame.new(-30, 6, 15), COLORS.Wall)
 	newPart(geometry, "Partition", Vector3.new(1, 12, 20), CFrame.new(30, 6, -15), COLORS.Wall)
 	newPart(geometry, "Column", Vector3.new(3, HALL_WALL_H, 3), CFrame.new(-15, HALL_WALL_H / 2, -20), COLORS.Marble)
 	newPart(geometry, "Column", Vector3.new(3, HALL_WALL_H, 3), CFrame.new(15, HALL_WALL_H / 2, 20), COLORS.Marble)
+end
+
+-- Боковые залы 50×50: Драгоценности на западе, Скульптуры на востоке. Общая стена — стена главного зала.
+local function buildSideHalls(geometry: Folder)
+	local half = WALL_T / 2
+
+	-- Драгоценности: тёмно-фиолетовые стены, красный ковёр
+	floorPart(geometry, "JewelryFloor", Vector3.new(50, 1, 50), Vector3.new(-75, -0.5, 0), COLORS.JewelryFloor, Enum.Material.Fabric, "Jewelry")
+	local function jewelryWall(axis: string, fixed: number, from: number, to: number, openings: { { number } }?)
+		newWall(geometry, axis, fixed, from, to, HALL_WALL_H, openings)
+	end
+	jewelryWall("X", -25, -100 - half, -50, nil)
+	jewelryWall("X", 25, -100 - half, -50, nil)
+	jewelryWall("Z", -100, -25, 25, { { 12, 20 } }) -- окно: вход вора
+	for _, wall in geometry:GetChildren() do
+		if wall:IsA("BasePart") and wall.Name == "Wall" and wall.Position.X < -50 and wall.Color == COLORS.Wall then
+			wall.Color = COLORS.JewelryWall
+		end
+	end
+	-- Золотые колонны по углам
+	for _, x in { -96, -54 } do
+		for _, z in { -21, 21 } do
+			newPart(geometry, "Column", Vector3.new(2, HALL_WALL_H, 2), CFrame.new(x, HALL_WALL_H / 2, z), COLORS.Gold, Enum.Material.Metal)
+		end
+	end
+
+	-- Скульптуры: светлый камень, белый мрамор, колонны
+	floorPart(geometry, "SculptureFloor", Vector3.new(50, 1, 50), Vector3.new(75, -0.5, 0), COLORS.SculptureFloor, Enum.Material.Marble, "Sculptures")
+	newWall(geometry, "X", -25, 50, 100 + half, HALL_WALL_H)
+	newWall(geometry, "X", 25, 50, 100 + half, HALL_WALL_H)
+	newWall(geometry, "Z", 100, -25, 25, HALL_WALL_H, { { -20, -12 } }) -- дверь: вход вора
+	for _, wall in geometry:GetChildren() do
+		if wall:IsA("BasePart") and wall.Name == "Wall" and wall.Position.X > 50 and wall.Color == COLORS.Wall then
+			wall.Color = COLORS.SculptureWall
+		end
+	end
+	for _, z in { -12, 12 } do
+		newPart(geometry, "Column", Vector3.new(3, HALL_WALL_H, 3), CFrame.new(75, HALL_WALL_H / 2, z), COLORS.SculptureFloor, Enum.Material.Marble)
+	end
+end
+
+-- Заколоченная дверь: доски + щит, который не пускает, и табличка с ценой (текст пишет HallService).
+local function buildHallDoor(folder: Folder, hall: string, center: Vector3, facing: Vector3)
+	local door = Instance.new("Model")
+	door.Name = "HallDoor_" .. hall
+	door:SetAttribute("Hall", hall)
+	local cframe = CFrame.lookAt(center, center + facing)
+	local panel = newPart(door, MapSchema.HallDoorPanel, Vector3.new(8, OPENING_H, 0.6), cframe * CFrame.new(0, OPENING_H / 2, 0), COLORS.Plank, Enum.Material.WoodPlanks)
+	panel.Transparency = 0.2
+	for index, angle in { 0.35, -0.35, 0 } do
+		local plank = newPart(door, "Plank", Vector3.new(9, 0.8, 0.3), cframe * CFrame.new(0, 2 + index * 2.2, -0.45) * CFrame.Angles(0, 0, angle), COLORS.Plank, Enum.Material.Wood)
+		plank.CanCollide = false
+	end
+	local sign = newPart(door, MapSchema.HallDoorSign, Vector3.new(6, 2.4, 0.2), cframe * CFrame.new(0, OPENING_H + 1.6, -0.6), COLORS.Dark)
+	sign.CanCollide = false
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "SignGui"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.LightInfluence = 0
+	local label = Instance.new("TextLabel")
+	label.Name = "Text"
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = COLORS.Gold
+	label.Text = hall
+	label.Parent = gui
+	gui.Parent = sign
+	door.PrimaryPart = panel
+	door.Parent = folder
+end
+
+-- Постамент: мраморная тумба с золотым верхом. Атрибуты Hall и Slot — для покупки экспонатов.
+local function buildPedestals(folder: Folder)
+	local spots = {
+		{ hall = "Main", position = Vector3.new(-22, 0, 24) },
+		{ hall = "Main", position = Vector3.new(22, 0, -24) },
+		{ hall = "Jewelry", position = Vector3.new(-87, 0, -12) },
+		{ hall = "Jewelry", position = Vector3.new(-87, 0, 12) },
+		{ hall = "Jewelry", position = Vector3.new(-63, 0, -12) },
+		{ hall = "Jewelry", position = Vector3.new(-63, 0, 12) },
+		{ hall = "Sculptures", position = Vector3.new(63, 0, -18) },
+		{ hall = "Sculptures", position = Vector3.new(63, 0, 18) },
+		{ hall = "Sculptures", position = Vector3.new(87, 0, -6) },
+		{ hall = "Sculptures", position = Vector3.new(87, 0, 6) },
+	}
+	local stub = {
+		{ size = Vector3.new(2.4, 3, 2.4), offset = CFrame.new(0, 1.5, 0), color = COLORS.Marble, material = Enum.Material.Marble },
+		{ size = Vector3.new(2.8, 0.3, 2.8), offset = CFrame.new(0, 3.15, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+		{ size = Vector3.new(2.8, 0.3, 2.8), offset = CFrame.new(0, 0.15, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+	}
+	for index, spot in spots do
+		local pedestal = ModelLibrary.place(MapSchema.Models.Pedestal, CFrame.new(spot.position), stub, folder)
+		pedestal.Name = "Pedestal" .. index
+		pedestal:SetAttribute("Hall", spot.hall)
+		pedestal:SetAttribute("Slot", index)
+	end
 end
 
 local function buildMonaLisa(map: Folder, exhibits: Folder, markers: Folder)
@@ -202,12 +314,14 @@ local function buildProps(props: Folder)
 end
 
 local function buildCameras(props: Folder, cameraPoints: Folder)
-	-- Точка привязки камеры — пластина крепления в самом углу зала (как в GEMINI.md, задание 3)
+	-- По 2 камеры на зал, в углах, смотрят на середину своего зала (GEMINI.md, задание 3)
 	local spots = {
-		Vector3.new(-49.2, 14, 34.2), -- 1: юго-запад
-		Vector3.new(49.2, 14, 34.2), -- 2: юго-восток
-		Vector3.new(-49.2, 14, -34.2), -- 3: северо-запад
-		Vector3.new(49.2, 14, -34.2), -- 4: северо-восток
+		{ hall = "Main", position = Vector3.new(-49.2, 14, 34.2), target = Vector3.new(10, 2, -5) },
+		{ hall = "Main", position = Vector3.new(49.2, 14, -34.2), target = Vector3.new(-10, 2, 5) },
+		{ hall = "Jewelry", position = Vector3.new(-99.2, 14, 24.2), target = Vector3.new(-70, 2, -4) },
+		{ hall = "Jewelry", position = Vector3.new(-50.8, 14, -24.2), target = Vector3.new(-80, 2, 4) },
+		{ hall = "Sculptures", position = Vector3.new(99.2, 14, -24.2), target = Vector3.new(70, 2, 4) },
+		{ hall = "Sculptures", position = Vector3.new(50.8, 14, 24.2), target = Vector3.new(80, 2, -4) },
 	}
 	local cameraStub = {
 		{ size = Vector3.new(1, 1, 0.2), offset = CFrame.new(0, 0, -0.1), color = COLORS.Marble }, -- пластина
@@ -217,12 +331,12 @@ local function buildCameras(props: Folder, cameraPoints: Folder)
 	}
 
 	for index = 1, math.min(#spots, Config.Cameras.Count) do
-		local position = spots[index]
-		local target = Vector3.new(-position.X * 0.3, 2, -position.Z * 0.3)
-		local cframe = CFrame.lookAt(position, target)
+		local spot = spots[index]
+		local cframe = CFrame.lookAt(spot.position, spot.target)
 		ModelLibrary.place(MapSchema.Models.Camera, cframe, cameraStub, props)
 		-- Точка обзора чуть впереди объектива, чтобы корпус не закрывал вид
-		newMarker(cameraPoints, "Camera" .. index, cframe * CFrame.new(0, 0, -3.5))
+		local point = newMarker(cameraPoints, "Camera" .. index, cframe * CFrame.new(0, 0, -3.5))
+		point:SetAttribute("Hall", spot.hall)
 	end
 end
 
@@ -244,10 +358,18 @@ local function buildTrapSlots(trapSlots: Folder)
 end
 
 local function buildEntrances(entrances: Folder)
-	-- Точки снаружи у каждого проёма: тут воры появляются и сюда убегают
-	newMarker(entrances, "Door", CFrame.new(-56, 3, 20))
-	newMarker(entrances, "Window", CFrame.new(56, 3, -20))
-	newMarker(entrances, "Hatch", CFrame.new(30, 3, 41))
+	-- Точки снаружи у каждого входа воров: тут они появляются и сюда убегают.
+	-- Входы боковых залов работают, только когда зал открыт (атрибут Hall).
+	local spots = {
+		{ name = "Hatch", hall = "Main", position = Vector3.new(42, 3, 41) },
+		{ name = "ServiceDoor", hall = "Main", position = Vector3.new(34, 3, -41) },
+		{ name = "JewelryWindow", hall = "Jewelry", position = Vector3.new(-106, 3, 16) },
+		{ name = "SculptureDoor", hall = "Sculptures", position = Vector3.new(106, 3, -16) },
+	}
+	for _, spot in spots do
+		local marker = newMarker(entrances, spot.name, CFrame.new(spot.position))
+		marker:SetAttribute("Hall", spot.hall)
+	end
 end
 
 local function buildControlRoom(map: Folder, geometry: Folder)
@@ -317,8 +439,14 @@ function MapBuilder.build(): Instance
 	local entrances = newFolder(map, MapSchema.ThiefEntrances)
 	local cameraPoints = newFolder(map, MapSchema.CameraPoints)
 	local trapSlots = newFolder(map, MapSchema.TrapSlots)
+	local hallDoors = newFolder(map, MapSchema.HallDoors)
+	local pedestals = newFolder(map, MapSchema.Pedestals)
 
 	buildHall(geometry)
+	buildSideHalls(geometry)
+	buildHallDoor(hallDoors, "Jewelry", Vector3.new(-50, 0, 0), Vector3.new(1, 0, 0))
+	buildHallDoor(hallDoors, "Sculptures", Vector3.new(50, 0, 0), Vector3.new(-1, 0, 0))
+	buildPedestals(pedestals)
 	buildMonaLisa(map, exhibits, markers)
 	buildProps(props)
 	buildCameras(props, cameraPoints)
@@ -328,7 +456,11 @@ function MapBuilder.build(): Instance
 	buildLobby(geometry, props, markers)
 
 	newMarker(markers, MapSchema.PatrolSpawn, CFrame.new(-40, 3, -28))
-	newMarker(markers, MapSchema.TouristEntrance, CFrame.new(-56, 3, 20)) -- пока у западной двери
+	newMarker(markers, MapSchema.TouristEntrance, CFrame.new(0, 3, 42)) -- снаружи главного входа
+	-- Главная дверь: днём открыта для туристов, ночью закрыта (переключает HallService)
+	local frontDoor = newPart(map, MapSchema.FrontDoor, Vector3.new(8, OPENING_H, 0.6), CFrame.new(0, OPENING_H / 2, 35), COLORS.Wood, Enum.Material.Wood)
+	frontDoor.CanCollide = false
+	frontDoor.Transparency = 1
 
 	return map
 end

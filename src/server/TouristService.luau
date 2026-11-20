@@ -50,6 +50,7 @@ local SHIRTS = { "E74C3C", "3498DB", "2ECC71", "F1C40F", "9B59B6", "E67E22", "1A
 local PANTS = { "34495E", "2C3E50", "5D4037", "1F3A60", "4A4A4A" }
 
 local tourists: { [Model]: Tourist } = {}
+local floors: { BasePart } = {} -- полы залов (атрибут Hall)
 local folder: Folder
 local entrance: BasePart? = nil
 local attractionsProvider: (() -> { Attraction })? = nil
@@ -113,9 +114,26 @@ end
 
 ---------------------------------------------------------------- куда идти
 
+-- Случайное место в одном из открытых залов.
 local function randomWanderSpot(): Attraction
-	local min, max = TouristConfig.WanderMin, TouristConfig.WanderMax
-	local stand = Vector3.new(random:NextNumber(min.X, max.X), min.Y, random:NextNumber(min.Z, max.Z))
+	local open = {}
+	for _, floor in floors do
+		if GameState.isHallOpen(floor:GetAttribute("Hall")) then
+			table.insert(open, floor)
+		end
+	end
+	local stand = Vector3.new(0, 3, 20)
+	if #open > 0 then
+		local floor = pick(open)
+		local inset = TouristConfig.WanderInset
+		local halfX = math.max(0, floor.Size.X / 2 - inset)
+		local halfZ = math.max(0, floor.Size.Z / 2 - inset)
+		stand = Vector3.new(
+			floor.Position.X + random:NextNumber(-halfX, halfX),
+			3,
+			floor.Position.Z + random:NextNumber(-halfZ, halfZ)
+		)
+	end
 	local angle = random:NextNumber(0, math.pi * 2)
 	return { stand = stand, look = stand + Vector3.new(math.cos(angle), 0, math.sin(angle)) * 5 }
 end
@@ -359,6 +377,14 @@ function TouristService.init(map: Instance)
 		created.Name = MapSchema.Tourists
 		created.Parent = Workspace
 		folder = created
+	end
+	local geometry = map:FindFirstChild(MapSchema.Geometry)
+	if geometry then
+		for _, part in geometry:GetChildren() do
+			if part:IsA("BasePart") and part:GetAttribute("Hall") ~= nil then
+				table.insert(floors, part)
+			end
+		end
 	end
 	local marker = map:FindFirstChild(MapSchema.TouristEntrance, true)
 	if marker and marker:IsA("BasePart") then

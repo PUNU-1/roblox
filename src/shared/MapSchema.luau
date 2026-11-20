@@ -24,6 +24,11 @@ local MapSchema = {
 	-- Папки, которые появляются во время игры (прямо в Workspace)
 	Thieves = "Thieves", -- воры
 	Tourists = "Tourists", -- туристы днём
+	HallDoors = "HallDoors", -- заколоченные двери в боковые залы (модели с атрибутом Hall)
+	HallDoorPanel = "Boards", -- деталь двери, которая загораживает проход
+	HallDoorSign = "Sign", -- табличка с ценой и сбором денег
+	Pedestals = "Pedestals", -- постаменты для экспонатов (атрибуты Hall и Slot)
+	FrontDoor = "FrontDoor", -- главная дверь для туристов: днём открыта, ночью закрыта
 	TouristEntrance = "TouristEntrance", -- откуда приходят и куда уходят туристы
 	PlacedTraps = "PlacedTraps", -- поставленные лазерные сетки
 
@@ -40,6 +45,7 @@ local MapSchema = {
 		GuardCap = "guard_cap_01",
 		GuardBadge = "guard_badge_01",
 		Phone = "prop_phone_01",
+		Pedestal = "prop_pedestal_01",
 	},
 }
 

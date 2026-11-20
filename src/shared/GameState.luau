@@ -34,6 +34,26 @@ GameState.ThiefAnim = {
 	Arrest = "Arrest", -- руки вверх, потом руки вперёд в наручники
 }
 
+-- Залы музея. Главный открыт всегда, боковые открываются за деньги (вскладчину).
+GameState.Hall = {
+	Main = "Main",
+	Jewelry = "Jewelry",
+	Sculptures = "Sculptures",
+}
+
+-- Атрибут GameState «зал открыт»: HallOpen_Jewelry и т.д.
+function GameState.hallOpenAttr(hall: string): string
+	return "HallOpen_" .. hall
+end
+
+-- Открыт ли зал (атрибут Hall у детали карты; без атрибута — главный зал).
+function GameState.isHallOpen(hall: any): boolean
+	if hall == nil or hall == GameState.Hall.Main then
+		return true
+	end
+	return GameState.get(GameState.hallOpenAttr(hall)) == true
+end
+
 GameState.TouristAnim = {
 	Stroll = "Stroll", -- спокойно гуляет
 	Admire = "Admire", -- стоит у экспоната, руки за спиной

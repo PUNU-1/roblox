@@ -23,14 +23,23 @@ local Config = {
 	},
 
 	Cameras = {
-		Count = 4, -- 3-4 точки, переключение цифрами 1-4
+		Count = 6, -- по 2 камеры на зал, переключение цифрами 1-6
 		StaticSeconds = 0.3, -- помеха при переключении
 		FieldOfView = 80,
-		Names = { "West Door", "South Hatch", "North Corridor", "East Window" },
+		Names = { "Main Hall S", "Main Hall N", "Jewelry W", "Jewelry E", "Sculptures E", "Sculptures W" },
 		NightSaturation = -1, -- ночью картинка чёрно-белая
 		NightContrast = 0.15,
 		ConsoleHoldSeconds = 0.5, -- сколько держать E у пульта
 		ConsolePromptDistance = 8,
+	},
+
+	Halls = {
+		Jewelry = { Price = 400, Title = "JEWELRY HALL" }, -- баланс: цена зала
+		Sculptures = { Price = 600, Title = "SCULPTURE HALL" },
+		ContributeStep = 50, -- сколько вкладывает одно удержание E (или сколько осталось денег)
+		ContributeHoldSeconds = 0.5,
+		PromptDistance = 10,
+		BoardsFallSeconds = 1.2, -- доски падают, когда зал оплачен
 	},
 
 	Thief = {
@@ -113,8 +122,7 @@ local Config = {
 		ReachDistance = 3,
 		WalkTimeout = 25, -- если турист застрял, через столько секунд идёт дальше
 		UpdateSeconds = 0.2,
-		WanderMin = Vector3.new(-42, 3, -28), -- где гуляет по залу, пока экспонатов мало
-		WanderMax = Vector3.new(42, 3, 28),
+		WanderInset = 6, -- гуляет по открытым залам, не ближе этого к стенам
 	},
 
 	Comms = {

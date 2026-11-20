@@ -32,7 +32,7 @@ local markThief = Remotes.get(Remotes.Names.MarkThief)
 
 local PHONE_ACTION = "OpenPhone"
 local SWITCH_ACTION = "SwitchCamera"
-local CAMERA_KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four }
+local CAMERA_KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six }
 
 -- Tab открывает телефон, поэтому стандартный список игроков Roblox отключаем.
 pcall(function()
@@ -165,8 +165,8 @@ local buttonsFrame = Theme.new("Frame", {
 	Parent = panel,
 })
 Theme.new("UIGridLayout", {
-	CellSize = UDim2.new(0.48, 0, 0.46, 0),
-	CellPadding = UDim2.new(0.04, 0, 0.08, 0),
+	CellSize = UDim2.new(0.31, 0, 0.46, 0), -- 3 × 2 кнопки
+	CellPadding = UDim2.new(0.035, 0, 0.08, 0),
 	SortOrder = Enum.SortOrder.LayoutOrder,
 	Parent = buttonsFrame,
 })
@@ -202,12 +202,26 @@ local closeButton = Theme.button({
 
 ---------------------------------------------------------------- схема музея
 
--- Границы зала берём с карты, чтобы схема совпадала с тем, что построено.
+-- Границы схемы — все полы залов (атрибут Hall), чтобы схема совпадала с тем, что построено.
+local hallFloors: { BasePart } = {}
 local hallCenter, hallSize = Vector3.zero, Vector3.new(100, 1, 70)
 do
-	local floor = map:FindFirstChild("HallFloor", true)
-	if floor and floor:IsA("BasePart") then
-		hallCenter, hallSize = floor.Position, floor.Size
+	local geometry = map:FindFirstChild(MapSchema.Geometry)
+	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
+	if geometry then
+		for _, part in geometry:GetChildren() do
+			if part:IsA("BasePart") and part:GetAttribute("Hall") ~= nil then
+				table.insert(hallFloors, part)
+				minX = math.min(minX, part.Position.X - part.Size.X / 2)
+				maxX = math.max(maxX, part.Position.X + part.Size.X / 2)
+				minZ = math.min(minZ, part.Position.Z - part.Size.Z / 2)
+				maxZ = math.max(maxZ, part.Position.Z + part.Size.Z / 2)
+			end
+		end
+	end
+	if #hallFloors > 0 then
+		hallCenter = Vector3.new((minX + maxX) / 2, 0, (minZ + maxZ) / 2)
+		hallSize = Vector3.new(maxX - minX, 1, maxZ - minZ)
 	end
 end
 
@@ -217,11 +231,11 @@ local function toMap(position: Vector3): UDim2
 	return UDim2.fromScale(math.clamp(x, 0, 1), math.clamp(y, 0, 1))
 end
 
-local function drawRect(part: BasePart, color: Color3)
+local function drawRect(part: BasePart, color: Color3): Frame
 	local half = part.Size / 2
 	local corner = part.Position - Vector3.new(half.X, 0, half.Z)
 	local topLeft = toMap(corner)
-	Theme.new("Frame", {
+	return Theme.new("Frame", {
 		Position = topLeft,
 		Size = UDim2.fromScale(part.Size.X / hallSize.X, part.Size.Z / hallSize.Z),
 		BackgroundColor3 = color,
@@ -231,13 +245,24 @@ local function drawRect(part: BasePart, color: Color3)
 	})
 end
 
+-- Полы залов: открытый зал светлее, закрытый — тёмный
+local floorFrames: { [BasePart]: Frame } = {}
+local function refreshFloors()
+	for floor, frame in floorFrames do
+		local open = GameState.isHallOpen(floor:GetAttribute("Hall"))
+		frame.BackgroundColor3 = if open then Colors.NavyLight else Colors.Dark
+		frame.BackgroundTransparency = if open then 0.2 else 0.5
+	end
+end
+
 do
-	Theme.new("Frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		ZIndex = 2,
-		Parent = mapCanvas,
-	}, { Theme.new("UIStroke", { Color = Colors.Marble, Thickness = 2 }) })
+	for _, floor in hallFloors do
+		local frame = drawRect(floor, Colors.NavyLight)
+		frame.ZIndex = 1
+		Theme.new("UIStroke", { Color = Colors.Marble, Thickness = 1, Parent = frame })
+		floorFrames[floor] = frame
+	end
+	refreshFloors()
 	local geometry = map:FindFirstChild(MapSchema.Geometry)
 	if geometry then
 		for _, part in geometry:GetChildren() do
@@ -374,9 +399,28 @@ local function showCamera(index: number)
 	playStatic()
 end
 
+-- Камера работает, только если её зал открыт.
+local function cameraAvailable(index: number): boolean
+	local point = cameraPoint(index)
+	return point ~= nil and GameState.isHallOpen(point:GetAttribute("Hall"))
+end
+
+local function refreshCameraButtons()
+	for index, button in cameraButtons do
+		local available = cameraAvailable(index)
+		button.AutoButtonColor = available
+		button.Text = if available then tostring(index) else "🔒"
+		if index ~= currentIndex then
+			button.BackgroundColor3 = if available then Colors.NavyLight else Colors.Dark
+		end
+	end
+	refreshFloors()
+end
+
 local function switchTo(index: number)
-	if viewing and index ~= currentIndex and index >= 1 and index <= cameraCount then
+	if viewing and index ~= currentIndex and index >= 1 and index <= cameraCount and cameraAvailable(index) then
 		showCamera(index)
+		refreshCameraButtons()
 	end
 end
 
@@ -541,10 +585,15 @@ local function openView()
 	TweenService:Create(panel, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Position = UDim2.new(0.5, 0, 1, 0),
 	}):Play()
+	if not cameraAvailable(currentIndex) then
+		currentIndex = 1 -- камера закрытого зала не работает
+	end
 	showCamera(currentIndex)
+	refreshCameraButtons()
 	ContextActionService:BindAction(SWITCH_ACTION, onSwitchAction, false, table.unpack(CAMERA_KEYS))
 
 	local blink = 0
+	local refreshTimer = 0
 	renderConnection = RunService.Heartbeat:Connect(function(dt)
 		blink += dt
 		recDot.Visible = blink % 1 < 0.5
@@ -557,6 +606,11 @@ local function openView()
 			clockLabel.Text = "DAY " .. Theme.formatTime(GameState.secondsLeft())
 		end
 		updatePlayerDots()
+		refreshTimer += dt
+		if refreshTimer > 0.5 then
+			refreshTimer = 0
+			refreshCameraButtons() -- зал могли открыть, пока смотрим
+		end
 	end)
 end
 

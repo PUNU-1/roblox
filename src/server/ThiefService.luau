@@ -96,9 +96,20 @@ local function nearestGuard(position: Vector3): (Vector3?, number)
 	return bestPosition, bestDistance
 end
 
+-- Входы боковых залов работают, только когда зал открыт.
+local function openEntrances(): { BasePart }
+	local list = {}
+	for _, entrance in entrances do
+		if GameState.isHallOpen(entrance:GetAttribute("Hall")) then
+			table.insert(list, entrance)
+		end
+	end
+	return list
+end
+
 local function nearestEntrance(position: Vector3): Vector3?
 	local best, bestDistance = nil, math.huge
-	for _, entrance in entrances do
+	for _, entrance in openEntrances() do
 		local distance = flatDistance(entrance.Position, position)
 		if distance < bestDistance then
 			best, bestDistance = entrance.Position, distance
@@ -378,7 +389,12 @@ local function spawnThief(): boolean
 	humanoid.WalkSpeed = ThiefConfig.SneakSpeed
 	humanoid:AddAccessory(ModelLibrary.accessory(MapSchema.Models.ThiefMask, MASK_STUB, "FaceCenterAttachment"))
 
-	local entrance = entrances[random:NextInteger(1, #entrances)]
+	local open = openEntrances()
+	if #open == 0 then
+		model:Destroy()
+		return false
+	end
+	local entrance = open[random:NextInteger(1, #open)]
 	model:PivotTo(entrance.CFrame)
 	model.Parent = folder
 	pcall(function()

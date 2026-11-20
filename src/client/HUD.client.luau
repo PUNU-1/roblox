@@ -345,6 +345,11 @@ local function hintText(phase: string): string?
 		if Config.Traps.LaserGrid.Enabled and (tonumber(GameState.get(Attr.LasersLeft)) or 0) > 0 then
 			return HINT_PLACE
 		end
+		local money = tonumber(localPlayer:GetAttribute(PlayerAttr.Money)) or 0
+		local closedHall = not GameState.isHallOpen(GameState.Hall.Jewelry) or not GameState.isHallOpen(GameState.Hall.Sculptures)
+		if closedHall and money >= Config.Halls.ContributeStep then
+			return "Hold E at a boarded door to chip in for a new hall   •   " .. cameras
+		end
 		return "Thieves come at midnight. Don't let them take the Mona Lisa!   •   " .. cameras
 	elseif phase == Phase.Night then
 		if GameState.get(Attr.PaintingStolen) == true then
