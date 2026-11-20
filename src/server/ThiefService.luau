@@ -5,7 +5,6 @@
 
 local Debris = game:GetService("Debris")
 local PathfindingService = game:GetService("PathfindingService")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -110,7 +109,7 @@ end
 
 ---------------------------------------------------------------- анимации и шаги
 
--- Сами движения рук и ног делает каждый клиент (ThiefAnimator.client.luau).
+-- Сами движения рук и ног делает каждый клиент (NpcAnimator.client.luau).
 -- Сервер только сообщает, что вор сейчас делает.
 local ANIM_FOR_STATE: { [string]: string } = {
 	Approach = GameState.ThiefAnim.Sneak,
@@ -124,9 +123,9 @@ local ANIM_FOR_STATE: { [string]: string } = {
 
 local function syncAnim(thief: Thief)
 	local anim = ANIM_FOR_STATE[thief.state] or GameState.ThiefAnim.Sneak
-	if thief.model:GetAttribute(GameState.ThiefAttr.AnimState) ~= anim then
-		thief.model:SetAttribute(GameState.ThiefAttr.AnimStateAt, now())
-		thief.model:SetAttribute(GameState.ThiefAttr.AnimState, anim)
+	if thief.model:GetAttribute(GameState.NpcAttr.AnimState) ~= anim then
+		thief.model:SetAttribute(GameState.NpcAttr.AnimStateAt, now())
+		thief.model:SetAttribute(GameState.NpcAttr.AnimState, anim)
 	end
 end
 
@@ -338,29 +337,6 @@ end
 
 ---------------------------------------------------------------- появление и удаление
 
--- Новые персонажи Roblox соединены суставами AnimationConstraint. Их положение приходит с сервера
--- вместе с физикой, и клиентская анимация (ThiefAnimator) на них не держится. Меняем их на
--- классические Motor6D: у Motor6D свойство Transform локальное, каждый клиент двигает его сам.
-local function useMotorJoints(model: Model)
-	for _, joint in model:GetDescendants() do
-		if joint:IsA("AnimationConstraint") then
-			local a0, a1 = joint.Attachment0, joint.Attachment1
-			local part0 = a0 and a0.Parent
-			local part1 = a1 and a1.Parent
-			if a0 and a1 and part0 and part0:IsA("BasePart") and part1 and part1:IsA("BasePart") then
-				local motor = Instance.new("Motor6D")
-				motor.Name = joint.Name
-				motor.Part0 = part0
-				motor.Part1 = part1
-				motor.C0 = a0.CFrame
-				motor.C1 = a1.CFrame
-				motor.Parent = part1
-				joint:Destroy()
-			end
-		end
-	end
-end
-
 local function createRig(): Model?
 	local description = Instance.new("HumanoidDescription")
 	local color = ThiefConfig.Color
@@ -370,15 +346,7 @@ local function createRig(): Model?
 	description.RightArmColor = color
 	description.LeftLegColor = color
 	description.RightLegColor = color
-	local ok, result = pcall(function()
-		return Players:CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R15)
-	end)
-	if not ok or not result then
-		warn("[ThiefService] Не удалось создать вора:", result)
-		return nil
-	end
-	useMotorJoints(result)
-	return result
+	return ModelLibrary.createRig(description)
 end
 
 local function aliveCount(): number

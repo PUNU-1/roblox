@@ -23,6 +23,8 @@ local MapSchema = {
 
 	-- Папки, которые появляются во время игры (прямо в Workspace)
 	Thieves = "Thieves", -- воры
+	Tourists = "Tourists", -- туристы днём
+	TouristEntrance = "TouristEntrance", -- откуда приходят и куда уходят туристы
 	PlacedTraps = "PlacedTraps", -- поставленные лазерные сетки
 
 	-- Имена моделей в ReplicatedStorage/Models (как в GEMINI.md)

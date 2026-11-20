@@ -14,6 +14,8 @@ local catchesByUser: { [number]: number } = {}
 local participantIds: { number } = {}
 local caughtTotal = 0
 local spawnedTotal = 0
+local incomePool = 0 -- остаток дохода, который ещё не поделился поровну
+local dayTickets = 0
 
 export type Results = {
 	survived: boolean,
@@ -26,12 +28,42 @@ export type Results = {
 	gameOver: boolean?, -- Мону Лизу вынесли, забег окончен
 	nightsSurvived: number?, -- сколько ночей продержались за этот забег
 	best: number?, -- рекорд сервера
+	tickets: number?, -- сколько заплатили туристы за день перед этой ночью
 }
 
 -- Новый забег: всё с нуля, деньги тоже.
 function ScoreService.beginRun(participants: { Player })
 	for _, player in participants do
 		player:SetAttribute(GameState.PlayerAttr.Money, 0)
+	end
+	incomePool = 0
+end
+
+function ScoreService.beginDay()
+	dayTickets = 0
+end
+
+-- Доход (например, билет туриста) делится поровну между игроками забега.
+-- Остаток, который не делится нацело, копится до следующего раза.
+function ScoreService.addIncome(amount: number)
+	dayTickets += amount
+	incomePool += amount
+	local players = {}
+	for _, player in Players:GetPlayers() do
+		if player:GetAttribute(GameState.PlayerAttr.InRound) == true then
+			table.insert(players, player)
+		end
+	end
+	if #players == 0 then
+		return
+	end
+	local share = math.floor(incomePool / #players)
+	if share <= 0 then
+		return
+	end
+	incomePool -= share * #players
+	for _, player in players do
+		player:SetAttribute(GameState.PlayerAttr.Money, (player:GetAttribute(GameState.PlayerAttr.Money) or 0) + share)
 	end
 end
 
@@ -88,6 +120,7 @@ function ScoreService.finish(survived: boolean): Results
 		earnings = earnings,
 		catches = catches,
 		bestUserId = bestUserId,
+		tickets = dayTickets,
 	}
 end
 

@@ -3,6 +3,7 @@
 -- Договорённость: origin модели (pivot) внизу по центру, перед модели смотрит в -Z.
 -- Скрипты внутри моделей запрещены: если они там есть, удаляем их и пишем предупреждение.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 export type StubPart = {
@@ -142,6 +143,42 @@ function ModelLibrary.accessory(name: string, stubParts: { StubPart }, attachmen
 		part.Massless = true
 	end)
 	return accessory
+end
+
+-- Новые персонажи Roblox соединены суставами AnimationConstraint. Их положение приходит с сервера
+-- вместе с физикой, и клиентская анимация (NpcAnimator) на них не держится. Меняем их на
+-- классические Motor6D: у Motor6D свойство Transform локальное, каждый клиент двигает его сам.
+local function useMotorJoints(model: Model)
+	for _, joint in model:GetDescendants() do
+		if joint:IsA("AnimationConstraint") then
+			local a0, a1 = joint.Attachment0, joint.Attachment1
+			local part0 = a0 and a0.Parent
+			local part1 = a1 and a1.Parent
+			if a0 and a1 and part0 and part0:IsA("BasePart") and part1 and part1:IsA("BasePart") then
+				local motor = Instance.new("Motor6D")
+				motor.Name = joint.Name
+				motor.Part0 = part0
+				motor.Part1 = part1
+				motor.C0 = a0.CFrame
+				motor.C1 = a1.CFrame
+				motor.Parent = part1
+				joint:Destroy()
+			end
+		end
+	end
+end
+
+-- Персонаж-NPC (вор, турист) из HumanoidDescription, с суставами Motor6D. nil — если Roblox не смог.
+function ModelLibrary.createRig(description: HumanoidDescription): Model?
+	local ok, result = pcall(function()
+		return Players:CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R15)
+	end)
+	if not ok or not result then
+		warn("[ModelLibrary] Не удалось создать персонажа:", result)
+		return nil
+	end
+	useMotorJoints(result)
+	return result
 end
 
 -- Приваривает модель к детали персонажа: модель встаёт в cframe и двигается вместе с ней.

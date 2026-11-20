@@ -328,6 +328,7 @@ function MapBuilder.build(): Instance
 	buildLobby(geometry, props, markers)
 
 	newMarker(markers, MapSchema.PatrolSpawn, CFrame.new(-40, 3, -28))
+	newMarker(markers, MapSchema.TouristEntrance, CFrame.new(-56, 3, 20)) -- пока у западной двери
 
 	return map
 end

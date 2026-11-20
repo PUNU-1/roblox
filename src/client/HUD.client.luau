@@ -249,7 +249,11 @@ local function showResults(results: { [string]: any })
 		)
 	else
 		resultsTitle.Text = ("NIGHT %d SURVIVED"):format(night)
-		resultsCaught.Text = ("Thieves caught: %d / %d"):format(tonumber(results.caught) or 0, tonumber(results.total) or 0)
+		resultsCaught.Text = ("Thieves caught: %d / %d   •   Tickets: +$%d"):format(
+			tonumber(results.caught) or 0,
+			tonumber(results.total) or 0,
+			tonumber(results.tickets) or 0
+		)
 	end
 	resultsTitle.TextColor3 = if survived then Colors.Gold else Colors.Red
 
@@ -361,7 +365,11 @@ local function topBarText(phase: string): string
 		end
 		return "Choose a role and press READY"
 	elseif phase == Phase.Day then
-		return ("DAY %d   •   Night in %s"):format(tonumber(GameState.get(Attr.NightNumber)) or 1, Theme.formatTime(left))
+		return ("DAY %d   •   Night in %s   •   Tourists: %d"):format(
+			tonumber(GameState.get(Attr.NightNumber)) or 1,
+			Theme.formatTime(left),
+			tonumber(GameState.get(Attr.TouristsToday)) or 0
+		)
 	elseif phase == Phase.Night then
 		local started = GameState.get(Attr.NightStartedAt)
 		local elapsed = if typeof(started) == "number" then Workspace:GetServerTimeNow() - started else 0

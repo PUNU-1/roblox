@@ -1,5 +1,6 @@
--- Анимации воров кодом. Каждый клиент сам двигает суставы R15 (Transform) по состоянию,
--- которое сервер пишет в атрибут вора (AnimState): крадётся, бежит, снимает экспонат, несёт, арест.
+-- Анимации NPC кодом: воры и туристы. Каждый клиент сам двигает суставы R15 (Transform) по состоянию,
+-- которое сервер пишет в атрибут модели (AnimState). Воры: крадётся, бежит, снимает экспонат, несёт,
+-- арест. Туристы: гуляет, смотрит на экспонат, фотографирует.
 -- В Roblox ничего загружать не нужно, а сеть не нагружается: Transform видит только этот клиент.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,7 +13,8 @@ local GameState = require(Shared:WaitForChild("GameState"))
 local MapSchema = require(Shared:WaitForChild("MapSchema"))
 
 local Anim = GameState.ThiefAnim
-local ThiefAttr = GameState.ThiefAttr
+local TouristAnim = GameState.TouristAnim
+local NpcAttr = GameState.NpcAttr
 local Settings = Config.Animations
 
 local JOINTS = {
@@ -190,8 +192,54 @@ local function arrestPose(t: number): Pose
 	return pose
 end
 
+-- Турист гуляет: спокойный шаг, руки слегка покачиваются, головой вертит по сторонам.
+local function strollPose(clock: number, phase: number, move: number): Pose
+	local pose: Pose = {}
+	local s = math.sin(phase)
+	pose.Root = CFrame.new(0, 0.06 * math.abs(s) * move, 0)
+	pose.Neck = R(0.05, 0.25 * math.sin(clock * 0.7), 0)
+	pose.LeftShoulder = R(-0.4 * s * move, 0, -0.08)
+	pose.RightShoulder = R(0.4 * s * move, 0, 0.08)
+	pose.LeftElbow = R(0.3)
+	pose.RightElbow = R(0.3)
+	legs(pose, phase, move, 0.55, 0.6, 0.03, 0)
+	return pose
+end
+
+-- Турист смотрит на экспонат: руки за спиной, голова чуть вверх и покачивается.
+local function admirePose(clock: number): Pose
+	local pose: Pose = {}
+	pose.Neck = R(0.18, 0.15 * math.sin(clock * 0.5), 0)
+	pose.Waist = R(0.05, 0.08 * math.sin(clock * 0.4), 0)
+	pose.LeftShoulder = R(-0.45, 0, 0.25)
+	pose.RightShoulder = R(-0.45, 0, -0.25)
+	pose.LeftElbow = R(1.1)
+	pose.RightElbow = R(1.1)
+	legs(pose, 0, 0, 0, 0, 0, 0)
+	return pose
+end
+
+-- Турист фотографирует: руки с телефоном перед лицом, лёгкий наклон назад.
+local function photoPose(clock: number): Pose
+	local pose: Pose = {}
+	pose.Neck = R(0.05)
+	pose.Waist = R(0.08 + 0.02 * math.sin(clock * 2), 0, 0)
+	pose.LeftShoulder = R(1.25, 0, 0.6)
+	pose.RightShoulder = R(1.25, 0, -0.6)
+	pose.LeftElbow = R(1.1)
+	pose.RightElbow = R(1.1)
+	legs(pose, 0, 0, 0, 0, 0, 0)
+	return pose
+end
+
 local function poseFor(state: any, t: number, clock: number, phase: number, move: number): Pose
-	if state == Anim.Run then
+	if state == TouristAnim.Stroll then
+		return strollPose(clock, phase, move)
+	elseif state == TouristAnim.Admire then
+		return admirePose(clock)
+	elseif state == TouristAnim.Photo then
+		return photoPose(clock)
+	elseif state == Anim.Run then
 		return runPose(phase, move)
 	elseif state == Anim.Carry then
 		return carryPose(phase, move)
@@ -259,10 +307,12 @@ local function step(dt: number)
 			continue
 		end
 
-		local state = model:GetAttribute(ThiefAttr.AnimState)
-		local startedAt = model:GetAttribute(ThiefAttr.AnimStateAt)
+		local state = model:GetAttribute(NpcAttr.AnimState)
+		local startedAt = model:GetAttribute(NpcAttr.AnimStateAt)
 		local t = if typeof(startedAt) == "number" then math.max(0, clock - startedAt) else 0
-		local stride = if state == Anim.Sneak then Settings.SneakStride else Settings.RunStride
+		local stride = if state == Anim.Sneak then Settings.SneakStride
+			elseif state == TouristAnim.Stroll then Settings.StrollStride
+			else Settings.RunStride
 		rig.phase = (rig.phase + rig.speed * dt * stride) % (math.pi * 2)
 		local move = math.clamp(rig.speed / 6, 0, 1)
 
@@ -288,19 +338,22 @@ local function step(dt: number)
 	end
 end
 
-local thievesFolder = Workspace:WaitForChild(MapSchema.Thieves)
-thievesFolder.ChildAdded:Connect(function(child)
-	task.spawn(register, child)
-end)
-thievesFolder.ChildRemoved:Connect(function(child)
-	if child:IsA("Model") then
-		rigs[child] = nil
+-- Следим за папками с ворами и туристами
+for _, folderName in { MapSchema.Thieves, MapSchema.Tourists } do
+	local folder = Workspace:WaitForChild(folderName)
+	folder.ChildAdded:Connect(function(child)
+		task.spawn(register, child)
+	end)
+	folder.ChildRemoved:Connect(function(child)
+		if child:IsA("Model") then
+			rigs[child] = nil
+		end
+	end)
+	for _, child in folder:GetChildren() do
+		task.spawn(register, child)
 	end
-end)
-for _, child in thievesFolder:GetChildren() do
-	task.spawn(register, child)
 end
 
--- Позу пишем последней перед отрисовкой кадра: иначе встроенный Animator вора может перезаписать её
+-- Позу пишем последней перед отрисовкой кадра: иначе встроенный Animator может перезаписать её
 -- (порядок обработчиков одного события зависит от того, кто подключился раньше)
-RunService:BindToRenderStep("ThiefAnimator", Enum.RenderPriority.Last.Value, step)
+RunService:BindToRenderStep("NpcAnimator", Enum.RenderPriority.Last.Value, step)

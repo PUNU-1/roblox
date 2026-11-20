@@ -20,9 +20,9 @@ GameState.Role = {
 	Operator = "Operator",
 }
 
--- Атрибуты модели вора: сервер пишет, что вор сейчас делает, клиенты по этому двигают его руки и ноги.
-GameState.ThiefAttr = {
-	AnimState = "AnimState", -- string, одна из GameState.ThiefAnim
+-- Атрибуты модели NPC (вор, турист): сервер пишет, что он сейчас делает, клиенты по этому двигают руки и ноги.
+GameState.NpcAttr = {
+	AnimState = "AnimState", -- string, одна из GameState.ThiefAnim или GameState.TouristAnim
 	AnimStateAt = "AnimStateAt", -- number, workspace:GetServerTimeNow(), когда началось это состояние
 }
 
@@ -32,6 +32,12 @@ GameState.ThiefAnim = {
 	Steal = "Steal", -- оглядывается и снимает экспонат
 	Carry = "Carry", -- несёт экспонат над головой
 	Arrest = "Arrest", -- руки вверх, потом руки вперёд в наручники
+}
+
+GameState.TouristAnim = {
+	Stroll = "Stroll", -- спокойно гуляет
+	Admire = "Admire", -- стоит у экспоната, руки за спиной
+	Photo = "Photo", -- фотографирует экспонат
 }
 
 -- Атрибуты ReplicatedStorage.GameState
@@ -47,6 +53,7 @@ GameState.Attr = {
 	Solo = "Solo", -- boolean, в игре один игрок
 	NightNumber = "NightNumber", -- number, какая по счёту ночь идёт (или будет после этого дня)
 	BestNights = "BestNights", -- number, рекорд сервера: сколько ночей продержались
+	TouristsToday = "TouristsToday", -- number, сколько туристов пришло за день
 }
 
 -- Атрибуты Player
