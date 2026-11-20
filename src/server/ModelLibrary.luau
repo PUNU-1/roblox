@@ -123,9 +123,12 @@ function ModelLibrary.accessory(name: string, stubParts: { StubPart }, attachmen
 			else
 				part.CFrame = spec.offset
 				part.Parent = handle
-				local weld = Instance.new("WeldConstraint")
+				-- Weld с явным C0, а не WeldConstraint: WeldConstraint запоминает положение деталей,
+				-- когда аксессуар попадает в мир, а к этому времени Handle уже перенесён на голову
+				local weld = Instance.new("Weld")
 				weld.Part0 = handle
 				weld.Part1 = part
+				weld.C0 = spec.offset
 				weld.Parent = part
 			end
 		end
