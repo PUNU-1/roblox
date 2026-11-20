@@ -175,6 +175,12 @@ local Config = {
 			MaxDistance = 100,
 			Color = Color3.fromHex("FFD23F"),
 		},
+		Tap = { -- круг на месте нажатия оператора (размеры в пикселях)
+			Seconds = 0.45,
+			StartSize = 16,
+			EndSize = 70,
+			TextSeconds = 0.9, -- сколько тает надпись «MARKED!»
+		},
 		StealBar = { -- полоска кражи над картиной (размеры в стадах)
 			Width = 4,
 			Height = 0.7,

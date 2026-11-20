@@ -4,6 +4,7 @@
 -- Открыть камеры разрешает только сервер (атрибут ViewingCameras), клиент только просит.
 
 local ContextActionService = game:GetService("ContextActionService")
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -437,11 +438,73 @@ local function thiefAt(screenPosition: Vector2): Model?
 	return best
 end
 
+-- Экран камер рисуется поверх верхней полосы Roblox (IgnoreGuiInset), а позиция нажатия
+-- считается без неё, поэтому добавляем высоту полосы.
+local function toGuiPosition(screenPosition: Vector2): UDim2
+	local inset = GuiService:GetGuiInset()
+	return UDim2.fromOffset(screenPosition.X + inset.X, screenPosition.Y + inset.Y)
+end
+
+-- Ответ на нажатие: попал по вору — красный круг и «MARKED!», промахнулся — серый круг.
+local function showTap(screenPosition: Vector2, marked: boolean)
+	local tap = Config.Effects.Tap
+	local ring = Theme.new("Frame", {
+		Name = "TapRing",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = toGuiPosition(screenPosition),
+		Size = UDim2.fromOffset(tap.StartSize, tap.StartSize),
+		BackgroundTransparency = 1,
+		ZIndex = 20,
+		Parent = gui,
+	}, { Theme.new("UICorner", { CornerRadius = UDim.new(0.5, 0) }) })
+	local ringStroke = Theme.new("UIStroke", { Color = if marked then Colors.Red else Colors.Gray, Thickness = 3, Parent = ring })
+	local ringInfo = TweenInfo.new(tap.Seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(ring, ringInfo, { Size = UDim2.fromOffset(tap.EndSize, tap.EndSize) }):Play()
+	local ringFade = TweenService:Create(ringStroke, ringInfo, { Transparency = 1 })
+	ringFade.Completed:Once(function()
+		ring:Destroy()
+	end)
+	ringFade:Play()
+
+	if not marked then
+		return
+	end
+	local text = Theme.label({
+		Name = "MarkedText",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = toGuiPosition(screenPosition - Vector2.new(0, tap.EndSize / 2)),
+		Size = UDim2.fromOffset(160, 32),
+		Text = "MARKED!",
+		TextColor3 = Colors.Red,
+		ZIndex = 20,
+		MaxTextSize = 28,
+		Parent = gui,
+	})
+	local textStroke = Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = text })
+	local textInfo = TweenInfo.new(tap.TextSeconds)
+	TweenService:Create(textStroke, textInfo, { Transparency = 1 }):Play()
+	local textFade = TweenService:Create(text, textInfo, {
+		TextTransparency = 1,
+		Position = text.Position - UDim2.fromOffset(0, 20),
+	})
+	textFade.Completed:Once(function()
+		text:Destroy()
+	end)
+	textFade:Play()
+end
+
+local lastMarkTime = 0
+
 local function tryMark(screenPosition: Vector2)
 	local thief = thiefAt(screenPosition)
-	if thief then
+	local time = os.clock()
+	-- Сервер всё равно проверит сам; тут только чтобы не обещать метку, которой не будет
+	local marked = thief ~= nil and isNight() and time - lastMarkTime >= Config.Comms.MarkCooldown
+	if thief and marked then
+		lastMarkTime = time
 		markThief:FireServer(thief)
 	end
+	showTap(screenPosition, marked)
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
