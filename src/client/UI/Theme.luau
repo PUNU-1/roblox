@@ -91,7 +91,9 @@ function Theme.label(props: { [string]: any }): TextLabel
 		Text = "",
 	}
 	for key, value in props do
-		defaults[key] = value
+		if key ~= "MaxTextSize" then -- это не свойство TextLabel, оно идёт в UITextSizeConstraint
+			defaults[key] = value
+		end
 	end
 	local label = Theme.new("TextLabel", defaults)
 	Theme.new("UITextSizeConstraint", { MaxTextSize = props.MaxTextSize or 36, Parent = label })
