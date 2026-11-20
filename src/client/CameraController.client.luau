@@ -92,7 +92,7 @@ Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = camLabel })
 
 local recFrame = Theme.new("Frame", {
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -30, 0, 24),
+	Position = UDim2.new(1, -190, 0, 24), -- левее счётчика денег (он справа сверху, 150 пикселей)
 	Size = UDim2.new(0, 110, 0, 34),
 	BackgroundTransparency = 1,
 	Parent = gui,
