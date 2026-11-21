@@ -1,4 +1,5 @@
--- Готовые фразы: кнопка на экране (или Q) открывает список, нажал фразу (или её цифру) — она всплывает у всех.
+-- Готовые фразы: кнопка на экране (или T) открывает список, нажал фразу (или её цифру) — она всплывает у всех.
+-- Q / E / C не заняты: они понадобятся для наклонов и приседа (блок 4).
 -- Работает и на ПК, и на телефоне (касанием). Пока список открыт, курсор свободен (вид от первого лица).
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -31,7 +32,7 @@ local toggleButton = Theme.button({
 	Position = UDim2.new(0, 16, 0.45, 0),
 	Size = UDim2.new(0, 120, 0, 50),
 	BackgroundColor3 = Colors.Navy,
-	Text = if keyboard then "💬 Say (Q)" else "💬 Say",
+	Text = if keyboard then "💬 Say (T)" else "💬 Say",
 	Parent = gui,
 })
 Theme.stroke(Colors.Gold, 2).Parent = toggleButton
@@ -116,7 +117,7 @@ local function setToggleBound(bound: boolean)
 				setListOpen(not list.Visible)
 			end
 			return Enum.ContextActionResult.Sink
-		end, false, Enum.KeyCode.Q)
+		end, false, Config.Keys.Phrases)
 	else
 		ContextActionService:UnbindAction(TOGGLE_ACTION)
 	end

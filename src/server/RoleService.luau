@@ -312,6 +312,7 @@ local function setupConsole()
 	prompt.Name = "ConsolePrompt"
 	prompt.ActionText = "Watch cameras"
 	prompt.ObjectText = "Control console"
+	prompt.KeyboardKeyCode = Config.Keys.Action
 	prompt.HoldDuration = Config.Cameras.ConsoleHoldSeconds
 	prompt.MaxActivationDistance = Config.Cameras.ConsolePromptDistance
 	prompt.RequiresLineOfSight = false

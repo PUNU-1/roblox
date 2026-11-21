@@ -4,7 +4,8 @@
 
 local Config = {
 	Keys = { -- клавиши (решение 67); Q / E / C пока свободны — под наклоны и присед (блок 4)
-		Action = Enum.KeyCode.F, -- все кнопки у предметов (ProximityPrompt): покупка, арест, пульт
+		Action = Enum.KeyCode.F, -- все кнопки у предметов (ProximityPrompt): покупка, арест, пульт; геймпад — как было (X)
+		Phrases = Enum.KeyCode.T, -- открыть список готовых фраз (пока он открыт — цифры)
 	},
 
 	Purchase = { -- покупка одним удержанием F (решение 67): хватает денег — покупаешь сразу, нет — всё в полоску
@@ -61,9 +62,16 @@ local Config = {
 		NightSaturation = -1, -- ночью картинка чёрно-белая
 		NightContrast = 0.25,
 		NightExposure = 3.5, -- ночное видение: камеры видят в темноте (яркость картинки ×2^3.5)
-		ConsoleHoldSeconds = 0.5, -- сколько держать E у пульта
+		ConsoleHoldSeconds = 0.5, -- сколько держать F у пульта
 		ConsolePromptDistance = 8,
-		RepairHoldSeconds = 2, -- сколько держать F у пульта, чтобы перезапустить сломанные камеры
+		RepairHoldSeconds = 2, -- сколько держать F у рубильника рядом с пультом, чтобы перезапустить сломанные камеры
+		-- Рубильник «перезапуск камер» справа от пульта: у него своя кнопка F, на пульте — «Watch cameras»
+		-- (на одну клавишу Roblox показывает одну ближайшую кнопку)
+		ResetSwitchGap = 0.6, -- от правого края пульта
+		ResetSwitchSize = Vector3.new(1.4, 3.2, 1.2),
+		ResetSwitchColor = Color3.fromHex("2B2F3A"),
+		ResetLampOffColor = Color3.fromHex("4A1C1E"), -- все камеры работают
+		ResetLampOnColor = Color3.fromHex("FF3B3B"), -- есть сломанные: лампа горит, пора перезапускать
 	},
 
 	Difficulty = { -- каждая следующая ночь сложнее (решение 50); число воров — Thief.PerPlayer*

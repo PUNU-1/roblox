@@ -296,7 +296,10 @@ local hintFrame = Theme.new("Frame", {
 }, { Theme.corner(12), Theme.padding(6), Theme.new("UISizeConstraint", { MinSize = Vector2.new(300, 0) }) })
 local hintLabel = Theme.label({ Size = UDim2.fromScale(1, 1), Font = Theme.BodyFont, MaxTextSize = 20, Parent = hintFrame })
 
-local HINT_ARREST = if touchOnly then "Hold the button next to a thief to arrest him" else "Hold E next to a thief to arrest him"
+local HINT_ARREST = if touchOnly then "Hold the button next to a thief to arrest him" else "Hold F next to a thief to arrest him"
+local HINT_BUY = if touchOnly
+	then "Hold the button at boarded doors and pedestals to buy halls, exhibits, laser grids"
+	else "Hold F at boarded doors and pedestals to buy halls, exhibits, laser grids"
 local HINT_PHONE = if touchOnly then "Phone button — cameras" else "Tab — cameras"
 local HINT_CONSOLE = "Camera console: end of the north corridor"
 local HINT_STOLEN = "The thief has the painting — catch him before he gets out!"
@@ -329,7 +332,7 @@ local function hintText(phase: string): string?
 		local money = tonumber(localPlayer:GetAttribute(PlayerAttr.Money)) or 0
 		local closedHall = not GameState.isHallOpen(GameState.Hall.Jewelry) or not GameState.isHallOpen(GameState.Hall.Sculptures)
 		if closedHall and money > 0 then
-			return "Chip in at boarded doors and pedestals (hold E): new halls, exhibits, laser grids"
+			return HINT_BUY
 		end
 		return "Thieves come at midnight. Don't let them take the Mona Lisa!   •   " .. cameras
 	elseif phase == Phase.Night then

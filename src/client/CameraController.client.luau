@@ -317,7 +317,9 @@ Theme.label({
 	Position = UDim2.fromScale(0.5, 0.45),
 	Size = UDim2.new(0.6, 0, 0, 26),
 	Font = Theme.BodyFont,
-	Text = "Restart the cameras at the control room console (hold F)",
+	Text = if UserInputService.KeyboardEnabled
+		then "Restart the cameras: red switch next to the control room console (hold F)"
+		else "Restart the cameras: red switch next to the control room console",
 	MaxTextSize = 20,
 	ZIndex = 1,
 	Parent = noSignal,

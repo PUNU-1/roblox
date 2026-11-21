@@ -146,7 +146,7 @@ local function onThiefSpawned(model: Model)
 	prompt.ObjectText = "Thief"
 	prompt.HoldDuration = Config.Catch.HoldSeconds
 	prompt.MaxActivationDistance = Config.Catch.MaxDistance
-	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.KeyboardKeyCode = Config.Keys.Action
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = root
 	prompt.Triggered:Connect(function(player)

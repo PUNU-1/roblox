@@ -1,5 +1,6 @@
 -- Камеры наблюдения на сервере: вор-взломщик ломает камеру (атрибут Broken у точки камеры —
--- клиенты показывают «NO SIGNAL»), игрок перезапускает все камеры на пульте в диспетчерской (держать F).
+-- клиенты показывают «NO SIGNAL»), игрок перезапускает все камеры рубильником справа от пульта
+-- в диспетчерской (держать F). Пока есть сломанные камеры, лампа на рубильнике горит красным.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -17,6 +18,7 @@ local CameraService = {}
 
 local points: { BasePart } = {}
 local repairPrompt: ProximityPrompt? = nil
+local repairLamp: BasePart? = nil
 local hallCenters: { [string]: Vector3 } = {}
 
 local function anyBroken(): boolean
@@ -29,9 +31,58 @@ local function anyBroken(): boolean
 end
 
 local function refreshPrompt()
+	local broken = anyBroken()
 	if repairPrompt then
-		repairPrompt.Enabled = anyBroken()
+		repairPrompt.Enabled = broken
 	end
+	if repairLamp then
+		repairLamp.Color = if broken then Config.Cameras.ResetLampOnColor else Config.Cameras.ResetLampOffColor
+	end
+end
+
+-- Рубильник справа от пульта (если смотреть на пульт с юга, со стороны входа в диспетчерскую).
+local function buildResetSwitch(console: BasePart): BasePart
+	local cameras = Config.Cameras
+	local size = cameras.ResetSwitchSize
+	local switch = Instance.new("Part")
+	switch.Name = "CameraResetSwitch"
+	switch.Anchored = true
+	switch.Size = size
+	switch.Color = cameras.ResetSwitchColor
+	switch.Material = Enum.Material.Metal
+	switch.CFrame = console.CFrame
+		* CFrame.new(console.Size.X / 2 + cameras.ResetSwitchGap + size.X / 2, -console.Size.Y / 2 + size.Y / 2, 0)
+	switch.Parent = console.Parent
+
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Back -- на юг, к игроку
+	gui.LightInfluence = 0
+	gui.PixelsPerStud = 50
+	gui.Parent = switch
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Position = UDim2.fromScale(0.05, 0.45)
+	label.Size = UDim2.fromScale(0.9, 0.3)
+	label.Text = "CAMERA\nRESET"
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = Color3.fromHex("FFFFFF")
+	label.Parent = gui
+
+	local lamp = Instance.new("Part")
+	lamp.Name = "ResetLamp"
+	lamp.Shape = Enum.PartType.Ball
+	lamp.Anchored = true
+	lamp.CanCollide = false
+	lamp.CanTouch = false
+	lamp.CastShadow = false
+	lamp.Material = Enum.Material.Neon
+	lamp.Color = cameras.ResetLampOffColor
+	lamp.Size = Vector3.new(0.7, 0.7, 0.7)
+	lamp.CFrame = switch.CFrame * CFrame.new(0, size.Y / 2 - 0.6, size.Z / 2)
+	lamp.Parent = switch
+	repairLamp = lamp
+	return switch
 end
 
 function CameraService.isBroken(point: BasePart): boolean
@@ -100,17 +151,17 @@ function CameraService.init(map: Instance)
 
 	local console = map:FindFirstChild(MapSchema.ControlConsole, true)
 	if console and console:IsA("BasePart") then
+		local switch = buildResetSwitch(console)
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "RepairPrompt"
 		prompt.ActionText = "Restart cameras"
 		prompt.ObjectText = "Some cameras are offline"
-		prompt.KeyboardKeyCode = Enum.KeyCode.F
+		prompt.KeyboardKeyCode = Config.Keys.Action
 		prompt.HoldDuration = Config.Cameras.RepairHoldSeconds
 		prompt.MaxActivationDistance = Config.Cameras.ConsolePromptDistance
 		prompt.RequiresLineOfSight = false
-		prompt.UIOffset = Vector2.new(0, 90) -- ниже кнопки «Watch cameras»
 		prompt.Enabled = false
-		prompt.Parent = console
+		prompt.Parent = switch
 		prompt.Triggered:Connect(function(player)
 			if not RoleService.isParticipant(player) then
 				return
@@ -121,7 +172,7 @@ function CameraService.init(map: Instance)
 				return
 			end
 			local maxDistance = Config.Cameras.ConsolePromptDistance + Config.Catch.ServerDistanceSlack
-			if (root.Position - console.Position).Magnitude > maxDistance then
+			if (root.Position - switch.Position).Magnitude > maxDistance then
 				return
 			end
 			CameraService.repairAll()
