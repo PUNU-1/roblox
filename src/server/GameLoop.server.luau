@@ -112,6 +112,7 @@ local function runDay(night: number): boolean
 	VoteService.admitApproved() -- кого пустили голосованием, входят с утра
 	ExhibitService.returnAll()
 	setLighting(Config.Lighting.Day)
+	MapBuilder.setDayLights(map, true) -- днём горят люстры
 	GameState.set(Attr.NightNumber, night)
 	setPhase(Phase.Day, Config.Phases.DaySeconds)
 	RoleService.setConsoleEnabled(true)
@@ -144,6 +145,7 @@ local function runNight(night: number): (boolean, boolean)
 	HallService.setDayActive(false)
 	ExhibitService.setDayActive(false)
 	setLighting(Config.Lighting.Night)
+	MapBuilder.setDayLights(map, false) -- ночью только дежурные лампы и фонарики
 	setPhase(Phase.Night, Config.Phases.NightSeconds)
 	GameState.set(Attr.NightStartedAt, now())
 	TrapService.beginNight()
@@ -206,6 +208,7 @@ local function finishRun()
 	ExhibitService.setDayActive(false)
 	ExhibitService.reset()
 	setLighting(Config.Lighting.Lobby)
+	MapBuilder.setDayLights(map, false)
 	GameState.set(Attr.NightNumber, 0)
 end
 

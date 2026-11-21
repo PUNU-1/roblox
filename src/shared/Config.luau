@@ -27,7 +27,7 @@ local Config = {
 		Count = 6, -- по 2 камеры на зал, переключение цифрами 1-6
 		StaticSeconds = 0.3, -- помеха при переключении
 		FieldOfView = 80,
-		Names = { "Main Hall S", "Main Hall N", "Jewelry W", "Jewelry E", "Sculptures E", "Sculptures W" },
+		Names = { "Mona Lisa", "Main Hall North", "Jewelry Window", "Jewelry Hall", "Sculpture Door", "Sculpture Hall" },
 		NightSaturation = -1, -- ночью картинка чёрно-белая
 		NightContrast = 0.25,
 		NightExposure = 3.5, -- ночное видение: камеры видят в темноте (яркость картинки ×2^3.5)
@@ -255,6 +255,11 @@ local Config = {
 			Range = 12,
 			Brightness = 0.6,
 			Color = Color3.fromRGB(120, 150, 255),
+		},
+		Chandelier = { -- люстры в залах, горят только днём
+			Range = 36,
+			Brightness = 1.3,
+			Color = Color3.fromRGB(255, 226, 170),
 		},
 		LobbyLamp = { -- тёплая лампа в комнате охраны (опоздавшие ждут тут и ночью)
 			Range = 30,
