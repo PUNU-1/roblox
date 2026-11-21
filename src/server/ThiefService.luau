@@ -43,7 +43,8 @@ export type Options = {
 	kind: string?, -- вид вора (Config.ThiefTypes), по умолчанию Pickpocket
 	entrance: BasePart?, -- через какую дверь войти (nil — сам выберет дверь без охраны)
 	target: string?, -- "Main" — Мона Лиза, "Cheap" — дешёвый экспонат подальше от неё, nil — сам по охране
-	task: string?, -- задание до кражи: "Lure" — пнуть витрину вдали от охраны, "Camera" — сломать камеру
+	task: string?, -- задание до кражи: "Lure" — пнуть витрину вдали от охраны, "Smash" — разбить её (Громила),
+	-- "Camera" — сломать камеру
 	hold: (() -> boolean)?, -- ждать во входном холле, пока не вернёт true
 	holdTimeout: number?, -- но не дольше стольки секунд
 	silent: boolean?, -- шагов не слышно
@@ -82,6 +83,11 @@ type Thief = {
 	holdStarted: number,
 	holdDone: boolean,
 	holdArrived: boolean,
+	-- удар Громилы
+	punchStarted: number, -- 0 — не бьёт
+	punchTarget: Player?,
+	punchHit: boolean,
+	nextPunch: number,
 	footsteps: Sound?,
 	connections: { RBXScriptConnection },
 }
@@ -220,19 +226,29 @@ local function animFor(thief: Thief): string
 	local state = thief.state
 	if state == "Arrested" then
 		return Anim.Arrest
+	elseif thief.punchStarted > 0 then
+		return Anim.Punch
 	elseif state == "Steal" then
 		return Anim.Steal
 	elseif state == "Escape" or state == "Escaped" then
 		return Anim.Carry
 	elseif state == "Flee" or state == "Block" then
-		return Anim.Run
+		return thief.info.RunAnim or Anim.Run
 	elseif state == "Task" then
-		return if thief.task == "Lure" then Anim.Kick else Anim.Steal
+		if thief.task == "Lure" then
+			return Anim.Kick
+		elseif thief.task == "Smash" then
+			return Anim.Smash
+		end
+		return Anim.Steal
 	elseif state == "Hold" and thief.holdArrived then
 		return Anim.Hold
 	end
-	-- Идёт: приманка бежит, остальные крадутся
-	return if thief.options.loud then Anim.Run else Anim.Sneak
+	-- Идёт: приманка бежит, у Громилы и Тени своя походка, остальные крадутся
+	if thief.options.loud then
+		return Anim.Run
+	end
+	return thief.info.WalkAnim or Anim.Sneak
 end
 
 local function syncAnim(thief: Thief)
@@ -244,8 +260,8 @@ local function syncAnim(thief: Thief)
 end
 
 local function setupFootsteps(thief: Thief)
-	if thief.options.silent then
-		return
+	if thief.options.silent or thief.info.Silent then
+		return -- Тень и тихие воры планов ходят без звука
 	end
 	local sounds = Config.Sounds
 	local loud = thief.options.loud == true
@@ -391,7 +407,7 @@ end
 
 -- Где вору делать задание. nil — делать нечего (витрин нет, камеры уже сломаны), задание закончено.
 local function taskPoint(thief: Thief): Vector3?
-	if thief.task == "Lure" then
+	if thief.task == "Lure" or thief.task == "Smash" then
 		local case = thief.taskCase
 		if not case or case.cracked or case.broken then
 			case = HeistFx.pickCase(ThiefService.guardPositions())
@@ -418,15 +434,19 @@ end
 local function taskSeconds(thief: Thief): number
 	if thief.task == "Lure" then
 		return Smart.LureSeconds
+	elseif thief.task == "Smash" then
+		return thief.info.SmashSeconds or Smart.LureSeconds
 	end
 	return thief.info.BreakSeconds or 2
 end
 
--- Задание сделано: витрина в трещинах с тревогой или сломанная камера.
+-- Задание сделано: витрина в трещинах (или разбита) с тревогой, или сломанная камера.
 local function completeTask(thief: Thief)
-	if thief.task == "Lure" then
+	if thief.task == "Lure" or thief.task == "Smash" then
 		local case = thief.taskCase
-		if case then
+		if case and thief.task == "Smash" then
+			HeistFx.smashCase(case)
+		elseif case then
 			HeistFx.caseAlarm(case)
 		end
 		finishTask(thief)
@@ -444,6 +464,106 @@ local function completeTask(thief: Thief)
 	end
 end
 
+---------------------------------------------------------------- удар Громилы
+
+-- Охранник стоит перед вором (ближе range и в конусе PunchCone) и ещё на ногах.
+local function inFront(thief: Thief, player: Player, range: number): boolean
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not (root and root:IsA("BasePart") and humanoid and humanoid.Health > 0) or RoleService.isKnocked(player) then
+		return false
+	end
+	local offset = flat(root.Position - thief.root.Position)
+	if offset.Magnitude > range then
+		return false
+	end
+	if offset.Magnitude < 0.5 then
+		return true
+	end
+	return flat(thief.root.CFrame.LookVector).Unit:Dot(offset.Unit) >= thief.info.PunchCone
+end
+
+-- Кого бить: ближайший охранник спереди.
+local function guardToPunch(thief: Thief): Player?
+	local best, bestDistance = nil, math.huge
+	for _, player in RoleService.participants() do
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if root and root:IsA("BasePart") and inFront(thief, player, thief.info.PunchRange) then
+			local distance = flatDistance(root.Position, thief.root.Position)
+			if distance < bestDistance then
+				best, bestDistance = player, distance
+			end
+		end
+	end
+	return best
+end
+
+local function knockDown(thief: Thief, player: Player)
+	local seconds = thief.info.KnockSeconds
+	if not RoleService.knockDown(player, seconds) then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not (root and root:IsA("BasePart")) then
+		return
+	end
+	local sounds = Config.Sounds
+	Audio.playOnce(sounds.Punch, root, sounds.PunchVolume, nil, sounds.PunchSpeed)
+	Audio.playOnce(sounds.GuardFall, root, sounds.GuardFallVolume)
+	task.delay(math.max(0, seconds - Config.Knockdown.RiseSeconds), function()
+		if root.Parent then
+			Audio.playOnce(sounds.GuardGetUp, root, sounds.GuardGetUpVolume)
+		end
+	end)
+end
+
+-- Громила бьёт охранника, который подошёл спереди: замах, удар, охранник падает на KnockSeconds.
+-- Пока бьёт, стоит на месте (кража и задание ждут). Возвращает true, если сейчас занят ударом.
+local function updatePunch(thief: Thief): boolean
+	local info = thief.info
+	if not info.PunchRange or thief.state == "Arrested" or thief.state == "Escaped" then
+		return false
+	end
+	local time = now()
+	if thief.punchStarted > 0 then
+		local elapsed = time - thief.punchStarted
+		if not thief.punchHit and elapsed >= info.PunchWindup then
+			thief.punchHit = true
+			local player = thief.punchTarget
+			-- Охранник мог отскочить, пока Громила замахивался
+			if player and inFront(thief, player, info.PunchRange + 1.5) then
+				knockDown(thief, player)
+			end
+		end
+		if elapsed < info.PunchSeconds then
+			stand(thief)
+			return true
+		end
+		-- Удар закончен: кража и задание продолжаются с того же места
+		thief.punchStarted = 0
+		thief.punchTarget = nil
+		thief.stealStarted += info.PunchSeconds
+		thief.taskStarted += info.PunchSeconds
+		return false
+	end
+	if time < thief.nextPunch then
+		return false
+	end
+	local player = guardToPunch(thief)
+	if not player then
+		return false
+	end
+	thief.punchStarted = time
+	thief.punchTarget = player
+	thief.punchHit = false
+	thief.nextPunch = time + info.PunchCooldown
+	stand(thief)
+	return true
+end
+
 -- Состояния, в которых вор замечает охранника и убегает.
 local FLEE_STATES = { Approach = true, GoTask = true, Hold = true }
 -- Состояния, из которых вор бросается загораживать того, кто несёт Мону Лизу.
@@ -451,6 +571,10 @@ local BLOCK_STATES = { Approach = true, GoTask = true, Hold = true, Flee = true 
 
 local function updateThief(thief: Thief)
 	if thief.state == "Arrested" or thief.state == "Escaped" then
+		return
+	end
+	if updatePunch(thief) then
+		syncAnim(thief)
 		return
 	end
 	local model = thief.model
@@ -469,7 +593,7 @@ local function updateThief(thief: Thief)
 		thief.state = nextState(thief)
 	end
 
-	if FLEE_STATES[thief.state] and not thief.options.noFlee then
+	if FLEE_STATES[thief.state] and not (thief.options.noFlee or thief.info.NoFlee) then
 		local guardPosition, guardDistance = nearestGuard(position)
 		if guardPosition and guardDistance < ThiefConfig.FleeRadius then
 			-- Заметил охранника — убегает в другую сторону
@@ -490,11 +614,11 @@ local function updateThief(thief: Thief)
 		local point = taskPoint(thief)
 		if not point then
 			finishTask(thief)
-		elseif flatDistance(position, point) < (if thief.task == "Lure" then Smart.CaseReach else ThiefConfig.StealReachDistance) then
+		elseif flatDistance(position, point) < (if thief.taskCase then Smart.CaseReach else ThiefConfig.StealReachDistance) then
 			thief.state = "Task"
 			thief.taskStarted = now()
 			stand(thief)
-			local look = if thief.task == "Lure" and thief.taskCase
+			local look = if thief.taskCase
 				then thief.taskCase.model:GetPivot().Position
 				elseif thief.cameraQueue[1] then thief.cameraQueue[1].Position
 				else point
@@ -644,6 +768,8 @@ function ThiefService.spawnSpecial(options: Options): Model?
 	local taskName = options.task
 	if taskName == nil and kind == "Breaker" then
 		taskName = "Camera" -- взломщик сначала ломает ближайшую камеру
+	elseif taskName == nil and kind == "Brute" and random:NextNumber() < info.SmashChance then
+		taskName = "Smash" -- Громила иногда сначала разбивает витрину вдали от охраны
 	end
 	local thief: Thief = {
 		model = model,
@@ -673,6 +799,10 @@ function ThiefService.spawnSpecial(options: Options): Model?
 		holdStarted = 0,
 		holdDone = false,
 		holdArrived = false,
+		punchStarted = 0,
+		punchTarget = nil,
+		punchHit = false,
+		nextPunch = 0,
 		footsteps = nil,
 		connections = {},
 	}

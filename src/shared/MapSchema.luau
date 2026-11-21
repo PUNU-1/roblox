@@ -69,6 +69,12 @@ local MapSchema = {
 		Statue = "prop_statue_01",
 		Palm = "prop_palm_01",
 		Astronaut = "prop_astronaut_01",
+		-- блок 3: снаряжение воров (GEMINI.md, «Новые модели блока 3»)
+		BruteBeanie = "thief_brute_beanie_01",
+		BruteGlove = "thief_brute_glove_01",
+		BruteTankTop = "thief_brute_tanktop_01",
+		ShadowHood = "thief_shadow_hood_01",
+		ShadowHoodie = "thief_shadow_hoodie_01",
 	},
 }
 

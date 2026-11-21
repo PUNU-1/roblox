@@ -36,6 +36,10 @@ GameState.ThiefAnim = {
 	-- блок 3
 	Kick = "Kick", -- пинает витрину (шумит, чтобы выманить охрану)
 	Hold = "Hold", -- присел и ждёт во входном холле, выглядывает
+	Stomp = "Stomp", -- Громила: тяжёлая походка вразвалку
+	Punch = "Punch", -- Громила: замах и удар правой
+	Smash = "Smash", -- Громила: бьёт витрину двумя руками сверху
+	Prowl = "Prowl", -- Тень: крадётся на полусогнутых
 }
 
 -- Атрибуты модели вора (пишет сервер).
@@ -134,6 +138,8 @@ GameState.PlayerAttr = {
 	ViewSource = "ViewSource", -- string: "Phone" | "Console"
 	Money = "Money", -- number, доллары за этот забег
 	JoinStatus = "JoinStatus", -- string?, опоздавший: Voting | Approved | Rejected | Full
+	KnockedAt = "KnockedAt", -- number, когда Громила сбил охранника с ног (workspace:GetServerTimeNow())
+	KnockedUntil = "KnockedUntil", -- number, до какого времени охранник лежит
 }
 
 local FOLDER_NAME = "GameState"

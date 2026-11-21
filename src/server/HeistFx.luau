@@ -1,8 +1,10 @@
 -- Эффекты краж на карте (блок 3). Только то, что видно и слышно; решения принимает ThiefService.
---  • Витрины (prop_displaycase_01): вор пинает витрину — стекло трескается, тревога «GLASS ALARM — место!».
+--  • Витрины (prop_displaycase_01): вор пинает витрину — стекло трескается, Громила разбивает — осколки;
+--    в обоих случаях тревога «GLASS ALARM — место!».
 --  • Названия мест для надписей: атрибут Area у пола (MapBuilder).
 --  • Всё, что воры оставили за ночь (трещины, осколки), убирается утром: HeistFx.resetForDay().
 
+local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -14,6 +16,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Server = script.Parent
 local Audio = require(Server:WaitForChild("Audio"))
+local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 
 local Heist = Config.Heist
 
@@ -172,6 +175,70 @@ function HeistFx.caseAlarm(case: Case)
 	crackGlass(case)
 	local sounds = Config.Sounds
 	Audio.playOnce(sounds.CaseBang, case.glass or case.model.PrimaryPart, sounds.CaseBangVolume, nil, sounds.CaseBangSpeed)
+	Audio.alarm()
+	alarmBanner(case.stand)
+end
+
+-- Осколок стекла: тонкий клин случайной формы.
+local function shard(cframe: CFrame, color: Color3, anchored: boolean): BasePart
+	local piece = Instance.new("WedgePart")
+	piece.Name = "GlassShard"
+	piece.Size = Vector3.new(math.random(15, 55) / 100, 0.05, math.random(15, 55) / 100)
+	piece.CFrame = cframe
+	piece.Color = color
+	piece.Material = Enum.Material.Glass
+	piece.Transparency = 0.35
+	piece.CastShadow = false
+	piece.CanQuery = false
+	piece.CanTouch = false
+	piece.Anchored = anchored
+	piece.CanCollide = not anchored
+	piece.Massless = true
+	piece.CollisionGroup = ModelLibrary.Groups.Tourists -- падают на пол, но сквозь людей (группа без столкновений с людьми)
+	return piece
+end
+
+-- Громила разбил витрину: стекло разлетается осколками, по краю рамы остаются зубцы, на полу — осколки
+-- до утра. Звон, сирена и тревога с названием места.
+function HeistFx.smashCase(case: Case)
+	if case.broken then
+		return
+	end
+	case.broken = true
+	local glass = case.glass
+	if glass then
+		local size = glass.Size
+		local front = glass.CFrame.LookVector -- перед витрины (к вору)
+		for _ = 1, Heist.ShardCount do
+			local offset = Vector3.new((math.random() - 0.5) * size.X, (math.random() - 0.5) * size.Y, (math.random() - 0.5) * size.Z)
+			local spin = CFrame.Angles(math.random() * 6.28, math.random() * 6.28, math.random() * 6.28)
+			local piece = shard(glass.CFrame * CFrame.new(offset) * spin, case.glassColor, false)
+			piece.Parent = Workspace
+			local away = (front * (0.6 + math.random()) + Vector3.new((math.random() - 0.5) * 1.4, 0.5 + math.random(), (math.random() - 0.5) * 1.4))
+			piece.AssemblyLinearVelocity = away.Unit * Heist.ShardSpeed * (0.5 + math.random() * 0.6)
+			piece.AssemblyAngularVelocity = Vector3.new(math.random(-12, 12), math.random(-12, 12), math.random(-12, 12))
+			Debris:AddItem(piece, Heist.ShardSeconds)
+		end
+		-- Зубцы стекла по нижнему краю рамы
+		for index = -2, 2 do
+			local tooth = shard(glass.CFrame * CFrame.new(index * size.X * 0.2, -size.Y / 2 + 0.2, 0) * CFrame.Angles(0, 0, math.rad(90 + index * 9)), case.glassColor, true)
+			tooth.Size = Vector3.new(0.3 + math.random() * 0.35, 0.05, size.Z * 0.9)
+			tooth.Parent = case.model
+			table.insert(case.extras, tooth)
+		end
+		-- Осколки на полу перед витриной (лежат до утра)
+		local floorY = case.stand.Y - 2.95
+		for _ = 1, Heist.FloorShards do
+			local point = case.stand + front * (math.random() - 0.7) * 1.5 + (glass.CFrame.RightVector * (math.random() - 0.5) * size.X * 1.2)
+			local piece = shard(CFrame.new(point.X, floorY, point.Z) * CFrame.Angles(0, math.random() * 6.28, 0), case.glassColor, true)
+			piece.Parent = case.model
+			table.insert(case.extras, piece)
+		end
+		glass.Transparency = 1
+		glass.CanCollide = false
+	end
+	local sounds = Config.Sounds
+	Audio.playOnce(sounds.GlassSmash, case.glass or case.model.PrimaryPart, sounds.GlassSmashVolume, nil, sounds.GlassSmashSpeed)
 	Audio.alarm()
 	alarmBanner(case.stand)
 end

@@ -98,7 +98,7 @@ local Config = {
 	},
 
 	-- Виды воров по порядку появления (блок 3): новый вид каждые 2 ночи, перед ночью надпись NEW THIEF
-	ThiefOrder = { "Pickpocket", "Breaker" },
+	ThiefOrder = { "Pickpocket", "Breaker", "Brute", "Shadow" },
 	ThiefTypes = {
 		-- Title — имя в надписи NEW THIEF; FromNight — с какой ночи приходит (баланс);
 		-- Weight — как часто попадается среди обычных воров волны; SpeedMul — скорость от обычного вора;
@@ -120,6 +120,51 @@ local Config = {
 			Color = Color3.fromHex("5A1A1A"), -- тёмно-красный костюм, чтобы отличался
 			BreakSeconds = 2, -- сколько ломает камеру (встаёт на полу под кронштейном камеры)
 		},
+		Brute = { -- Громила: большой и медленный, не убегает, бьёт охранника спереди, бьёт витрины
+			Title = "BRUTE",
+			FromNight = 5,
+			Weight = 1,
+			SpeedMul = 0.8, -- баланс: медленнее обычного вора
+			Door = true,
+			NoFlee = true, -- не убегает от охраны
+			WalkAnim = "Stomp", -- тяжёлая походка (и когда бежит)
+			RunAnim = "Stomp",
+			Scale = 1.18, -- крупнее обычного вора
+			Width = 1.22, -- и шире в плечах
+			Skin = Color3.fromHex("D9A27A"),
+			Shirt = Color3.fromHex("ECECEC"), -- белая майка
+			Pants = Color3.fromHex("2F3B52"),
+			PunchRange = 6, -- баланс: охранник ближе этого и спереди — получает удар
+			PunchCone = 0.3, -- «спереди»: угол до ~72° от того, куда смотрит Громила
+			PunchWindup = 0.4, -- замах (охранник успевает отпрыгнуть)
+			PunchSeconds = 1, -- весь удар с возвратом
+			PunchCooldown = 2.5, -- бьёт не чаще (поэтому вдвоём его можно взять)
+			KnockSeconds = 3, -- баланс: охранник лежит столько секунд
+			SmashChance = 0.4, -- баланс: как часто Громила без плана сначала разбивает витрину
+			SmashSeconds = 2.2, -- сколько бьёт витрину (два удара)
+		},
+		Shadow = { -- Тень: весь в чёрном, шагов не слышно, в темноте почти не виден
+			Title = "SHADOW",
+			FromNight = 7,
+			Weight = 1.5,
+			SpeedMul = 1,
+			Door = true,
+			Silent = true,
+			WalkAnim = "Prowl", -- крадётся на полусогнутых
+			Color = Color3.fromHex("1C1C24"), -- не совсем чёрный: в луче фонарика его видно
+			Hoodie = Color3.fromHex("202029"),
+		},
+	},
+
+	Knockdown = { -- охранник от удара Громилы падает на спину и встаёт (анимация — Guards.client)
+		FallSeconds = 0.35, -- падает
+		RiseSeconds = 0.7, -- встаёт в конце
+		Tilt = 1.45, -- насколько заваливается назад (радианы: 1.57 — совсем плашмя)
+		CameraDrop = 2.3, -- свой вид опускается к полу на столько стадов
+		CameraPitch = 0.8, -- и смотрит в потолок
+		CameraRoll = 0.3, -- и чуть набок
+		StarsHeight = 2.4, -- звёздочки над головой
+		StarsSpin = 240, -- градусов в секунду
 	},
 
 	Waves = { -- волны (блок 3): воры приходят группами по 2–3 сразу с разных сторон
@@ -159,6 +204,10 @@ local Config = {
 		CrackColor = Color3.fromHex("1E222B"), -- трещины на стекле витрины
 		CrackedGlassColor = Color3.fromHex("DCE8F0"), -- стекло в трещинах белеет
 		CrackedGlassTransparency = 0.55,
+		ShardCount = 16, -- осколков от разбитой витрины
+		ShardSpeed = 16, -- как быстро разлетаются
+		ShardSeconds = 5, -- летящие осколки исчезают через столько секунд (на полу остаются до утра)
+		FloorShards = 7, -- осколков остаётся лежать на полу перед витриной
 	},
 
 	Halls = { -- 4 зала по углам музея (решение 69): дороже зал — дороже экспонаты и больше туристов
@@ -347,6 +396,10 @@ local Config = {
 		CameraBreak = "rbxassetid://9114277402", -- ВРЕМЕННЫЙ: Electric Zaps 6 (вор сломал камеру)
 		CameraSwitch = "rbxassetid://9120484192", -- ВРЕМЕННЫЙ: Wall Light Switch (переключение камер, слышит только смотрящий)
 		CaseBang = "rbxasset://sounds/action_jump_land.mp3", -- ВРЕМЕННЫЙ: стандартный звук Roblox — вор пинает витрину
+		GlassSmash = "rbxasset://sounds/impact_explosion_03.mp3", -- ВРЕМЕННЫЙ: стандартный взрыв выше тоном — витрина разбита
+		Punch = "rbxasset://sounds/action_jump_land.mp3", -- ВРЕМЕННЫЙ: удар Громилы
+		GuardFall = "rbxasset://sounds/oof.ogg", -- ВРЕМЕННЫЙ: охранник падает (классическое «oof»)
+		GuardGetUp = "rbxasset://sounds/action_get_up.mp3", -- ВРЕМЕННЫЙ: охранник встаёт
 		StepVolume = 0.6,
 		StepRollOff = 30, -- шаги слышно только рядом
 		EffectRollOff = 60, -- звуки у деталей (касса, доски, камера) слышно в этом радиусе
@@ -361,6 +414,12 @@ local Config = {
 		CameraSwitchVolume = 0.4,
 		CaseBangVolume = 1,
 		CaseBangSpeed = 1.5, -- выше тоном: звонкий удар по стеклу
+		GlassSmashVolume = 0.6,
+		GlassSmashSpeed = 1.9,
+		PunchVolume = 1,
+		PunchSpeed = 0.8, -- ниже тоном: тяжёлый удар
+		GuardFallVolume = 0.8,
+		GuardGetUpVolume = 0.6,
 	},
 
 	-- Анимации воров и туристов делаются кодом на клиенте (NpcAnimator.client.luau), в Roblox ничего не загружается.
@@ -375,6 +434,10 @@ local Config = {
 		ArrestHandsUpSeconds = 0.3, -- арест: руки вверх
 		ArrestCuffSeconds = 0.5, -- потом руки вперёд, в наручники
 		KickPeriod = 0.9, -- вор пинает витрину: один пинок за столько секунд
+		StompStride = 0.42, -- Громила: тяжёлые редкие шаги
+		ProwlStride = 0.75, -- Тень: короткие частые шаги на полусогнутых
+		PunchStrikeSeconds = 0.15, -- удар Громилы после замаха (замах — ThiefTypes.Brute.PunchWindup)
+		SmashPeriod = 1.1, -- Громила бьёт витрину: один удар двумя руками за столько секунд
 	},
 
 	Lighting = {

@@ -1,6 +1,6 @@
 -- Анимации NPC кодом: воры и туристы. Каждый клиент сам двигает суставы R15 (Transform) по состоянию,
 -- которое сервер пишет в атрибут модели (AnimState). Воры: крадётся, бежит, снимает экспонат, несёт,
--- арест, пинает витрину, ждёт присев (блок 3). Туристы: гуляет, смотрит на экспонат, фотографирует.
+-- арест, пинает витрину, ждёт присев; Громила (вразвалку, удар, бьёт витрину), Тень (на полусогнутых) — блок 3. Туристы: гуляет, смотрит на экспонат, фотографирует.
 -- В Roblox ничего загружать не нужно, а сеть не нагружается: Transform видит только этот клиент.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -237,6 +237,104 @@ local function holdPose(clock: number): Pose
 	return pose
 end
 
+-- Громила идёт вразвалку: широкая стойка, плечи качаются, кулаки вперёд и в стороны, тяжёлые шаги.
+local function stompPose(clock: number, phase: number, move: number): Pose
+	local pose: Pose = {}
+	local s = math.sin(phase)
+	local idle = 1 - move
+	pose.Root = CFrame.new(0, -0.08 + 0.14 * math.abs(s) * move, 0) * R(0, 0, 0.07 * s * move)
+	pose.Waist = R(-0.12, 0.22 * s * move + 0.08 * idle * math.sin(clock * 0.8), 0)
+	pose.Neck = R(0.12, -0.15 * s * move, 0)
+	pose.LeftShoulder = R(0.2 - 0.55 * s * move, 0, -0.38)
+	pose.RightShoulder = R(0.2 + 0.55 * s * move, 0, 0.38)
+	pose.LeftElbow = R(0.95 + 0.1 * idle * math.sin(clock * 2))
+	pose.RightElbow = R(0.95 - 0.1 * idle * math.sin(clock * 2))
+	legs(pose, phase, move, 0.55, 0.6, 0.14, 0)
+	pose.LeftHip = (pose.LeftHip :: CFrame) * R(0, 0, -0.12)
+	pose.RightHip = (pose.RightHip :: CFrame) * R(0, 0, 0.12)
+	return pose
+end
+
+-- Громила бьёт: замах правой назад с разворотом корпуса, удар с выпадом вперёд, возврат в стойку.
+local function punchPose(t: number): Pose
+	local pose: Pose = {}
+	local brute = Config.ThiefTypes.Brute
+	local windup = brute.PunchWindup
+	local strike = Settings.PunchStrikeSeconds
+	local recover = math.max(0.1, brute.PunchSeconds - windup - strike)
+	-- Стойка: левая нога впереди, колени чуть согнуты
+	pose.LeftHip = R(0.4, 0, -0.1)
+	pose.LeftKnee = R(-0.45)
+	pose.LeftAnkle = R(0.1)
+	pose.RightHip = R(-0.15, 0, 0.12)
+	pose.RightKnee = R(-0.3)
+	pose.RightAnkle = R(0.2)
+	pose.LeftShoulder = R(1.3, 0, 0.35) -- левая прикрывает лицо
+	pose.LeftElbow = R(1.7)
+	local twist, arm, elbow, lunge, spread
+	if t < windup then
+		local k = smooth(t / windup)
+		twist, arm, elbow, lunge, spread = lerp(0, -0.65, k), lerp(0.3, -0.45, k), lerp(0.95, 2.0, k), 0, lerp(0.38, 0.6, k)
+	elseif t < windup + strike then
+		local k = smooth((t - windup) / strike)
+		twist, arm, elbow, lunge, spread = lerp(-0.65, 0.5, k), lerp(-0.45, 1.6, k), lerp(2.0, 0.05, k), lerp(0, 0.5, k), lerp(0.6, -0.1, k)
+	else
+		local k = smooth((t - windup - strike) / recover)
+		twist, arm, elbow, lunge, spread = lerp(0.5, 0, k), lerp(1.6, 0.3, k), lerp(0.05, 0.95, k), lerp(0.5, 0, k), lerp(-0.1, 0.38, k)
+	end
+	pose.Root = CFrame.new(0, -0.15, -lunge)
+	pose.Waist = R(-0.15 - 0.15 * lunge, twist, 0)
+	pose.Neck = R(0.1, -twist * 0.6, 0)
+	pose.RightShoulder = R(arm, 0, spread)
+	pose.RightElbow = R(elbow)
+	return pose
+end
+
+-- Громила бьёт витрину: обе руки вверх в замок, корпус назад, потом резко вниз с наклоном и приседом.
+local function smashPose(t: number): Pose
+	local pose: Pose = {}
+	local p = (t % Settings.SmashPeriod) / Settings.SmashPeriod
+	local up, bend, drop
+	if p < 0.55 then
+		local k = smooth(p / 0.55)
+		up, bend, drop = lerp(0.5, 3.0, k), lerp(-0.1, 0.25, k), 0
+	elseif p < 0.7 then
+		local k = smooth((p - 0.55) / 0.15)
+		up, bend, drop = lerp(3.0, 0.9, k), lerp(0.25, -0.6, k), lerp(0, 0.3, k)
+	else
+		local k = smooth((p - 0.7) / 0.3)
+		up, bend, drop = lerp(0.9, 0.5, k), lerp(-0.6, -0.1, k), lerp(0.3, 0, k)
+	end
+	pose.Root = CFrame.new(0, -0.1 - drop, 0)
+	pose.Waist = R(bend)
+	pose.Neck = R(-0.1 - bend * 0.3)
+	pose.LeftShoulder = R(up, 0, 0.4)
+	pose.RightShoulder = R(up, 0, -0.4)
+	pose.LeftElbow = R(0.5)
+	pose.RightElbow = R(0.5)
+	legs(pose, 0, 0, 0, 0, 0.15 + drop * 0.6, 0)
+	pose.LeftHip = (pose.LeftHip :: CFrame) * R(0, 0, -0.15)
+	pose.RightHip = (pose.RightHip :: CFrame) * R(0, 0, 0.15)
+	return pose
+end
+
+-- Тень крадётся на полусогнутых: низко присел, корпус вперёд, голова поднята, руки прижаты, мягкие короткие шаги.
+local function prowlPose(clock: number, phase: number, move: number): Pose
+	local pose: Pose = {}
+	local s = math.sin(phase)
+	pose.Root = CFrame.new(0, -0.42 + 0.05 * math.abs(s) * move, 0)
+	pose.Waist = R(-0.6, 0.08 * s * move, 0)
+	pose.Neck = R(0.55, 0.35 * math.sin(clock * 1.2), 0)
+	pose.LeftShoulder = R(0.65 - 0.12 * s * move, 0, 0.35)
+	pose.RightShoulder = R(0.65 + 0.12 * s * move, 0, -0.35)
+	pose.LeftElbow = R(1.9)
+	pose.RightElbow = R(1.9)
+	pose.LeftWrist = R(-0.4)
+	pose.RightWrist = R(-0.4)
+	legs(pose, phase, move, 0.45, 0.5, 0.6, -0.15)
+	return pose
+end
+
 -- Турист гуляет: спокойный шаг, руки слегка покачиваются, головой вертит по сторонам.
 local function strollPose(clock: number, phase: number, move: number): Pose
 	local pose: Pose = {}
@@ -296,6 +394,14 @@ local function poseFor(state: any, t: number, clock: number, phase: number, move
 		return kickPose(t)
 	elseif state == Anim.Hold then
 		return holdPose(clock)
+	elseif state == Anim.Stomp then
+		return stompPose(clock, phase, move)
+	elseif state == Anim.Punch then
+		return punchPose(t)
+	elseif state == Anim.Smash then
+		return smashPose(t)
+	elseif state == Anim.Prowl then
+		return prowlPose(clock, phase, move)
 	end
 	return sneakPose(clock, phase, move)
 end
@@ -361,6 +467,8 @@ local function step(dt: number)
 		local t = if typeof(startedAt) == "number" then math.max(0, clock - startedAt) else 0
 		local stride = if state == Anim.Sneak then Settings.SneakStride
 			elseif state == TouristAnim.Stroll then Settings.StrollStride
+			elseif state == Anim.Stomp then Settings.StompStride
+			elseif state == Anim.Prowl then Settings.ProwlStride
 			else Settings.RunStride
 		rig.phase = (rig.phase + rig.speed * dt * stride) % (math.pi * 2)
 		local move = math.clamp(rig.speed / 6, 0, 1)

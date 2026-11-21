@@ -1,8 +1,10 @@
 -- Игроки: роли, форма охраны, старт смены команды из круга START SHIFT, перенос между лобби и залом,
 -- телефон оператора и пульт в диспетчерской (кто сейчас смотрит камеры).
 
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -183,18 +185,72 @@ function RoleService.isViewing(player: Player): boolean
 	return player:GetAttribute(PlayerAttr.ViewingCameras) == true
 end
 
+-- Охранник лежит после удара Громилы (блок 3).
+function RoleService.isKnocked(player: Player): boolean
+	local untilTime = player:GetAttribute(PlayerAttr.KnockedUntil)
+	return typeof(untilTime) == "number" and untilTime > Workspace:GetServerTimeNow()
+end
+
 function RoleService.setViewing(player: Player, open: boolean, source: string?)
 	if open == RoleService.isViewing(player) and (not open or player:GetAttribute(PlayerAttr.ViewSource) == source) then
 		return
 	end
 	player:SetAttribute(PlayerAttr.ViewingCameras, open)
 	player:SetAttribute(PlayerAttr.ViewSource, if open then source else "")
-	setFrozen(player, open)
+	setFrozen(player, open or RoleService.isKnocked(player))
 	if open and source == "Phone" then
 		addPhoneProp(player)
 	else
 		removePhoneProp(player)
 	end
+end
+
+-- Звёздочки над головой сбитого охранника (кружатся у клиентов, Guards.client).
+local function addStars(player: Player, seconds: number)
+	local character = player.Character
+	local head = character and character:FindFirstChild("Head")
+	if not (head and head:IsA("BasePart")) then
+		return
+	end
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "DizzyStars"
+	billboard.Size = UDim2.fromScale(3, 1)
+	billboard.StudsOffset = Vector3.new(0, Config.Knockdown.StarsHeight, 0)
+	billboard.MaxDistance = 80
+	billboard.LightInfluence = 0
+	local label = Instance.new("TextLabel")
+	label.Name = "Stars"
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Text = "★  ★  ★"
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = Color3.fromHex("FFD23F")
+	label.TextStrokeTransparency = 0
+	label.Parent = billboard
+	billboard.Parent = head
+	Debris:AddItem(billboard, seconds)
+end
+
+-- Громила сбил охранника с ног: он лежит seconds секунд (не ходит, не ловит, телефон закрывается),
+-- потом встаёт сам. Как он падает и встаёт, рисуют клиенты (Guards.client) по атрибутам KnockedAt / KnockedUntil.
+-- Возвращает false, если охранник уже лежит.
+function RoleService.knockDown(player: Player, seconds: number): boolean
+	if RoleService.isKnocked(player) or not RoleService.isParticipant(player) then
+		return false
+	end
+	local started = Workspace:GetServerTimeNow()
+	player:SetAttribute(PlayerAttr.KnockedAt, started)
+	player:SetAttribute(PlayerAttr.KnockedUntil, started + seconds)
+	RoleService.setViewing(player, false)
+	setFrozen(player, true)
+	addStars(player, seconds)
+	task.delay(seconds, function()
+		if player.Parent and not RoleService.isKnocked(player) then
+			setFrozen(player, RoleService.isViewing(player))
+		end
+	end)
+	return true
 end
 
 function RoleService.closeAllViews()
@@ -266,6 +322,7 @@ local function onCharacterAdded(player: Player, character: Model)
 	end)
 	player:SetAttribute(PlayerAttr.ViewingCameras, false)
 	player:SetAttribute(PlayerAttr.ViewSource, "")
+	player:SetAttribute(PlayerAttr.KnockedUntil, 0) -- новый персонаж стоит на ногах
 	phoneProps[player] = nil
 	if RoleService.isParticipant(player) and isRoundPhase() then
 		-- Погиб или упал во время смены — возвращаем в зал
@@ -327,7 +384,7 @@ local function setupConsole()
 	prompt.Enabled = false
 	prompt.Parent = console
 	prompt.Triggered:Connect(function(player)
-		if isRoundPhase() and RoleService.isParticipant(player) then
+		if isRoundPhase() and RoleService.isParticipant(player) and not RoleService.isKnocked(player) then
 			RoleService.setViewing(player, true, "Console")
 		end
 	end)
@@ -353,7 +410,7 @@ local function setupRemotes()
 			RoleService.setViewing(player, false)
 			return
 		end
-		if isRoundPhase() and RoleService.isParticipant(player) and RoleService.canUsePhone(player) then
+		if isRoundPhase() and RoleService.isParticipant(player) and RoleService.canUsePhone(player) and not RoleService.isKnocked(player) then
 			local humanoid = getHumanoid(player)
 			if humanoid and humanoid.Health > 0 then
 				RoleService.setViewing(player, true, "Phone")

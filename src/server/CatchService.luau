@@ -104,8 +104,8 @@ local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt)
 	if GameState.phase() ~= GameState.Phase.Night then
 		return
 	end
-	if not RoleService.isParticipant(player) or RoleService.isViewing(player) then
-		return
+	if not RoleService.isParticipant(player) or RoleService.isViewing(player) or RoleService.isKnocked(player) then
+		return -- смотрит камеры или лежит после удара Громилы
 	end
 	local character = player.Character
 	local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
