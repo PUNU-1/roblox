@@ -1,13 +1,17 @@
--- Вид от первого лица (решение 56). Сам режим камеры (LockFirstPerson) включает сервер (RoleService).
--- Здесь:
+-- Вид от первого лица (решение 56). Режим LockFirstPerson ставится в трёх местах, чтобы точно сработал:
+-- StarterPlayer (default.project.json), сервер (RoleService) и здесь, у самого игрока.
+-- Ещё здесь:
 --  • прицел в центре экрана вместо стрелки мыши;
 --  • подсказки «Hold E» не перехватывают мышь (иначе камера перестаёт поворачиваться,
 --    когда подсказка оказывается в центре экрана).
 -- Там, где нужна мышь (лобби, список фраз, экран камер), курсор освобождают кнопки с Modal = true.
 
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
+
+Players.LocalPlayer.CameraMode = Enum.CameraMode.LockFirstPerson
 
 local CROSSHAIR = "rbxasset://textures/MouseLockedCursor.png" -- встроенная картинка Roblox, загружать не нужно
 

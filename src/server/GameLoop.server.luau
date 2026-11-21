@@ -31,6 +31,8 @@ local Phase = GameState.Phase
 local Attr = GameState.Attr
 
 ModelLibrary.setupCollisionGroups()
+-- Тени: без них свет ламп и фонариков проходит сквозь стены, и ночью не темно
+Lighting.GlobalShadows = true
 local map = MapBuilder.build()
 RoleService.init(map)
 ExhibitService.init(map)

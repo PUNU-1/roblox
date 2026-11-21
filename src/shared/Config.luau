@@ -30,7 +30,7 @@ local Config = {
 		Names = { "Main Hall S", "Main Hall N", "Jewelry W", "Jewelry E", "Sculptures E", "Sculptures W" },
 		NightSaturation = -1, -- ночью картинка чёрно-белая
 		NightContrast = 0.25,
-		NightExposure = 2.5, -- ночное видение: камеры видят в темноте (яркость картинки ×2^2.5)
+		NightExposure = 3.5, -- ночное видение: камеры видят в темноте (яркость картинки ×2^3.5)
 		ConsoleHoldSeconds = 0.5, -- сколько держать E у пульта
 		ConsolePromptDistance = 8,
 		RepairHoldSeconds = 2, -- сколько держать F у пульта, чтобы перезапустить сломанные камеры
@@ -248,12 +248,12 @@ local Config = {
 		Night = { -- ночью темно (решение 57): дежурные лампы, подсветка Моны Лизы и фонарики
 			ClockTime = 0,
 			Brightness = 0,
-			Ambient = Color3.fromRGB(28, 30, 42), -- баланс: насколько темно (больше — светлее)
-			OutdoorAmbient = Color3.fromRGB(28, 30, 42),
+			Ambient = Color3.fromRGB(12, 13, 20), -- баланс: насколько темно (больше — светлее)
+			OutdoorAmbient = Color3.fromRGB(12, 13, 20),
 		},
 		NightLamp = { -- тусклые синие дежурные лампы на стенах залов и в коридоре
-			Range = 14,
-			Brightness = 0.7,
+			Range = 12,
+			Brightness = 0.6,
 			Color = Color3.fromRGB(120, 150, 255),
 		},
 		LobbyLamp = { -- тёплая лампа в комнате охраны (опоздавшие ждут тут и ночью)
