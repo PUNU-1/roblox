@@ -204,7 +204,8 @@ function RoleService.closeAllViews()
 end
 
 function RoleService.canUsePhone(player: Player): boolean
-	return player:GetAttribute(PlayerAttr.Role) == Role.Operator or RoleService.isSolo()
+	-- Телефон с камерами — умение только оператора, даже в одиночной игре (решение 59)
+	return player:GetAttribute(PlayerAttr.Role) == Role.Operator
 end
 
 function RoleService.readyCounts(): (number, number)

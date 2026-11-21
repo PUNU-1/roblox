@@ -337,7 +337,7 @@ local function hintText(phase: string): string?
 	if localPlayer:GetAttribute(PlayerAttr.ViewingCameras) == true then
 		return nil -- у экрана камер своя подсказка
 	end
-	local hasPhone = localPlayer:GetAttribute(PlayerAttr.Role) == Role.Operator or GameState.get(Attr.Solo) == true
+	local hasPhone = localPlayer:GetAttribute(PlayerAttr.Role) == Role.Operator
 	local cameras = if hasPhone then HINT_PHONE else HINT_CONSOLE
 	if phase == Phase.Day then
 		local money = tonumber(localPlayer:GetAttribute(PlayerAttr.Money)) or 0

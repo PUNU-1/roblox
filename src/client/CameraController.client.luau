@@ -716,7 +716,7 @@ end
 local function canUsePhone(): boolean
 	local phase = GameState.phase()
 	local inRound = localPlayer:GetAttribute(PlayerAttr.InRound) == true
-	local operator = localPlayer:GetAttribute(PlayerAttr.Role) == Role.Operator or GameState.get(Attr.Solo) == true
+	local operator = localPlayer:GetAttribute(PlayerAttr.Role) == Role.Operator -- телефон только у оператора (решение 59)
 	return inRound and operator and (phase == Phase.Day or phase == Phase.Night)
 end
 
