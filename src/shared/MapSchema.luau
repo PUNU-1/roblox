@@ -41,7 +41,6 @@ local MapSchema = {
 		Barrier = "prop_barrier_01",
 		Locker = "prop_locker_01",
 		Handcuffs = "prop_handcuffs_01",
-		GuardCap = "guard_cap_01",
 		GuardBadge = "guard_badge_01",
 		Phone = "prop_phone_01",
 		Pedestal = "prop_pedestal_01",

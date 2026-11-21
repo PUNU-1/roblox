@@ -22,13 +22,6 @@ local consolePrompt: ProximityPrompt? = nil
 local phoneProps: { [Player]: Instance } = {}
 local connections: { [Player]: { RBXScriptConnection } } = {}
 
-local CAP_STUB: { ModelLibrary.StubPart } = {
-	{ size = Vector3.new(1.25, 0.2, 1.25), offset = CFrame.identity, color = Config.Uniform.Torso },
-	{ size = Vector3.new(1.35, 0.4, 1.35), offset = CFrame.new(0, 0.3, 0), color = Config.Uniform.Torso },
-	{ size = Vector3.new(1.1, 0.08, 0.5), offset = CFrame.new(0, -0.05, -0.75), color = Color3.fromHex("111111") },
-	{ size = Vector3.new(0.3, 0.3, 0.05), offset = CFrame.new(0, 0.25, -0.69), color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal },
-}
-
 local BADGE_STUB: { ModelLibrary.StubPart } = {
 	{ size = Vector3.new(0.45, 0.45, 0.08), offset = CFrame.identity, color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal },
 }
@@ -75,14 +68,46 @@ local function addPhoneProp(player: Player)
 	phoneProps[player] = phone
 end
 
--- Форма охраны: убираем свою одежду и аксессуары, красим тело, надеваем фуражку и значок.
+-- Всё, что носят на голове, остаётся (решение 55): шапки, волосы, очки, брови.
+local HEAD_ACCESSORY_TYPES: { [Enum.AccessoryType]: boolean } = {
+	[Enum.AccessoryType.Hat] = true,
+	[Enum.AccessoryType.Hair] = true,
+	[Enum.AccessoryType.Face] = true,
+	[Enum.AccessoryType.Eyebrow] = true,
+	[Enum.AccessoryType.Eyelash] = true,
+}
+-- У старых аксессуаров тип бывает Unknown — тогда смотрим, к чему он крепится
+local HEAD_ATTACHMENTS: { [string]: boolean } = {
+	HatAttachment = true,
+	HairAttachment = true,
+	FaceFrontAttachment = true,
+	FaceCenterAttachment = true,
+}
+
+local function isHeadAccessory(accessory: Accessory): boolean
+	if HEAD_ACCESSORY_TYPES[accessory.AccessoryType] then
+		return true
+	end
+	local handle = accessory:FindFirstChild("Handle")
+	if handle then
+		for _, child in handle:GetChildren() do
+			if child:IsA("Attachment") and HEAD_ATTACHMENTS[child.Name] then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- Форма охраны: убираем свою одежду и аксессуары на теле, красим тело, надеваем значок.
+-- Шапки и волосы игрока остаются.
 local function applyUniform(player: Player, character: Model)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not humanoid then
 		return
 	end
 	for _, child in character:GetChildren() do
-		if child:IsA("Accessory") or child:IsA("Clothing") or child:IsA("ShirtGraphic") then
+		if (child:IsA("Accessory") and not isHeadAccessory(child)) or child:IsA("Clothing") or child:IsA("ShirtGraphic") then
 			child:Destroy()
 		end
 	end
@@ -94,7 +119,6 @@ local function applyUniform(player: Player, character: Model)
 		bodyColors.LeftLegColor3 = Config.Uniform.Legs
 		bodyColors.RightLegColor3 = Config.Uniform.Legs
 	end
-	humanoid:AddAccessory(ModelLibrary.accessory(MapSchema.Models.GuardCap, CAP_STUB, "HatAttachment"))
 	humanoid:AddAccessory(ModelLibrary.accessory(MapSchema.Models.GuardBadge, BADGE_STUB, "BodyFrontAttachment"))
 end
 
