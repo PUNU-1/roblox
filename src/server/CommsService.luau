@@ -28,7 +28,8 @@ end
 
 local function visibleFromSomeCamera(position: Vector3): boolean
 	for _, point in cameraPoints do
-		if point:GetAttribute("Broken") ~= true and (point.Position - position).Magnitude <= Config.Comms.MarkMaxDistance then
+		local working = point:GetAttribute(GameState.CameraAttr.Owned) == true and point:GetAttribute(GameState.CameraAttr.Broken) ~= true
+		if working and (point.Position - position).Magnitude <= Config.Comms.MarkMaxDistance then
 			return true
 		end
 	end

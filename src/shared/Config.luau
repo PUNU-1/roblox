@@ -54,11 +54,29 @@ local Config = {
 		EndHour = 6, -- до 06:00
 	},
 
-	Cameras = {
-		Count = 6, -- по 2 камеры на зал, переключение цифрами 1-6
+	Cameras = { -- 12 мест для камер (блок 2): первая бесплатная, остальные покупаются
+		Price = 50, -- баланс: цена одной камеры (удержание F у таблички CAMERA SPOT, можно вскладчину)
+		FreeIndices = { 1 }, -- эти камеры работают сразу и бесплатно (1 — на Мону Лизу)
+		InstallSeconds = 0.6, -- купленная камера плавно выезжает на кронштейн
+		PlaqueColor = Color3.fromHex("D4A93A"), -- табличка CAMERA SPOT: место свободно
+		PlaqueOwnedColor = Color3.fromHex("3FB56B"), -- камера куплена
 		StaticSeconds = 0.3, -- помеха при переключении
 		FieldOfView = 80,
-		Names = { "Mona Lisa", "Main Hall North", "Jewelry Window", "Jewelry Hall", "Sculpture Door", "Sculpture Hall" },
+		-- Имена по номерам (номер места = порядок в MapBuilder)
+		Names = {
+			"Mona Lisa",
+			"Center Hall",
+			"South Entrance",
+			"West Entrance",
+			"North Entrance",
+			"East Entrance",
+			"Sculpture Hall",
+			"Dinosaur Hall",
+			"Jewelry Hall",
+			"Space Hall",
+			"Jewelry Vault",
+			"Space Rocket",
+		},
 		NightSaturation = -1, -- ночью картинка чёрно-белая
 		NightContrast = 0.25,
 		NightExposure = 3.5, -- ночное видение: камеры видят в темноте (яркость картинки ×2^3.5)

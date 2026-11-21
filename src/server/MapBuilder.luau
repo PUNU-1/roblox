@@ -1031,7 +1031,7 @@ local function buildWing(k: number, doorsFolder: Folder)
 	placeModel(MapSchema.Models.Reception, T * CFrame.lookAt(Vector3.new(-10, 0, 118), Vector3.new(-9, 0, 118)), RECEPTION_STUB)
 	wallSign(at(-14, 9, 118), dir(1, 0), 6, 1.6, "TICKETS  $" .. Config.Money.TicketPrice)
 	placeModel(MapSchema.Models.Bench, T * CFrame.new(16, 0, 112.4), BENCH_STUB)
-	for _, spot in { { -12, 127 }, { 44, 127 }, { 26, 112 }, { -12, 111.5 } } do
+	for _, spot in { { -12, 127 }, { 44, 127 }, { 26, 112 }, { -4, 111.5 } } do
 		local p = at(spot[1], 0, spot[2])
 		plant(p.X, p.Z)
 	end
@@ -1436,9 +1436,37 @@ local function cameraSpots(): { CameraSpot }
 	return spots
 end
 
-local function buildCameraPoints(cameraPoints: Folder)
+-- Место для камеры: пластина на стене и кронштейн (видны сразу) и табличка CAMERA SPOT под ними —
+-- на ней кнопка покупки (CameraService). Купленная камера встаёт на конец кронштейна.
+local function buildCameraSpot(spotsFolder: Folder, index: number, spot: CameraSpot)
+	local model = Instance.new("Model")
+	model.Name = "CameraSpot" .. index
+	model:SetAttribute(GameState.CameraAttr.Index, index)
+	local wallFrame = CFrame.lookAt(spot.wall, spot.wall + spot.normal)
+	local function piece(name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?): Part
+		local part = newPart(model, name, size, cframe, color, material)
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		return part
+	end
+	piece("MountPlate", Vector3.new(1.4, 1.4, 0.2), wallFrame * CFrame.new(0, 0, -0.1), hex("3A3F4B"), Enum.Material.Metal)
+	piece("MountArm", Vector3.new(0.3, 0.3, 1.6), wallFrame * CFrame.new(0, 0, -0.95), hex("3A3F4B"), Enum.Material.Metal)
+	for _, offset in { Vector3.new(0, 0.8, 0), Vector3.new(0, -0.8, 0) } do
+		piece("MountRing", Vector3.new(1.8, 0.12, 0.08), wallFrame * CFrame.new(offset) * CFrame.new(0, 0, -0.05), COLORS.Turquoise, Enum.Material.Neon)
+	end
+	-- Табличка на высоте глаз под кронштейном
+	local plaqueFrame = CFrame.lookAt(Vector3.new(spot.wall.X, 5, spot.wall.Z), Vector3.new(spot.wall.X, 5, spot.wall.Z) + spot.normal)
+	piece("PlaqueFrame", Vector3.new(2.9, 1.6, 0.08), plaqueFrame * CFrame.new(0, 0, -0.04), COLORS.Gold, Enum.Material.Metal)
+	local plaque = piece(MapSchema.CameraPlaque, Vector3.new(2.6, 1.3, 0.1), plaqueFrame * CFrame.new(0, 0, -0.12), COLORS.Navy)
+	textOn(plaque, Enum.NormalId.Front, ("CAMERA SPOT\nCAM %d"):format(index), COLORS.Gold, 0)
+	model.Parent = spotsFolder
+end
+
+local function buildCameraPoints(cameraPoints: Folder, spotsFolder: Folder)
 	local attr = GameState.CameraAttr
 	for index, spot in cameraSpots() do
+		buildCameraSpot(spotsFolder, index, spot)
 		local head = spot.wall + spot.normal * 1.8 -- камера на конце кронштейна
 		local cframe = CFrame.lookAt(head, spot.target)
 		-- Точка обзора чуть впереди объектива, чтобы корпус не закрывал вид
@@ -1661,6 +1689,7 @@ function MapBuilder.build(): Instance
 	local markers = newFolder(map, MapSchema.Markers)
 	local entrances = newFolder(map, MapSchema.Entrances)
 	local cameraPoints = newFolder(map, MapSchema.CameraPoints)
+	local cameraSpotsFolder = newFolder(map, MapSchema.CameraSpots)
 	local hallDoors = newFolder(map, MapSchema.HallDoors)
 	local pedestals = newFolder(map, MapSchema.Pedestals)
 	local doorsFolder = newFolder(map, MapSchema.Doors)
@@ -1684,7 +1713,7 @@ function MapBuilder.build(): Instance
 	buildStaffArea(doorsFolder)
 	buildShellAndFacades()
 	buildEntrances(entrances)
-	buildCameraPoints(cameraPoints)
+	buildCameraPoints(cameraPoints, cameraSpotsFolder)
 	buildLobby(map, markers)
 	-- Стенды MUSEUM MAP — когда все комнаты уже построены
 	for k = 0, 3 do

@@ -1,6 +1,7 @@
--- Камеры наблюдения: вид с камер через телефон оператора (Tab) или пульт в диспетчерской.
--- Переключение 1-4 и кнопками, помеха, ночью ч/б, надписи как у настоящих камер,
--- схема музея со своими игроками, метка на вора — нажать на него.
+-- Камеры наблюдения: вид с камер через телефон оператора (Tab) или пульт на балконе над Моной Лизой.
+-- Работают только купленные камеры (атрибут Owned у точки, блок 2). Переключение цифрами 1–9,
+-- стрелками ← → по кругу, кнопками и кликом по камере на схеме; помеха, ночью ч/б, надписи как у
+-- настоящих камер, схема музея со своими игроками и местами для новых камер, метка на вора — нажать на него.
 -- Открыть камеры разрешает только сервер (атрибут ViewingCameras), клиент только просит.
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -34,7 +35,21 @@ local markThief = Remotes.get(Remotes.Names.MarkThief)
 
 local PHONE_ACTION = "OpenPhone"
 local SWITCH_ACTION = "SwitchCamera"
-local CAMERA_KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six }
+local CAMERA_KEYS = {
+	Enum.KeyCode.One,
+	Enum.KeyCode.Two,
+	Enum.KeyCode.Three,
+	Enum.KeyCode.Four,
+	Enum.KeyCode.Five,
+	Enum.KeyCode.Six,
+	Enum.KeyCode.Seven,
+	Enum.KeyCode.Eight,
+	Enum.KeyCode.Nine,
+}
+local PREVIOUS_KEYS = { Enum.KeyCode.Left, Enum.KeyCode.Up }
+local NEXT_KEYS = { Enum.KeyCode.Right, Enum.KeyCode.Down }
+local CamAttr = GameState.CameraAttr
+local PANEL_HEIGHT = 0.32 -- нижняя панель телефона (доля экрана)
 
 -- Tab открывает телефон, поэтому стандартный список игроков Roblox отключаем.
 pcall(function()
@@ -98,7 +113,7 @@ local grain = Theme.new("Frame", {
 -- деньгами (справа) и лентой фраз (слева), и на узком экране надписи на них наезжали.
 local camLabel = Theme.label({
 	AnchorPoint = Vector2.new(0, 1),
-	Position = UDim2.new(0, 30, 0.72, -44),
+	Position = UDim2.new(0, 30, 1 - PANEL_HEIGHT, -44),
 	Size = UDim2.new(0.45, 0, 0, 34),
 	TextXAlignment = Enum.TextXAlignment.Left,
 	MaxTextSize = 30,
@@ -108,7 +123,7 @@ Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = camLabel })
 
 local recFrame = Theme.new("Frame", {
 	AnchorPoint = Vector2.new(1, 1),
-	Position = UDim2.new(1, -30, 0.72, -44), -- над часами, справа внизу картинки
+	Position = UDim2.new(1, -30, 1 - PANEL_HEIGHT, -44), -- над часами, справа внизу картинки
 	Size = UDim2.new(0, 90, 0, 34),
 	BackgroundTransparency = 1,
 	Parent = gui,
@@ -123,7 +138,7 @@ Theme.label({ Position = UDim2.new(0, 30, 0, 0), Size = UDim2.new(1, -30, 1, 0),
 
 local clockLabel = Theme.label({
 	AnchorPoint = Vector2.new(1, 1),
-	Position = UDim2.new(1, -30, 0.72, -10),
+	Position = UDim2.new(1, -30, 1 - PANEL_HEIGHT, -10),
 	Size = UDim2.new(0, 200, 0, 34),
 	TextXAlignment = Enum.TextXAlignment.Right,
 	Parent = gui,
@@ -132,12 +147,14 @@ Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = clockLabel 
 
 local hintLabel = Theme.label({
 	AnchorPoint = Vector2.new(0, 1),
-	Position = UDim2.new(0, 30, 0.72, -10),
+	Position = UDim2.new(0, 30, 1 - PANEL_HEIGHT, -10),
 	Size = UDim2.new(0.45, 0, 0, 26),
 	Font = Theme.BodyFont,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	MaxTextSize = 18,
-	Text = "Tap a thief to mark him for everyone",
+	Text = if UserInputService.KeyboardEnabled
+		then "Tap a thief to mark him  •  1–9 or ← → switch cameras"
+		else "Tap a thief to mark him for everyone",
 	Parent = gui,
 })
 Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = hintLabel })
@@ -168,7 +185,7 @@ local panel = Theme.new("Frame", {
 	Name = "Panel",
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, 0),
-	Size = UDim2.new(1, 0, 0.28, 0),
+	Size = UDim2.new(1, 0, PANEL_HEIGHT, 0),
 	BackgroundColor3 = Colors.Navy,
 	ZIndex = 2,
 	Parent = gui,
@@ -181,8 +198,8 @@ local buttonsFrame = Theme.new("Frame", {
 	Parent = panel,
 })
 Theme.new("UIGridLayout", {
-	CellSize = UDim2.new(0.31, 0, 0.46, 0), -- 3 × 2 кнопки
-	CellPadding = UDim2.new(0.035, 0, 0.08, 0),
+	CellSize = UDim2.new(0.22, 0, 0.29, 0), -- 4 × 3 кнопки (12 камер)
+	CellPadding = UDim2.new(0.035, 0, 0.055, 0),
 	SortOrder = Enum.SortOrder.LayoutOrder,
 	Parent = buttonsFrame,
 })
@@ -204,7 +221,7 @@ local mapCanvas = Theme.new("Frame", {
 	BackgroundTransparency = 1,
 	ZIndex = 2,
 	Parent = mapFrame,
-}, { Theme.new("UIAspectRatioConstraint", { AspectRatio = 100 / 70 }) })
+})
 
 local closeButton = Theme.button({
 	AnchorPoint = Vector2.new(1, 0.5),
@@ -240,6 +257,8 @@ do
 		hallCenter = Vector3.new((minX + maxX) / 2, 0, (minZ + maxZ) / 2)
 		hallSize = Vector3.new(maxX - minX, 1, maxZ - minZ)
 	end
+	-- Схема в пропорциях музея
+	Theme.new("UIAspectRatioConstraint", { AspectRatio = hallSize.X / hallSize.Z, Parent = mapCanvas })
 end
 
 local function toMap(position: Vector3): UDim2
@@ -248,18 +267,38 @@ local function toMap(position: Vector3): UDim2
 	return UDim2.fromScale(math.clamp(x, 0, 1), math.clamp(y, 0, 1))
 end
 
-local function drawRect(part: BasePart, color: Color3): Frame
-	local half = part.Size / 2
-	local corner = part.Position - Vector3.new(half.X, 0, half.Z)
-	local topLeft = toMap(corner)
+-- Прямоугольник на схеме по центру и размеру (размер — уже повёрнутый, вид сверху).
+local function drawBox(center: Vector3, sizeX: number, sizeZ: number, color: Color3): Frame
+	local topLeft = toMap(center - Vector3.new(sizeX / 2, 0, sizeZ / 2))
 	return Theme.new("Frame", {
 		Position = topLeft,
-		Size = UDim2.fromScale(part.Size.X / hallSize.X, part.Size.Z / hallSize.Z),
+		Size = UDim2.fromScale(sizeX / hallSize.X, sizeZ / hallSize.Z),
 		BackgroundColor3 = color,
 		BorderSizePixel = 0,
 		ZIndex = 2,
 		Parent = mapCanvas,
 	})
+end
+
+local function drawRect(part: BasePart, color: Color3): Frame
+	return drawBox(part.Position, part.Size.X, part.Size.Z, color)
+end
+
+-- Размер детали или модели на полу (с учётом поворота на 90°).
+local function footprint(instance: Instance): (Vector3?, number, number)
+	local cframe, size
+	if instance:IsA("BasePart") then
+		cframe, size = instance.CFrame, instance.Size
+	elseif instance:IsA("Model") then
+		cframe, size = instance:GetBoundingBox()
+	else
+		return nil, 0, 0
+	end
+	local right = cframe.RightVector
+	if math.abs(right.X) >= math.abs(right.Z) then
+		return cframe.Position, size.X, size.Z
+	end
+	return cframe.Position, size.Z, size.X
 end
 
 -- Полы залов: открытый зал светлее, закрытый — тёмный
@@ -280,17 +319,27 @@ do
 		floorFrames[floor] = frame
 	end
 	refreshFloors()
-	local geometry = map:FindFirstChild(MapSchema.Geometry)
-	if geometry then
-		for _, part in geometry:GetChildren() do
-			if part:IsA("BasePart") and (part.Name == "DisplayWall" or part.Name == "Partition" or part.Name == "Column") then
-				drawRect(part, Colors.Marble)
+	-- Укрытия и стены внутри залов (атрибут MapObstacle у детали или модели): колонны, витрины, пульт
+	for _, folderName in { MapSchema.Geometry, MapSchema.Props } do
+		local folder = map:FindFirstChild(folderName)
+		if folder then
+			for _, item in folder:GetDescendants() do
+				if item:GetAttribute("MapObstacle") == true then
+					local center, sizeX, sizeZ = footprint(item)
+					if center then
+						drawBox(center, sizeX, sizeZ, Colors.Marble)
+					end
+				end
 			end
 		end
 	end
+	local console = map:FindFirstChild(MapSchema.ControlConsole, true)
+	if console and console:IsA("BasePart") then
+		drawRect(console, Colors.Gold)
+	end
 end
 
-local cameraDots: { Frame } = {}
+local cameraDots: { TextButton } = {}
 
 -- Сломанная камера: вместо картинки помехи и «NO SIGNAL» (камеру перезапускают на пульте)
 local noSignal = Theme.new("Frame", {
@@ -318,8 +367,8 @@ Theme.label({
 	Size = UDim2.new(0.6, 0, 0, 26),
 	Font = Theme.BodyFont,
 	Text = if UserInputService.KeyboardEnabled
-		then "Restart the cameras: red switch next to the control room console (hold F)"
-		else "Restart the cameras: red switch next to the control room console",
+		then "Restart the cameras: red switch next to the console on the balcony (hold F)"
+		else "Restart the cameras: red switch next to the console on the balcony",
 	MaxTextSize = 20,
 	ZIndex = 1,
 	Parent = noSignal,
@@ -334,24 +383,38 @@ local function cameraPoint(index: number): BasePart?
 	return nil
 end
 
+-- Камеры по номерам: Camera1, Camera2, … пока есть точки
 local cameraCount = 0
-for index = 1, Config.Cameras.Count do
-	local point = cameraPoint(index)
-	if not point then
-		break
-	end
-	cameraCount = index
-	local dot = Theme.new("Frame", {
+while cameraPoint(cameraCount + 1) do
+	cameraCount += 1
+end
+
+local switchTo: (number) -> ()
+
+for index = 1, cameraCount do
+	local point = cameraPoint(index) :: BasePart
+	-- Точка камеры на схеме: по ней можно нажать, чтобы переключиться
+	local dot = Theme.new("TextButton", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = toMap(point.Position),
-		Size = UDim2.new(0, 12, 0, 12),
+		Size = UDim2.new(0, 16, 0, 16),
 		BackgroundColor3 = Colors.Red,
+		Text = tostring(index),
+		TextColor3 = Colors.White,
+		TextScaled = true,
+		Font = Theme.Font,
+		AutoButtonColor = true,
 		ZIndex = 3,
 		Parent = mapCanvas,
-	}, { Theme.corner(6) })
+	}, { Theme.corner(8) })
+	local dotStroke = Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = dot })
+	dotStroke.Name = "Ring"
+	dot.Activated:Connect(function()
+		switchTo(index)
+	end)
 	cameraDots[index] = dot
 
-	local button = Theme.button({ Text = tostring(index), LayoutOrder = index, ZIndex = 2, MaxTextSize = 32, Parent = buttonsFrame })
+	local button = Theme.button({ Text = tostring(index), LayoutOrder = index, ZIndex = 2, MaxTextSize = 28, Parent = buttonsFrame })
 	cameraButtons[index] = button
 end
 
@@ -441,12 +504,7 @@ local function showCamera(index: number)
 	camera.FieldOfView = Config.Cameras.FieldOfView
 	local name = Config.Cameras.Names[index] or ""
 	camLabel.Text = ("CAM %d — %s"):format(index, name)
-	for i, dot in cameraDots do
-		dot.BackgroundColor3 = if i == index then Colors.Gold else Colors.Red
-		dot.Size = if i == index then UDim2.new(0, 16, 0, 16) else UDim2.new(0, 12, 0, 12)
-	end
 	for i, button in cameraButtons do
-		button.BackgroundColor3 = if i == index then Colors.Gold else Colors.NavyLight
 		button.TextColor3 = if i == index then Colors.Navy else Colors.White
 	end
 	playStatic()
@@ -457,37 +515,65 @@ end
 
 local function cameraBroken(index: number): boolean
 	local point = cameraPoint(index)
-	return point ~= nil and point:GetAttribute("Broken") == true
+	return point ~= nil and point:GetAttribute(CamAttr.Broken) == true
 end
 
--- Камера работает, только если её зал открыт.
-local function cameraAvailable(index: number): boolean
+local function cameraOwned(index: number): boolean
 	local point = cameraPoint(index)
-	return point ~= nil and GameState.isHallOpen(point:GetAttribute("Hall"))
+	return point ~= nil and point:GetAttribute(CamAttr.Owned) == true
+end
+
+local function hallOpen(index: number): boolean
+	local point = cameraPoint(index)
+	return point ~= nil and GameState.isHallOpen(point:GetAttribute(CamAttr.Hall))
+end
+
+-- Камеру можно смотреть, если она куплена и её зал открыт.
+local function cameraAvailable(index: number): boolean
+	return cameraOwned(index) and hallOpen(index)
 end
 
 local function refreshCameraButtons()
 	for index, button in cameraButtons do
 		local available = cameraAvailable(index)
 		button.AutoButtonColor = available
-		button.Text = if not available then "🔒" elseif cameraBroken(index) then "✖" else tostring(index)
-		if index ~= currentIndex then
-			button.BackgroundColor3 = if available then Colors.NavyLight else Colors.Dark
-		end
+		button.Text = if not hallOpen(index) then "🔒" elseif not cameraOwned(index) then "$" elseif cameraBroken(index) then "✖" else tostring(index)
+		button.BackgroundColor3 = if index == currentIndex then Colors.Gold elseif available then Colors.NavyLight else Colors.Dark
+		button.TextTransparency = if available or index == currentIndex then 0 else 0.4
 	end
 	refreshFloors()
 	noSignal.Visible = cameraBroken(currentIndex)
 	for index, dot in cameraDots do
-		if index ~= currentIndex then
-			dot.BackgroundColor3 = if cameraBroken(index) then Colors.Gray else Colors.Red
+		local owned = cameraOwned(index)
+		local ring = dot:FindFirstChild("Ring")
+		-- Купленная камера — закрашенный кружок, место для новой — пустое колечко
+		dot.BackgroundTransparency = if owned then 0 else 1
+		dot.TextTransparency = if owned then 0 else 0.5
+		dot.AutoButtonColor = cameraAvailable(index)
+		dot.Size = if index == currentIndex then UDim2.new(0, 20, 0, 20) else UDim2.new(0, 16, 0, 16)
+		dot.BackgroundColor3 = if index == currentIndex then Colors.Gold elseif cameraBroken(index) then Colors.Gray else Colors.Red
+		if ring and ring:IsA("UIStroke") then
+			ring.Color = if owned then Colors.Dark else Colors.Gray
+			ring.Thickness = if owned then 1 else 2
 		end
 	end
 end
 
-local function switchTo(index: number)
+switchTo = function(index: number)
 	if viewing and index ~= currentIndex and index >= 1 and index <= cameraCount and cameraAvailable(index) then
 		showCamera(index)
 		refreshCameraButtons()
+	end
+end
+
+-- Следующая (step = 1) или предыдущая (step = −1) камера, которую можно смотреть, по кругу.
+local function cycle(step: number)
+	for offset = 1, cameraCount - 1 do
+		local index = (currentIndex - 1 + step * offset) % cameraCount + 1
+		if cameraAvailable(index) then
+			switchTo(index)
+			return
+		end
 	end
 end
 
@@ -639,6 +725,13 @@ local function onSwitchAction(_name: string, state: Enum.UserInputState, input: 
 			return Enum.ContextActionResult.Sink
 		end
 	end
+	if table.find(PREVIOUS_KEYS, input.KeyCode) then
+		cycle(-1)
+		return Enum.ContextActionResult.Sink
+	elseif table.find(NEXT_KEYS, input.KeyCode) then
+		cycle(1)
+		return Enum.ContextActionResult.Sink
+	end
 	return Enum.ContextActionResult.Pass
 end
 
@@ -653,11 +746,24 @@ local function openView()
 		Position = UDim2.new(0.5, 0, 1, 0),
 	}):Play()
 	if not cameraAvailable(currentIndex) then
-		currentIndex = 1 -- камера закрытого зала не работает
+		currentIndex = 1 -- камера закрытого зала или ещё не купленная не работает
+		for index = 1, cameraCount do
+			if cameraAvailable(index) then
+				currentIndex = index
+				break
+			end
+		end
 	end
 	showCamera(currentIndex)
 	refreshCameraButtons()
-	ContextActionService:BindAction(SWITCH_ACTION, onSwitchAction, false, table.unpack(CAMERA_KEYS))
+	local keys = table.clone(CAMERA_KEYS)
+	for _, key in PREVIOUS_KEYS do
+		table.insert(keys, key)
+	end
+	for _, key in NEXT_KEYS do
+		table.insert(keys, key)
+	end
+	ContextActionService:BindAction(SWITCH_ACTION, onSwitchAction, false, table.unpack(keys))
 
 	local blink = 0
 	local refreshTimer = 0
@@ -674,7 +780,7 @@ local function openView()
 		refreshTimer += dt
 		if refreshTimer > 0.5 then
 			refreshTimer = 0
-			refreshCameraButtons() -- зал могли открыть, пока смотрим
+			refreshCameraButtons() -- зал могли открыть или камеру купить, пока смотрим
 		end
 	end)
 end

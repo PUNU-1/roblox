@@ -1,8 +1,13 @@
--- Камеры наблюдения на сервере: вор-взломщик ломает камеру (атрибут Broken у точки камеры —
--- клиенты показывают «NO SIGNAL»), игрок перезапускает все камеры рубильником справа от пульта
--- в диспетчерской (держать F). Пока есть сломанные камеры, лампа на рубильнике горит красным.
+-- Камеры наблюдения на сервере (блок 2):
+--  • Покупка: на карте 12 мест для камер (кронштейн и табличка CAMERA SPOT). Первая камера — на
+--    Мону Лизу — работает сразу и бесплатно, остальные днём покупаются удержанием F у таблички
+--    (целиком или вскладчину, Purchase.luau). Купленная камера остаётся до конца забега.
+--  • Поломка: вор-взломщик ломает купленную камеру (атрибут Broken — клиенты показывают «NO SIGNAL»),
+--    игрок перезапускает все камеры рубильником CAMERA RESET справа от пульта на балконе (держать F).
+--    Пока есть сломанные камеры, лампа на рубильнике горит красным.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -13,44 +18,157 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Server = script.Parent
 local RoleService = require(Server:WaitForChild("RoleService"))
 local Audio = require(Server:WaitForChild("Audio"))
+local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
+local Purchase = require(Server:WaitForChild("Purchase"))
+
+local Attr = GameState.CameraAttr
+local Cameras = Config.Cameras
 
 local CameraService = {}
 
+type Camera = {
+	index: number,
+	point: BasePart, -- точка обзора (Map.CameraPoints.CameraN)
+	plaque: BasePart?, -- табличка CAMERA SPOT: на ней кнопка покупки
+	label: TextLabel?,
+	prompt: ProximityPrompt?,
+	model: PVInstance?, -- купленная камера на кронштейне
+	paid: number,
+	free: boolean,
+}
+
+local cameras: { Camera } = {}
 local points: { BasePart } = {}
 local repairPrompt: ProximityPrompt? = nil
 local repairLamp: BasePart? = nil
+local installedFolder: Folder
+local dayActive = false
+
+-- Камера на конце кронштейна, смотрит вперёд (−Z): поворотный шарнир, корпус с козырьком, объектив, огонёк.
+local CAMERA_STUB: { ModelLibrary.StubPart } = {
+	{ name = "Swivel", size = Vector3.new(0.7, 0.7, 0.7), offset = CFrame.identity, color = Color3.fromHex("3A3F4B"), material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+	{ name = "Body", size = Vector3.new(1.2, 1, 2), offset = CFrame.new(0, 0, -1), color = Color3.fromHex("DDE1E6") },
+	{ name = "Hood", size = Vector3.new(1.4, 0.15, 2.4), offset = CFrame.new(0, 0.58, -1.15), color = Color3.fromHex("3A3F4B"), material = Enum.Material.Metal },
+	{ name = "Lens", size = Vector3.new(0.3, 0.7, 0.7), offset = CFrame.new(0, 0, -2.1) * CFrame.Angles(0, math.rad(90), 0), color = Color3.fromHex("15181F"), shape = Enum.PartType.Cylinder },
+	{ name = "Glass", size = Vector3.new(0.05, 0.5, 0.5), offset = CFrame.new(0, 0, -2.27) * CFrame.Angles(0, math.rad(90), 0), color = Color3.fromHex("3B6E9C"), material = Enum.Material.Glass, shape = Enum.PartType.Cylinder },
+	{ name = "Led", size = Vector3.new(0.18, 0.18, 0.18), offset = CFrame.new(0.42, 0.3, -2.05), color = Color3.fromHex("FF3B3B"), material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+}
+
+---------------------------------------------------------------- покупка
+
+local function isOwned(point: BasePart): boolean
+	return point:GetAttribute(Attr.Owned) == true
+end
+
+local function refreshCamera(camera: Camera)
+	local owned = isOwned(camera.point)
+	if camera.prompt then
+		camera.prompt.Enabled = dayActive and not owned and GameState.isHallOpen(camera.point:GetAttribute(Attr.Hall))
+		camera.prompt.ObjectText = Purchase.progressText(("Camera %d"):format(camera.index), camera.paid, Cameras.Price)
+		Purchase.setProgress(camera.prompt, camera.paid, Cameras.Price)
+	end
+	if camera.label then
+		camera.label.Text = if owned
+			then ("CAM %d"):format(camera.index)
+			elseif camera.paid > 0 then ("CAMERA SPOT\n$%d / $%d"):format(camera.paid, Cameras.Price)
+			else ("CAMERA SPOT\nCAM %d"):format(camera.index)
+		camera.label.TextColor3 = if owned then Cameras.PlaqueOwnedColor else Cameras.PlaqueColor
+	end
+end
+
+-- Камера появляется на кронштейне: выезжает из шарнира вперёд.
+local function installModel(camera: Camera, animate: boolean)
+	if camera.model then
+		camera.model:Destroy()
+	end
+	local mount = camera.point.CFrame * CFrame.new(0, 0, 3.5) -- точка обзора на 3.5 впереди шарнира
+	local model = ModelLibrary.place(MapSchema.Models.Camera, mount, CAMERA_STUB, installedFolder)
+	model.Name = "Camera" .. camera.index
+	ModelLibrary.forEachPart(model, function(part)
+		part.CanCollide = false
+		part.CanQuery = false -- не загораживает вид другим камерам
+	end)
+	camera.model = model
+	if animate then
+		local progress = Instance.new("NumberValue")
+		local start = mount * CFrame.new(0, 0, 1.2)
+		model:PivotTo(start)
+		progress.Changed:Connect(function(value)
+			if model.Parent then
+				model:PivotTo(start:Lerp(mount, value))
+			end
+		end)
+		local tween = TweenService:Create(progress, TweenInfo.new(Cameras.InstallSeconds, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Value = 1 })
+		tween.Completed:Once(function()
+			progress:Destroy()
+		end)
+		tween:Play()
+	end
+end
+
+local function own(camera: Camera, animate: boolean)
+	camera.point:SetAttribute(Attr.Owned, true)
+	camera.point:SetAttribute(Attr.Broken, false)
+	installModel(camera, animate)
+	refreshCamera(camera)
+end
+
+-- Удержание F у таблички: остаток цены, если хватает денег, иначе всё, что есть (Purchase.take).
+local function contribute(camera: Camera, player: Player)
+	local plaque = camera.plaque
+	if not dayActive or not plaque or isOwned(camera.point) or not GameState.isHallOpen(camera.point:GetAttribute(Attr.Hall)) then
+		return
+	end
+	local amount = Purchase.take(player, plaque, camera.paid, Cameras.Price)
+	if amount <= 0 then
+		return
+	end
+	camera.paid += amount
+	if camera.paid >= Cameras.Price then
+		own(camera, true)
+		Remotes.get(Remotes.Names.Banner):FireAllClients(("CAMERA %d INSTALLED"):format(camera.index), "info")
+	else
+		refreshCamera(camera)
+	end
+end
+
+local function refreshAll()
+	for _, camera in cameras do
+		refreshCamera(camera)
+	end
+end
+
+---------------------------------------------------------------- поломка и перезапуск
 
 local function anyBroken(): boolean
 	for _, point in points do
-		if point:GetAttribute("Broken") == true then
+		if point:GetAttribute(Attr.Broken) == true then
 			return true
 		end
 	end
 	return false
 end
 
-local function refreshPrompt()
+local function refreshRepair()
 	local broken = anyBroken()
 	if repairPrompt then
 		repairPrompt.Enabled = broken
 	end
 	if repairLamp then
-		repairLamp.Color = if broken then Config.Cameras.ResetLampOnColor else Config.Cameras.ResetLampOffColor
+		repairLamp.Color = if broken then Cameras.ResetLampOnColor else Cameras.ResetLampOffColor
 	end
 end
 
--- Рубильник справа от пульта (если смотреть на пульт с юга, со стороны входа в диспетчерскую).
+-- Рубильник справа от пульта (если смотреть на пульт с юга, с балкона).
 local function buildResetSwitch(console: BasePart): BasePart
-	local cameras = Config.Cameras
-	local size = cameras.ResetSwitchSize
+	local size = Cameras.ResetSwitchSize
 	local switch = Instance.new("Part")
 	switch.Name = "CameraResetSwitch"
 	switch.Anchored = true
 	switch.Size = size
-	switch.Color = cameras.ResetSwitchColor
+	switch.Color = Cameras.ResetSwitchColor
 	switch.Material = Enum.Material.Metal
-	switch.CFrame = console.CFrame
-		* CFrame.new(console.Size.X / 2 + cameras.ResetSwitchGap + size.X / 2, -console.Size.Y / 2 + size.Y / 2, 0)
+	switch.CFrame = console.CFrame * CFrame.new(console.Size.X / 2 + Cameras.ResetSwitchGap + size.X / 2, -console.Size.Y / 2 + size.Y / 2, 0)
 	switch.Parent = console.Parent
 
 	local gui = Instance.new("SurfaceGui")
@@ -76,7 +194,7 @@ local function buildResetSwitch(console: BasePart): BasePart
 	lamp.CanTouch = false
 	lamp.CastShadow = false
 	lamp.Material = Enum.Material.Neon
-	lamp.Color = cameras.ResetLampOffColor
+	lamp.Color = Cameras.ResetLampOffColor
 	lamp.Size = Vector3.new(0.7, 0.7, 0.7)
 	lamp.CFrame = switch.CFrame * CFrame.new(0, size.Y / 2 - 0.6, size.Z / 2)
 	lamp.Parent = switch
@@ -85,14 +203,19 @@ local function buildResetSwitch(console: BasePart): BasePart
 end
 
 function CameraService.isBroken(point: BasePart): boolean
-	return point:GetAttribute("Broken") == true
+	return point:GetAttribute(Attr.Broken) == true
 end
 
--- Ближайшая рабочая камера открытого зала.
+-- Камера работает: куплена, не сломана, её зал открыт.
+function CameraService.isWorking(point: BasePart): boolean
+	return isOwned(point) and not CameraService.isBroken(point) and GameState.isHallOpen(point:GetAttribute(Attr.Hall))
+end
+
+-- Ближайшая работающая камера (её и ломает взломщик).
 function CameraService.nearestWorking(position: Vector3): BasePart?
 	local best, bestDistance = nil, math.huge
 	for _, point in points do
-		if not CameraService.isBroken(point) and GameState.isHallOpen(point:GetAttribute("Hall")) then
+		if CameraService.isWorking(point) then
 			local distance = (point.Position - position).Magnitude
 			if distance < bestDistance then
 				best, bestDistance = point, distance
@@ -104,7 +227,7 @@ end
 
 -- Где встать вору под камерой: на полу под кронштейном, чуть дальше от стены (StandPoint пишет MapBuilder).
 function CameraService.standPoint(point: BasePart): Vector3
-	local stand = point:GetAttribute(GameState.CameraAttr.StandPoint)
+	local stand = point:GetAttribute(Attr.StandPoint)
 	if typeof(stand) == "Vector3" then
 		return stand
 	end
@@ -112,63 +235,149 @@ function CameraService.standPoint(point: BasePart): Vector3
 end
 
 function CameraService.breakCamera(point: BasePart)
-	if CameraService.isBroken(point) then
+	if CameraService.isBroken(point) or not isOwned(point) then
 		return
 	end
-	point:SetAttribute("Broken", true)
+	point:SetAttribute(Attr.Broken, true)
 	Audio.playOnce(Config.Sounds.CameraBreak, point, Config.Sounds.CameraBreakVolume)
-	refreshPrompt()
+	refreshRepair()
 end
 
 function CameraService.repairAll()
 	for _, point in points do
-		point:SetAttribute("Broken", false)
+		point:SetAttribute(Attr.Broken, false)
 	end
-	refreshPrompt()
+	refreshRepair()
 end
 
-function CameraService.init(map: Instance)
-	local folder = map:FindFirstChild(MapSchema.CameraPoints)
-	if folder then
-		for _, child in folder:GetChildren() do
-			if child:IsA("BasePart") then
-				child:SetAttribute("Broken", false)
-				table.insert(points, child)
+---------------------------------------------------------------- фазы
+
+-- Днём камеры можно покупать, ночью — нет.
+function CameraService.setDayActive(active: boolean)
+	dayActive = active
+	refreshAll()
+end
+
+-- Новый забег: остаются только бесплатные камеры, деньги в табличках обнуляются.
+function CameraService.reset()
+	for _, camera in cameras do
+		camera.paid = 0
+		if camera.free then
+			if not isOwned(camera.point) then
+				own(camera, false)
+			end
+		else
+			camera.point:SetAttribute(Attr.Owned, false)
+			if camera.model then
+				camera.model:Destroy()
+				camera.model = nil
 			end
 		end
 	end
+	CameraService.repairAll()
+	refreshAll()
+end
 
+local function setupRepair(map: Instance)
 	local console = map:FindFirstChild(MapSchema.ControlConsole, true)
-	if console and console:IsA("BasePart") then
-		local switch = buildResetSwitch(console)
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.Name = "RepairPrompt"
-		prompt.ActionText = "Restart cameras"
-		prompt.ObjectText = "Some cameras are offline"
-		prompt.KeyboardKeyCode = Config.Keys.Action
-		prompt.HoldDuration = Config.Cameras.RepairHoldSeconds
-		prompt.MaxActivationDistance = Config.Cameras.ConsolePromptDistance
-		prompt.RequiresLineOfSight = false
-		prompt.Enabled = false
-		prompt.Parent = switch
-		prompt.Triggered:Connect(function(player)
-			if not RoleService.isParticipant(player) then
-				return
-			end
-			local character = player.Character
-			local root = character and character:FindFirstChild("HumanoidRootPart")
-			if not (root and root:IsA("BasePart")) then
-				return
-			end
-			local maxDistance = Config.Cameras.ConsolePromptDistance + Config.Catch.ServerDistanceSlack
-			if (root.Position - switch.Position).Magnitude > maxDistance then
-				return
-			end
-			CameraService.repairAll()
-			Remotes.get(Remotes.Names.Banner):FireAllClients("CAMERAS ARE BACK ONLINE", "info")
-		end)
-		repairPrompt = prompt
+	if not (console and console:IsA("BasePart")) then
+		return
 	end
+	local switch = buildResetSwitch(console)
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "RepairPrompt"
+	prompt.ActionText = "Restart cameras"
+	prompt.ObjectText = "Some cameras are offline"
+	prompt.KeyboardKeyCode = Config.Keys.Action
+	prompt.HoldDuration = Cameras.RepairHoldSeconds
+	prompt.MaxActivationDistance = Cameras.ConsolePromptDistance
+	prompt.RequiresLineOfSight = false
+	prompt.Enabled = false
+	prompt.Parent = switch
+	prompt.Triggered:Connect(function(player)
+		if not RoleService.isParticipant(player) then
+			return
+		end
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not (root and root:IsA("BasePart")) then
+			return
+		end
+		local maxDistance = Cameras.ConsolePromptDistance + Config.Catch.ServerDistanceSlack
+		if (root.Position - switch.Position).Magnitude > maxDistance then
+			return
+		end
+		CameraService.repairAll()
+		Remotes.get(Remotes.Names.Banner):FireAllClients("CAMERAS ARE BACK ONLINE", "info")
+	end)
+	repairPrompt = prompt
+end
+
+local function setupCamera(point: BasePart, index: number, spotsFolder: Instance?)
+	point:SetAttribute(Attr.Broken, false)
+	point:SetAttribute(Attr.Owned, false)
+	table.insert(points, point)
+	local camera: Camera = {
+		index = index,
+		point = point,
+		plaque = nil,
+		label = nil,
+		prompt = nil,
+		model = nil,
+		paid = 0,
+		free = table.find(Cameras.FreeIndices, index) ~= nil,
+	}
+	local spot = spotsFolder and spotsFolder:FindFirstChild("CameraSpot" .. index)
+	local plaque = spot and spot:FindFirstChild(MapSchema.CameraPlaque, true)
+	if plaque and plaque:IsA("BasePart") then
+		camera.plaque = plaque
+		local label = plaque:FindFirstChild("Text", true)
+		if label and label:IsA("TextLabel") then
+			camera.label = label
+		end
+		local prompt = Purchase.newPrompt(plaque, "BuyPrompt", Cameras.Price)
+		prompt.Triggered:Connect(function(player)
+			contribute(camera, player)
+		end)
+		camera.prompt = prompt
+	end
+	table.insert(cameras, camera)
+end
+
+function CameraService.init(map: Instance)
+	local existing = map:FindFirstChild(MapSchema.InstalledCameras)
+	if existing and existing:IsA("Folder") then
+		installedFolder = existing
+	else
+		local created = Instance.new("Folder")
+		created.Name = MapSchema.InstalledCameras
+		created.Parent = map
+		installedFolder = created
+	end
+
+	local folder = map:FindFirstChild(MapSchema.CameraPoints)
+	local spotsFolder = map:FindFirstChild(MapSchema.CameraSpots)
+	if folder then
+		for _, child in folder:GetChildren() do
+			local index = child:GetAttribute(Attr.Index)
+			if child:IsA("BasePart") and typeof(index) == "number" then
+				setupCamera(child, index, spotsFolder)
+			end
+		end
+	end
+	table.sort(cameras, function(a, b)
+		return a.index < b.index
+	end)
+
+	-- Зал открыли днём — его места для камер сразу можно покупать
+	GameState.folder().AttributeChanged:Connect(function(attr)
+		if string.sub(attr, 1, #"HallOpen_") == "HallOpen_" then
+			refreshAll()
+		end
+	end)
+
+	setupRepair(map)
+	CameraService.reset()
 end
 
 return CameraService
