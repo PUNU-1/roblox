@@ -3,6 +3,7 @@
 -- Договорённость: origin модели (pivot) внизу по центру, перед модели смотрит в -Z.
 -- Скрипты внутри моделей запрещены: если они там есть, удаляем их и пишем предупреждение.
 
+local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -179,6 +180,34 @@ function ModelLibrary.createRig(description: HumanoidDescription): Model?
 	end
 	useMotorJoints(result)
 	return result
+end
+
+-- Группы столкновений. Туристы проходят сквозь всех людей (иначе двое на одной дорожке
+-- упираются лбами и лезут друг на друга вверх), воры — сквозь других воров.
+-- Охранник и вор сталкиваются: воры загораживают охране путь.
+ModelLibrary.Groups = {
+	Guards = "Guards",
+	Thieves = "Thieves",
+	Tourists = "Tourists",
+}
+
+function ModelLibrary.setupCollisionGroups()
+	for _, name in ModelLibrary.Groups do
+		if not PhysicsService:IsCollisionGroupRegistered(name) then
+			PhysicsService:RegisterCollisionGroup(name)
+		end
+	end
+	local groups = ModelLibrary.Groups
+	PhysicsService:CollisionGroupSetCollidable(groups.Tourists, groups.Tourists, false)
+	PhysicsService:CollisionGroupSetCollidable(groups.Tourists, groups.Guards, false)
+	PhysicsService:CollisionGroupSetCollidable(groups.Tourists, groups.Thieves, false)
+	PhysicsService:CollisionGroupSetCollidable(groups.Thieves, groups.Thieves, false)
+end
+
+function ModelLibrary.setCollisionGroup(root: Instance, group: string)
+	forEachPart(root, function(part)
+		part.CollisionGroup = group
+	end)
 end
 
 -- Приваривает модель к детали персонажа: модель встаёт в cframe и двигается вместе с ней.

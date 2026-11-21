@@ -59,6 +59,7 @@ local updateConnection: RBXScriptConnection? = nil
 local spawnThread: thread? = nil
 local random = Random.new()
 local touristsToday = 0
+local closing = false -- музей закрывается: новые не приходят, все идут к выходу
 
 local function now(): number
 	return Workspace:GetServerTimeNow()
@@ -181,6 +182,9 @@ local function startVisit(tourist: Tourist)
 end
 
 local function startLeaving(tourist: Tourist)
+	if closing then
+		tourist.humanoid.WalkSpeed = TouristConfig.LeaveWalkSpeed
+	end
 	tourist.state = "Leave"
 	setAnim(tourist, Anim.Stroll)
 	if entrance then
@@ -267,6 +271,7 @@ local function spawnTourist(): boolean
 		return false
 	end
 	model.Name = "Tourist"
+	ModelLibrary.setCollisionGroup(model, ModelLibrary.Groups.Tourists)
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	humanoid.WalkSpeed = TouristConfig.WalkSpeed
 	model:PivotTo((entrance :: BasePart).CFrame)
@@ -323,6 +328,7 @@ end
 -- appeal — сумма привлекательности купленных экспонатов (Мона Лиза входит в базу).
 function TouristService.beginDay(appeal: number)
 	TouristService.endDay()
+	closing = false
 	touristsToday = 0
 	GameState.set(GameState.Attr.TouristsToday, 0)
 	local total = touristsForDay(appeal)
@@ -354,7 +360,23 @@ function TouristService.beginDay(appeal: number)
 	end)
 end
 
--- Конец дня: туристы уходят сразу (ночью музей закрыт).
+-- Музей закрывается (за несколько секунд до ночи): новые туристы не приходят, все идут к выходу.
+function TouristService.closeMuseum()
+	closing = true
+	if spawnThread then
+		pcall(task.cancel, spawnThread)
+		spawnThread = nil
+	end
+	for _, tourist in tourists do
+		if tourist.state ~= "Leave" then
+			startLeaving(tourist)
+		else
+			tourist.humanoid.WalkSpeed = TouristConfig.LeaveWalkSpeed
+		end
+	end
+end
+
+-- Ночь: кто не успел выйти, уходит сразу (ночью музей закрыт).
 function TouristService.endDay()
 	if spawnThread then
 		pcall(task.cancel, spawnThread) -- поток мог уже закончиться сам

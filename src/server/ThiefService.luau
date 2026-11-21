@@ -448,6 +448,7 @@ local function spawnThief(): boolean
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	humanoid.WalkSpeed = ThiefConfig.SneakSpeed
 	humanoid:AddAccessory(ModelLibrary.accessory(MapSchema.Models.ThiefMask, MASK_STUB, "FaceCenterAttachment"))
+	ModelLibrary.setCollisionGroup(model, ModelLibrary.Groups.Thieves)
 
 	local open = openEntrances()
 	if #open == 0 then

@@ -12,6 +12,7 @@ local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Server = script.Parent
+local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local MapBuilder = require(Server:WaitForChild("MapBuilder"))
 local RoleService = require(Server:WaitForChild("RoleService"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
@@ -29,6 +30,7 @@ local Audio = require(Server:WaitForChild("Audio"))
 local Phase = GameState.Phase
 local Attr = GameState.Attr
 
+ModelLibrary.setupCollisionGroups()
 local map = MapBuilder.build()
 RoleService.init(map)
 ExhibitService.init(map)
@@ -118,9 +120,16 @@ local function runDay(night: number): boolean
 	ExhibitService.setDayActive(true)
 	bannerRemote:FireAllClients(("DAY %d"):format(night), "info")
 	Audio.startMusic(Config.Sounds.DayMusic)
+	local closing = false
 	while GameState.secondsLeft() > 0 do
 		if not anyoneLeft() then
 			return false
+		end
+		-- За 10 секунд до ночи музей закрывается: туристы идут к выходу, а не пропадают с наступлением ночи
+		if not closing and GameState.secondsLeft() <= Config.Tourists.LeaveBeforeNightSeconds then
+			closing = true
+			TouristService.closeMuseum()
+			bannerRemote:FireAllClients("THE MUSEUM IS CLOSING", "info")
 		end
 		tick()
 	end

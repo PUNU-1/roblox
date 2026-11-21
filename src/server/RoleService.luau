@@ -263,6 +263,13 @@ function RoleService.setConsoleEnabled(enabled: boolean)
 end
 
 local function onCharacterAdded(player: Player, character: Model)
+	-- Группа столкновений охраны (туристы проходят сквозь охранников, воры — нет)
+	ModelLibrary.setCollisionGroup(character, ModelLibrary.Groups.Guards)
+	character.DescendantAdded:Connect(function(descendant)
+		if descendant:IsA("BasePart") then
+			descendant.CollisionGroup = ModelLibrary.Groups.Guards
+		end
+	end)
 	player:SetAttribute(PlayerAttr.ViewingCameras, false)
 	player:SetAttribute(PlayerAttr.ViewSource, "")
 	phoneProps[player] = nil
