@@ -225,6 +225,14 @@ function RoleService.startRound(team: { Player }): { Player }
 	return list
 end
 
+-- Ночь начинается: вся охрана встаёт у Моны Лизы в центре (камеры и телефон закрываются).
+function RoleService.gatherAtPainting()
+	for index, player in RoleService.participants() do
+		RoleService.setViewing(player, false)
+		placeInHall(player, index)
+	end
+end
+
 -- Опоздавший, которого пустили голосованием, входит в игру (с начала дня).
 function RoleService.addToRound(player: Player)
 	player:SetAttribute(PlayerAttr.InRound, true)

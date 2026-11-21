@@ -253,11 +253,11 @@ local Config = {
 		AdmireMax = 6,
 		PhotoChance = 0.4, -- как часто фотографирует
 		ReachDistance = 3,
-		WalkTimeout = 25, -- если турист застрял, через столько секунд идёт дальше
+		WalkTimeout = 45, -- если турист застрял, через столько секунд идёт дальше (музей большой: от двери до зала ~30 сек)
 		UpdateSeconds = 0.2,
 		WanderInset = 6, -- гуляет по открытым залам, не ближе этого к стенам
 		LeaveBeforeNightSeconds = 10, -- за столько секунд до ночи музей закрывается: все туристы идут к выходу
-		LeaveWalkSpeed = 11, -- к выходу идут быстрее, чтобы успеть до ночи
+		LeaveWalkSpeed = 13, -- к ближайшей двери идут быстрее, чтобы успеть до ночи
 	},
 
 	Comms = {
@@ -267,11 +267,12 @@ local Config = {
 		MarkTapRadius = 60, -- в пикселях: насколько можно промахнуться мимо вора на картинке с камеры
 		PhraseCooldown = 2,
 		PhraseShowSeconds = 5,
-		Phrases = {
+		Phrases = { -- двери музея — по сторонам света (блок 2)
 			"Thief at the painting!",
-			"Thief at the door!",
-			"Thief at the window!",
-			"Thief at the hatch!",
+			"Thief at the north door!",
+			"Thief at the south door!",
+			"Thief at the east door!",
+			"Thief at the west door!",
 			"I'm coming!",
 			"Help me!",
 		},

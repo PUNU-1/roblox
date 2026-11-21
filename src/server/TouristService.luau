@@ -116,17 +116,28 @@ end
 
 ---------------------------------------------------------------- куда идти
 
--- Случайное место в одном из открытых залов.
+-- Случайное место в одном из открытых залов. Чем больше пол, тем чаще туда идут:
+-- туристы гуляют по центру и залам, а не по узким коридорам.
 local function randomWanderSpot(): Attraction
 	local open = {}
+	local totalArea = 0
 	for _, floor in floors do
 		if GameState.isHallOpen(floor:GetAttribute("Hall")) then
 			table.insert(open, floor)
+			totalArea += floor.Size.X * floor.Size.Z
 		end
 	end
 	local stand = Vector3.new(0, 3, 20)
 	if #open > 0 then
-		local floor = pick(open)
+		local floor = open[#open]
+		local roll = random:NextNumber(0, totalArea)
+		for _, candidate in open do
+			roll -= candidate.Size.X * candidate.Size.Z
+			if roll <= 0 then
+				floor = candidate
+				break
+			end
+		end
 		local inset = TouristConfig.WanderInset
 		local halfX = math.max(0, floor.Size.X / 2 - inset)
 		local halfZ = math.max(0, floor.Size.Z / 2 - inset)

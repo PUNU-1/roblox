@@ -159,6 +159,7 @@ local function runNight(night: number): (boolean, boolean)
 	GameState.set(Attr.NightStartedAt, now())
 	setPhase(Phase.Night, length)
 	TrapService.beginNight()
+	RoleService.gatherAtPainting() -- ночь начинается: все охранники у Моны Лизы
 	local participants = RoleService.participants()
 	ScoreService.beginNight(participants)
 	Audio.startMusic(Config.Sounds.NightMusic)

@@ -301,10 +301,10 @@ local hintLabel = Theme.label({ Size = UDim2.fromScale(1, 1), Font = Theme.BodyF
 
 local HINT_ARREST = if touchOnly then "Hold the button next to a thief to arrest him" else "Hold F next to a thief to arrest him"
 local HINT_BUY = if touchOnly
-	then "Hold the button at boarded doors and pedestals to buy halls, exhibits, laser grids"
-	else "Hold F at boarded doors and pedestals to buy halls, exhibits, laser grids"
+	then "Hold the button at boarded doors, pedestals and CAMERA SPOT signs to buy halls, exhibits, cameras"
+	else "Hold F at boarded doors, pedestals and CAMERA SPOT signs to buy halls, exhibits, cameras"
 local HINT_PHONE = if touchOnly then "Phone button — cameras" else "Tab — cameras"
-local HINT_CONSOLE = "Camera console: end of the north corridor"
+local HINT_CONSOLE = "Camera console: on the balcony above the Mona Lisa"
 local HINT_STOLEN = "The thief has the painting — catch him before he gets out!"
 
 -- Раунд засчитан, когда закончилась ночь, в которой игрок участвовал
@@ -333,7 +333,12 @@ local function hintText(phase: string): string?
 	local cameras = if hasPhone then HINT_PHONE else HINT_CONSOLE
 	if phase == Phase.Day then
 		local money = tonumber(localPlayer:GetAttribute(PlayerAttr.Money)) or 0
-		local closedHall = not GameState.isHallOpen(GameState.Hall.Jewelry) or not GameState.isHallOpen(GameState.Hall.Sculptures)
+		local closedHall = false
+		for _, hall in GameState.PaidHalls do
+			if not GameState.isHallOpen(hall) then
+				closedHall = true
+			end
+		end
 		if closedHall and money > 0 then
 			return HINT_BUY
 		end
