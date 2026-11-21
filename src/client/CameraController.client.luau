@@ -81,9 +81,12 @@ local grain = Theme.new("Frame", {
 	Parent = gui,
 })
 
+-- Надписи камеры — внизу картинки, над панелью телефона: верх экрана занят верхней строкой,
+-- деньгами (справа) и лентой фраз (слева), и на узком экране надписи на них наезжали.
 local camLabel = Theme.label({
-	Position = UDim2.new(0, 30, 0, 24),
-	Size = UDim2.new(0.5, 0, 0, 34),
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 30, 0.72, -44),
+	Size = UDim2.new(0.45, 0, 0, 34),
 	TextXAlignment = Enum.TextXAlignment.Left,
 	MaxTextSize = 30,
 	Parent = gui,
@@ -91,9 +94,9 @@ local camLabel = Theme.label({
 Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = camLabel })
 
 local recFrame = Theme.new("Frame", {
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -190, 0, 24), -- левее счётчика денег (он справа сверху, 150 пикселей)
-	Size = UDim2.new(0, 110, 0, 34),
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(1, -30, 0.72, -44), -- над часами, справа внизу картинки
+	Size = UDim2.new(0, 90, 0, 34),
 	BackgroundTransparency = 1,
 	Parent = gui,
 })
