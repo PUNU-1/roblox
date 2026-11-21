@@ -260,7 +260,7 @@ local function startEscape(thief: Thief, exhibit: ExhibitService.Exhibit)
 	thief.state = "Escape"
 	syncAnim(thief)
 	bannerRemote:FireAllClients(("THE %s IS STOLEN!"):format(string.upper(exhibit.title)), "danger")
-	Audio.playOnce(Config.Sounds.Alarm, nil, Config.Sounds.AlarmVolume)
+	Audio.alarm()
 end
 
 local function updateThief(thief: Thief)

@@ -79,6 +79,7 @@ local function takeContribution(player: Player, part: BasePart, paid: number, pr
 		return 0
 	end
 	player:SetAttribute(GameState.PlayerAttr.Money, money - amount)
+	Audio.purchase(part)
 	return amount
 end
 
@@ -240,7 +241,7 @@ local function checkGrids()
 			if tripped then
 				grid.readyAt = time + Laser.RechargeSeconds
 				flashThenRecharge(grid)
-				Audio.playOnce(Config.Sounds.Alarm, nil, Config.Sounds.AlarmVolume)
+				Audio.alarm()
 				bannerRemote:FireAllClients(("LASER ALARM: %s!"):format(string.upper(grid.exhibit.title)), "danger")
 			end
 		end
@@ -410,7 +411,7 @@ function TrapService.init(_map: Instance)
 	-- Сигнализация: вор начал снимать Мону Лизу
 	ExhibitService.StealStarted.Event:Connect(function(exhibit: ExhibitService.Exhibit)
 		if exhibit.isMain and alarmOwned then
-			Audio.playOnce(Config.Sounds.Alarm, nil, Config.Sounds.AlarmVolume)
+			Audio.alarm()
 			bannerRemote:FireAllClients("ALARM: SOMEONE IS TOUCHING THE MONA LISA!", "danger")
 		end
 	end)

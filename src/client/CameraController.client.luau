@@ -9,6 +9,7 @@ local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -45,6 +46,17 @@ local cameraPointsFolder = map:WaitForChild(MapSchema.CameraPoints)
 
 local viewing = false
 local currentIndex = 1
+
+-- Щелчок переключения камер: звук только у этого игрока
+local switchSound: Sound? = nil
+if Config.Sounds.CameraSwitch ~= "" then
+	local sound = Instance.new("Sound")
+	sound.Name = "CameraSwitch"
+	sound.SoundId = Config.Sounds.CameraSwitch
+	sound.Volume = Config.Sounds.CameraSwitchVolume
+	sound.Parent = SoundService
+	switchSound = sound
+end
 local colorEffect: ColorCorrectionEffect? = nil
 local renderConnection: RBXScriptConnection? = nil
 
@@ -436,6 +448,9 @@ local function showCamera(index: number)
 		button.TextColor3 = if i == index then Colors.Navy else Colors.White
 	end
 	playStatic()
+	if switchSound then
+		switchSound:Play()
+	end
 end
 
 local function cameraBroken(index: number): boolean

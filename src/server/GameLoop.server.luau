@@ -117,6 +117,7 @@ local function runDay(night: number): boolean
 	HallService.setDayActive(true)
 	ExhibitService.setDayActive(true)
 	bannerRemote:FireAllClients(("DAY %d"):format(night), "info")
+	Audio.startMusic(Config.Sounds.DayMusic)
 	while GameState.secondsLeft() > 0 do
 		if not anyoneLeft() then
 			return false
@@ -137,7 +138,7 @@ local function runNight(night: number): (boolean, boolean)
 	TrapService.beginNight()
 	local participants = RoleService.participants()
 	ScoreService.beginNight(participants)
-	Audio.startMusic()
+	Audio.startMusic(Config.Sounds.NightMusic)
 
 	local survived, aborted = true, false
 	local escapedConnection = ThiefService.Escaped.Event:Connect(function()
@@ -181,6 +182,7 @@ end
 
 -- Конец забега: всех обратно в комнату охраны, музей с нуля.
 local function finishRun()
+	Audio.stopMusic()
 	VoteService.setRunActive(false)
 	TouristService.endDay()
 	HallService.setDayActive(false)

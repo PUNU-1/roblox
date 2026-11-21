@@ -14,6 +14,7 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local RoleService = require(Server:WaitForChild("RoleService"))
+local Audio = require(Server:WaitForChild("Audio"))
 
 local ExhibitConfig = Config.Exhibits
 
@@ -374,6 +375,10 @@ local function contribute(slot: Slot, player: Player)
 		return
 	end
 	player:SetAttribute(GameState.PlayerAttr.Money, money - amount)
+	local base = slot.prompt and slot.prompt.Parent
+	if base and base:IsA("BasePart") then
+		Audio.purchase(base)
+	end
 	slot.paid += amount
 	if slot.paid >= slot.price then
 		placeExhibit(slot)

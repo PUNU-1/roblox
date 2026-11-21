@@ -14,6 +14,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Server = script.Parent
 local RoleService = require(Server:WaitForChild("RoleService"))
+local Audio = require(Server:WaitForChild("Audio"))
 
 local HallConfig = Config.Halls
 
@@ -66,6 +67,10 @@ local function openHall(door: Door)
 		door.prompt.Enabled = false
 	end
 	Remotes.get(Remotes.Names.Banner):FireAllClients(door.title .. " IS OPEN!", "info")
+	local panel = door.model:FindFirstChild(MapSchema.HallDoorPanel)
+	if panel and panel:IsA("BasePart") then
+		Audio.playOnce(Config.Sounds.HallOpen, panel, Config.Sounds.HallOpenVolume)
+	end
 	-- Доски падают и тают
 	local info = TweenInfo.new(HallConfig.BoardsFallSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 	for _, part in door.model:GetDescendants() do
@@ -106,6 +111,7 @@ local function contribute(door: Door, player: Player)
 		return
 	end
 	player:SetAttribute(GameState.PlayerAttr.Money, money - amount)
+	Audio.purchase(panel)
 	door.paid += amount
 	updateSign(door)
 	if door.paid >= door.price then

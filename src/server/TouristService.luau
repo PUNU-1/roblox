@@ -18,6 +18,7 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
+local Audio = require(Server:WaitForChild("Audio"))
 
 local TouristConfig = Config.Tourists
 local Anim = GameState.TouristAnim
@@ -295,6 +296,7 @@ local function spawnTourist(): boolean
 	GameState.set(GameState.Attr.TouristsToday, touristsToday)
 	ScoreService.addIncome(Config.Money.TicketPrice)
 	showTicket(tourist)
+	Audio.purchase(root, Config.Sounds.TicketVolume)
 	return true
 end
 

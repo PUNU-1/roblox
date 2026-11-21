@@ -11,6 +11,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Server = script.Parent
 local RoleService = require(Server:WaitForChild("RoleService"))
+local Audio = require(Server:WaitForChild("Audio"))
 
 local CameraService = {}
 
@@ -66,6 +67,7 @@ function CameraService.breakCamera(point: BasePart)
 		return
 	end
 	point:SetAttribute("Broken", true)
+	Audio.playOnce(Config.Sounds.CameraBreak, point, Config.Sounds.CameraBreakVolume)
 	refreshPrompt()
 end
 

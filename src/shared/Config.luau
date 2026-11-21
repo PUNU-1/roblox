@@ -189,17 +189,31 @@ local Config = {
 		Legs = Color3.fromHex("2A2F3A"),
 	},
 
-	-- Номера звуков. 0 — звука пока нет (друг подберёт, задание 18).
+	-- Звуки. ВСЕ ВРЕМЕННЫЕ: подобрал Claude из открытой библиотеки Roblox (ProSoundEffects, DistrokidOfficial),
+	-- владелец и друг заменят на свои (GEMINI.md, задание 18). Номер вставляется как "rbxassetid://НОМЕР".
+	-- Пустая строка "" — звука нет.
 	Sounds = {
-		ThiefStep = 0,
-		Alarm = 0,
-		NightMusic = 0,
-		Arrest = 0,
+		ThiefStep = "rbxasset://sounds/action_footsteps_plastic.mp3", -- ВРЕМЕННЫЙ: стандартные шаги Roblox
+		Alarm = "rbxassetid://9125544264", -- ВРЕМЕННЫЙ: Elevator Alarm Bell (кража, лазерная сетка, сигнализация)
+		NightMusic = "rbxassetid://131411533631277", -- ВРЕМЕННЫЙ: Sneaky Mischief (крадущаяся мультяшная музыка)
+		DayMusic = "rbxassetid://79463407625396", -- ВРЕМЕННЫЙ: Easy Listening Positive Jazz (спокойный день)
+		Arrest = "rbxassetid://9114763696", -- ВРЕМЕННЫЙ: Handcuff Movement 4 (наручники)
+		Purchase = "rbxassetid://9113728042", -- ВРЕМЕННЫЙ: Cash Register 1 (вклад денег, билет туриста)
+		HallOpen = "rbxassetid://9120805690", -- ВРЕМЕННЫЙ: Wood Break Door Cracks (доски падают)
+		CameraBreak = "rbxassetid://9114277402", -- ВРЕМЕННЫЙ: Electric Zaps 6 (вор сломал камеру)
+		CameraSwitch = "rbxassetid://9120484192", -- ВРЕМЕННЫЙ: Wall Light Switch (переключение камер, слышит только смотрящий)
 		StepVolume = 0.6,
 		StepRollOff = 30, -- шаги слышно только рядом
+		EffectRollOff = 60, -- звуки у деталей (касса, доски, камера) слышно в этом радиусе
 		MusicVolume = 0.3,
 		AlarmVolume = 0.8,
+		AlarmSeconds = 4, -- сирена обрывается через столько секунд
 		ArrestVolume = 0.8,
+		PurchaseVolume = 0.6,
+		TicketVolume = 0.35, -- касса у входа, когда платит турист (туристов много — тише)
+		HallOpenVolume = 0.9,
+		CameraBreakVolume = 0.8,
+		CameraSwitchVolume = 0.4,
 	},
 
 	-- Анимации воров и туристов делаются кодом на клиенте (NpcAnimator.client.luau), в Roblox ничего не загружается.
