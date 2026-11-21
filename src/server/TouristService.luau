@@ -355,7 +355,7 @@ end
 -- Конец дня: туристы уходят сразу (ночью музей закрыт).
 function TouristService.endDay()
 	if spawnThread then
-		task.cancel(spawnThread)
+		pcall(task.cancel, spawnThread) -- поток мог уже закончиться сам
 		spawnThread = nil
 	end
 	if updateConnection then

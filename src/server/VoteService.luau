@@ -119,7 +119,16 @@ end
 -- GameLoop: забег начался / закончился.
 function VoteService.setRunActive(active: boolean)
 	runActive = active
-	if not active then
+	if active then
+		-- Кто остался в комнате охраны при старте (больше 5 игроков), тоже в очереди:
+		-- увидит «команда полная», а если кто-то уйдёт — команда проголосует за него
+		for _, player in Players:GetPlayers() do
+			if not RoleService.isParticipant(player) and not table.find(queue, player) then
+				table.insert(queue, player)
+			end
+		end
+		startNext()
+	else
 		current = nil
 		table.clear(queue)
 		for _, player in Players:GetPlayers() do
@@ -158,6 +167,17 @@ function VoteService.init()
 		if vote and vote.candidate == player then
 			current = nil
 			startNext()
+		end
+		-- Из команды ушёл игрок — освободилось место: голосуем за тех, кому сказали «команда полная»
+		if runActive and RoleService.isParticipant(player) then
+			task.defer(function()
+				for _, waiting in Players:GetPlayers() do
+					if waiting:GetAttribute(GameState.PlayerAttr.JoinStatus) == "Full" and not table.find(queue, waiting) then
+						table.insert(queue, waiting)
+					end
+				end
+				startNext()
+			end)
 		end
 	end)
 end

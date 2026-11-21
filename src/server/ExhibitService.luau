@@ -462,6 +462,15 @@ function ExhibitService.init(map: Instance)
 	GameState.set(GameState.Attr.PaintingStolen, false)
 	GameState.set(GameState.Attr.StealEndsAt, 0)
 
+	-- Зал открыли посреди дня — его постаменты сразу можно покупать, не дожидаясь следующего дня
+	GameState.folder().AttributeChanged:Connect(function(attr)
+		if string.sub(attr, 1, #"HallOpen_") == "HallOpen_" then
+			for _, slot in slots do
+				refreshSlot(slot)
+			end
+		end
+	end)
+
 	local pedestals = map:FindFirstChild(MapSchema.Pedestals)
 	if pedestals then
 		for _, pedestal in pedestals:GetChildren() do
