@@ -12,8 +12,7 @@ local Remotes = {}
 
 local NAMES: { [string]: string } = {
 	-- клиент -> сервер
-	SetRole = "SetRole", -- (role: string) выбор роли в лобби
-	SetReady = "SetReady", -- (ready: boolean) кнопка READY
+	SetRole = "SetRole", -- (role: string) выбор роли в лобби (кнопки PATROL / OPERATOR или клавиши 1 / 2)
 	RequestCameras = "RequestCameras", -- (open: boolean) открыть/закрыть телефон или пульт
 	MarkThief = "MarkThief", -- (thief: Model) метка оператора на вора
 	QuickPhrase = "QuickPhrase", -- (index: number) готовая фраза

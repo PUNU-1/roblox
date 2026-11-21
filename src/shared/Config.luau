@@ -10,8 +10,25 @@ local Config = {
 		JumpHeight = 7.2, -- стандарт Roblox
 	},
 
+	Lobby = { -- круг START SHIFT в комнате охраны (блок B1): встал в круг — ты в команде
+		-- В команде не больше Config.Players.Max (5) игроков
+		CircleRadius = 6, -- стадов от центра круга до края (считаем по HumanoidRootPart)
+		CircleHeight = 12, -- выше этого над кругом не считается (прыжок из команды не выкидывает)
+		CountdownSeconds = 15, -- отсчёт, пока в круге хоть один игрок
+		AllInSeconds = 5, -- если в круге все игроки сервера, отсчёт сокращается до стольки
+		CheckSeconds = 0.2, -- как часто сервер проверяет, кто в круге
+		Color = Color3.fromHex("3BC6C1"), -- круг ждёт игроков
+		FullColor = Color3.fromHex("C8343A"), -- команда полная, а ты не в ней
+		IdleColor = Color3.fromHex("4A5266"), -- команда на смене, круг не работает
+		PulseSeconds = 1.2, -- круг мягко мерцает
+		PulseTransparency = 0.45, -- насколько прозрачным становится на мерцании
+		LightRange = 14, -- свет от круга на пол
+		LightBrightness = 1.5,
+		LabelHeight = 7, -- табличка «Team N/5» над кругом
+		LabelMaxDistance = 90,
+	},
+
 	Phases = {
-		LobbyCountdownSeconds = 30, -- отсчёт после первого READY
 		DaySeconds = 90, -- день: туристы, покупки
 		NightSeconds = 300, -- ночь: 5 минут
 		ResultsSeconds = 10, -- экран итога, потом новый день или лобби

@@ -1,4 +1,4 @@
--- Игроки: роли, READY, форма охраны, перенос между лобби и залом,
+-- Игроки: роли, форма охраны, старт смены команды из круга START SHIFT, перенос между лобби и залом,
 -- телефон оператора и пульт в диспетчерской (кто сейчас смотрит камеры).
 
 local Players = game:GetService("Players")
@@ -208,33 +208,19 @@ function RoleService.canUsePhone(player: Player): boolean
 	return player:GetAttribute(PlayerAttr.Role) == Role.Operator
 end
 
-function RoleService.readyCounts(): (number, number)
-	local ready, total = 0, 0
-	for _, player in Players:GetPlayers() do
-		total += 1
-		if player:GetAttribute(PlayerAttr.Ready) == true then
-			ready += 1
-		end
-	end
-	return ready, total
-end
-
-function RoleService.resetReady()
-	for _, player in Players:GetPlayers() do
-		player:SetAttribute(PlayerAttr.Ready, false)
-	end
-end
-
--- Все игроки на сервере идут на смену.
-function RoleService.startRound(): { Player }
+-- На смену идёт команда из круга START SHIFT (LobbyService.takeTeam). Остальные ждут в комнате охраны,
+-- их пускают голосованием (VoteService).
+function RoleService.startRound(team: { Player }): { Player }
 	local list = {}
-	for index, player in Players:GetPlayers() do
-		if index > Config.Players.Max then
-			break -- лишние ждут в комнате охраны
+	for _, player in team do
+		if #list >= Config.Players.Max then
+			break
 		end
-		player:SetAttribute(PlayerAttr.InRound, true)
-		table.insert(list, player)
-		placeInHall(player, index)
+		if player.Parent and not table.find(list, player) then
+			player:SetAttribute(PlayerAttr.InRound, true)
+			table.insert(list, player)
+			placeInHall(player, #list)
+		end
 	end
 	return list
 end
@@ -253,7 +239,6 @@ function RoleService.endRound()
 			placeInLobby(player, index)
 		end
 		player:SetAttribute(PlayerAttr.InRound, false)
-		player:SetAttribute(PlayerAttr.Ready, false)
 	end
 end
 
@@ -287,7 +272,6 @@ end
 local function onPlayerAdded(player: Player)
 	player.CameraMode = Enum.CameraMode.LockFirstPerson -- вид от первого лица (решение 56)
 	player:SetAttribute(PlayerAttr.Role, Role.Patrol)
-	player:SetAttribute(PlayerAttr.Ready, false)
 	player:SetAttribute(PlayerAttr.InRound, false)
 	player:SetAttribute(PlayerAttr.ViewingCameras, false)
 	player:SetAttribute(PlayerAttr.ViewSource, "")
@@ -350,13 +334,6 @@ local function setupRemotes()
 			return
 		end
 		player:SetAttribute(PlayerAttr.Role, role)
-	end)
-
-	Remotes.get(Remotes.Names.SetReady).OnServerEvent:Connect(function(player, ready)
-		if GameState.phase() ~= Phase.Lobby or typeof(ready) ~= "boolean" then
-			return
-		end
-		player:SetAttribute(PlayerAttr.Ready, ready)
 	end)
 
 	Remotes.get(Remotes.Names.RequestCameras).OnServerEvent:Connect(function(player, open)

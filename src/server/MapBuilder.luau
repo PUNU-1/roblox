@@ -4,7 +4,7 @@
 --
 -- Вид сверху (X вправо, Z вниз):
 --
---   комната охраны (лобби)          — далеко на юге, Z 150..170
+--   комната охраны (лобби)          — далеко на юге, Z 140..180, круг START SHIFT посередине
 --   диспетчерская с пультом         — далеко на севере, Z -127..-115
 --                       | коридор          служебная дверь (вход вора)
 --   +-------------+----[ ]------------[ ]---+-------------+  Z = -35 / -25
@@ -677,6 +677,16 @@ local function buildMonaLisa(map: Folder, exhibits: Folder, markers: Folder)
 	light.Parent = lamp
 end
 
+-- Банкетка без спинки: тёмно-синее сиденье, золотая рама и ножки (в залах и в лобби)
+local BENCH_STUB: { ModelLibrary.StubPart } = {
+	{ size = Vector3.new(6, 0.5, 2), offset = CFrame.new(0, 1.35, 0), color = COLORS.Navy, material = Enum.Material.Fabric },
+	{ size = Vector3.new(6.2, 0.2, 2.2), offset = CFrame.new(0, 1, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(-2.8, 0.45, -0.8), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(2.8, 0.45, -0.8), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(-2.8, 0.45, 0.8), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(2.8, 0.45, 0.8), color = COLORS.Gold, material = Enum.Material.Metal },
+}
+
 local function buildProps(props: Folder)
 	-- Канатное ограждение перед Моной Лизой, с проходом посередине
 	local barrier = {
@@ -687,19 +697,10 @@ local function buildProps(props: Folder)
 	ModelLibrary.place(MapSchema.Models.Barrier, CFrame.new(-5, 0, 7.5), barrier, props)
 	ModelLibrary.place(MapSchema.Models.Barrier, CFrame.new(5, 0, 7.5), barrier, props)
 
-	-- Банкетки без спинки: тёмно-синее сиденье, золотая рама и ножки
-	local bench = {
-		{ size = Vector3.new(6, 0.5, 2), offset = CFrame.new(0, 1.35, 0), color = COLORS.Navy, material = Enum.Material.Fabric },
-		{ size = Vector3.new(6.2, 0.2, 2.2), offset = CFrame.new(0, 1, 0), color = COLORS.Gold, material = Enum.Material.Metal },
-		{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(-2.8, 0.45, -0.8), color = COLORS.Gold, material = Enum.Material.Metal },
-		{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(2.8, 0.45, -0.8), color = COLORS.Gold, material = Enum.Material.Metal },
-		{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(-2.8, 0.45, 0.8), color = COLORS.Gold, material = Enum.Material.Metal },
-		{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(2.8, 0.45, 0.8), color = COLORS.Gold, material = Enum.Material.Metal },
-	}
-	ModelLibrary.place(MapSchema.Models.Bench, CFrame.new(0, 0, 17), bench, props)
-	ModelLibrary.place(MapSchema.Models.Bench, CFrame.new(0, 0, -14), bench, props)
-	ModelLibrary.place(MapSchema.Models.Bench, CFrame.new(-75, 0, 0), bench, props)
-	ModelLibrary.place(MapSchema.Models.Bench, CFrame.new(75, 0, 0), bench, props)
+	ModelLibrary.place(MapSchema.Models.Bench, CFrame.new(0, 0, 17), BENCH_STUB, props)
+	ModelLibrary.place(MapSchema.Models.Bench, CFrame.new(0, 0, -14), BENCH_STUB, props)
+	ModelLibrary.place(MapSchema.Models.Bench, CFrame.new(-75, 0, 0), BENCH_STUB, props)
+	ModelLibrary.place(MapSchema.Models.Bench, CFrame.new(75, 0, 0), BENCH_STUB, props)
 end
 
 local function buildFacade()
@@ -796,36 +797,85 @@ local function buildControlRoom(map: Folder)
 	newPart(geometryFolder, "Monitors", Vector3.new(10, 5, 0.5), CFrame.new(-40, 6, -126.2), COLORS.Turquoise, Enum.Material.Neon)
 end
 
-local function buildLobby(props: Folder, markers: Folder)
+-- Лобби (блок B1): просторная комната охраны 50×40, закрытая — в музей команду переносит игра.
+-- Посередине светящийся круг START SHIFT (кто в нём — в команде, LobbyService), игроки появляются
+-- у южной стены лицом к кругу. Шкафчики у северной стены, над ними подсказка.
+local LOBBY = { minX = -25, maxX = 25, minZ = 140, maxZ = 180, wallH = 14 }
+local START_CIRCLE_CENTER = Vector3.new(0, 0, 158)
+local LOBBY_SPAWN = Vector3.new(0, 0.5, 172)
+
+local function buildLobby(map: Folder, props: Folder, markers: Folder)
 	local half = WALL_T / 2
-	local wood = COLORS.Wood
+	local staff = COLORS.Staff
+	local r = LOBBY
 
-	-- Комната охраны 30×20, закрытая: в зал игроков переносит игра
-	newPart(geometryFolder, "LobbyFloor", Vector3.new(30, 1, 20), CFrame.new(0, -0.5, 160), COLORS.Wood, Enum.Material.WoodPlanks)
-	newWall("X", 150, -15 - half, 15 + half, ROOM_WALL_H, nil, nil, nil, wood)
-	newWall("X", 170, -15 - half, 15 + half, ROOM_WALL_H, nil, nil, nil, wood)
-	newWall("Z", -15, 150, 170, ROOM_WALL_H, nil, nil, nil, wood)
-	newWall("Z", 15, 150, 170, ROOM_WALL_H, nil, nil, nil, wood)
-	ceiling({ minX = -15.5, maxX = 15.5, minZ = 149.5, maxZ = 170.5 }, ROOM_WALL_H, nil)
+	newPart(geometryFolder, "LobbyFloor", Vector3.new(r.maxX - r.minX, 1, r.maxZ - r.minZ), CFrame.new((r.minX + r.maxX) / 2, -0.5, (r.minZ + r.maxZ) / 2), COLORS.Wood, Enum.Material.WoodPlanks)
+	newWall("X", r.minZ, r.minX - half, r.maxX + half, r.wallH, nil, nil, nil, staff)
+	newWall("X", r.maxZ, r.minX - half, r.maxX + half, r.wallH, nil, nil, nil, staff)
+	newWall("Z", r.minX, r.minZ, r.maxZ, r.wallH, nil, nil, nil, staff)
+	newWall("Z", r.maxX, r.minZ, r.maxZ, r.wallH, nil, nil, nil, staff)
+	ceiling({ minX = r.minX - half, maxX = r.maxX + half, minZ = r.minZ - half, maxZ = r.maxZ + half }, r.wallH, nil)
 
+	-- Игроки появляются у южной стены и смотрят на север, прямо на круг
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = MapSchema.LobbySpawn
 	spawn.Anchored = true
 	spawn.Neutral = true
 	spawn.Duration = 0 -- без защитного поля
 	spawn.Size = Vector3.new(6, 1, 6)
-	spawn.CFrame = CFrame.new(0, 0.5, 162)
+	spawn.CFrame = CFrame.new(LOBBY_SPAWN)
 	spawn.Color = COLORS.Steel
 	spawn.TopSurface = Enum.SurfaceType.Smooth
 	spawn.Parent = markers
 
+	-- Круг START SHIFT: светящийся диск на полу с золотым ободком. Цвет и табличку над ним
+	-- показывает клиент (LobbyCircle.client), кто в команде — решает сервер (LobbyService).
+	local settings = Config.Lobby
+	local diameter = settings.CircleRadius * 2
+	local rim = decorPart("StartCircleRim", Vector3.new(0.1, diameter + 1.2, diameter + 1.2), CFrame.new(START_CIRCLE_CENTER + Vector3.new(0, 0.05, 0)) * CFrame.Angles(0, 0, math.rad(90)), COLORS.Gold, Enum.Material.Metal)
+	rim.Shape = Enum.PartType.Cylinder
+	rim.CanQuery = false
+	local circle = newPart(map, MapSchema.StartCircle, Vector3.new(0.12, diameter, diameter), CFrame.new(START_CIRCLE_CENTER + Vector3.new(0, 0.08, 0)) * CFrame.Angles(0, 0, math.rad(90)), settings.Color, Enum.Material.Neon)
+	circle.Shape = Enum.PartType.Cylinder
+	circle.CanCollide = false
+	circle.CanTouch = false
+	circle.CanQuery = false
+	circle.CastShadow = false
+	circle.Transparency = 0.1
+	local glow = Instance.new("PointLight")
+	glow.Range = settings.LightRange
+	glow.Brightness = settings.LightBrightness
+	glow.Color = settings.Color
+	glow.Parent = circle
+
+	-- Шкафчики вдоль северной стены и подсказка над ними
 	local locker = {
 		{ size = Vector3.new(3, 7, 2), offset = CFrame.new(0, 3.5, 0), color = COLORS.Steel },
 	}
-	for _, x in { -10, -6, -2, 2, 6, 10 } do
-		local position = Vector3.new(x, 0, 151.5)
+	for x = -20, 20, 4 do
+		local position = Vector3.new(x, 0, r.minZ + 1.5)
 		ModelLibrary.place(MapSchema.Models.Locker, CFrame.lookAt(position, position + Vector3.new(0, 0, 1)), locker, props)
 	end
+	local sign = newPart(geometryFolder, "LobbySign", Vector3.new(30, 2.5, 0.2), CFrame.new(0, 9.5, r.minZ + half + 0.1), COLORS.Navy)
+	sign.CanCollide = false
+	textOn(sign, Enum.NormalId.Back, "STAND IN THE CIRCLE TO START YOUR SHIFT", COLORS.Gold, 0)
+
+	-- Банкетки у западной и восточной стен, растения в углах
+	for _, x in { r.minX + 2.5, r.maxX - 2.5 } do
+		ModelLibrary.place(MapSchema.Models.Bench, CFrame.new(x, 0, 160) * CFrame.Angles(0, math.rad(90), 0), BENCH_STUB, props)
+	end
+	for _, spot in { { r.minX + 2, r.minZ + 4 }, { r.maxX - 2, r.minZ + 4 }, { r.minX + 2, r.maxZ - 2 }, { r.maxX - 2, r.maxZ - 2 } } do
+		plant(spot[1], spot[2])
+	end
+
+	-- Тёплый свет: опоздавшие ждут тут и ночью
+	local alongX = Vector3.new(1.6, 0.4, 0.3)
+	local alongZ = Vector3.new(0.3, 0.4, 1.6)
+	for _, z in { 150, 170 } do
+		newLamp(props, Vector3.new(r.minX + half + 0.2, 10, z), alongZ, Config.Lighting.LobbyLamp)
+		newLamp(props, Vector3.new(r.maxX - half - 0.2, 10, z), alongZ, Config.Lighting.LobbyLamp)
+	end
+	newLamp(props, Vector3.new(0, 10, r.maxZ - half - 0.2), alongX, Config.Lighting.LobbyLamp)
 end
 
 local function buildLamps(props: Folder)
@@ -846,8 +896,7 @@ local function buildLamps(props: Folder)
 	newLamp(props, Vector3.new(-43.3, 8, -60), alongZ, night)
 	newLamp(props, Vector3.new(-43.3, 8, -95), alongZ, night)
 	newLamp(props, Vector3.new(-40, 9, -115.8), alongX, night)
-	-- Комната охраны: тёплый свет, опоздавшие ждут тут и ночью
-	newLamp(props, Vector3.new(0, 10, 169.3), alongX, Config.Lighting.LobbyLamp)
+	-- Свет комнаты охраны ставит buildLobby
 end
 
 ---------------------------------------------------------------- для игрового цикла
@@ -896,7 +945,7 @@ function MapBuilder.build(): Instance
 	buildCameras(props, cameraPoints)
 	buildEntrances(entrances)
 	buildControlRoom(map)
-	buildLobby(props, markers)
+	buildLobby(map, props, markers)
 	buildLamps(props)
 
 	newMarker(markers, MapSchema.PatrolSpawn, CFrame.new(-40, 3, -28))

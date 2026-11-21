@@ -19,6 +19,7 @@ local MapSchema = {
 	PaintingLight = "PaintingLight", -- подсветка картины
 	PatrolSpawn = "PatrolSpawn", -- куда переносит игроков в начале подготовки
 	LobbySpawn = "LobbySpawn", -- SpawnLocation в комнате охраны
+	StartCircle = "StartCircle", -- светящийся круг START SHIFT в лобби (прямо в Map): кто в нём — в команде
 
 	-- Папки, которые появляются во время игры (прямо в Workspace)
 	Thieves = "Thieves", -- воры

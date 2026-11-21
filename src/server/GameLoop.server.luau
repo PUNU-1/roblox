@@ -15,6 +15,7 @@ local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local MapBuilder = require(Server:WaitForChild("MapBuilder"))
 local RoleService = require(Server:WaitForChild("RoleService"))
+local LobbyService = require(Server:WaitForChild("LobbyService"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
 local ExhibitService = require(Server:WaitForChild("ExhibitService"))
 local ThiefService = require(Server:WaitForChild("ThiefService"))
@@ -35,6 +36,7 @@ ModelLibrary.setupCollisionGroups()
 Lighting.GlobalShadows = true
 local map = MapBuilder.build()
 RoleService.init(map)
+LobbyService.init(map)
 ExhibitService.init(map)
 ThiefService.init(map)
 CatchService.init()
@@ -79,29 +81,20 @@ local function setLighting(settings: { ClockTime: number, Brightness: number, Am
 	Lighting.OutdoorAmbient = settings.OutdoorAmbient
 end
 
--- Лобби: ждём, пока все нажмут READY или пройдёт отсчёт после первого READY.
-local function runLobby()
+-- Лобби: ждём, пока в круге START SHIFT кто-то постоит до конца отсчёта (LobbyService).
+-- Возвращает команду из круга — она и идёт на смену.
+local function runLobby(): { Player }
 	setLighting(Config.Lighting.Lobby)
 	setPhase(Phase.Lobby, nil)
-	RoleService.resetReady()
 	RoleService.setConsoleEnabled(false)
-	local endsAt = 0
+	LobbyService.open()
 	while true do
-		local ready, total = RoleService.readyCounts()
-		if total > 0 and ready == total then
-			break
-		end
-		if ready > 0 then
-			if endsAt == 0 then
-				endsAt = now() + Config.Phases.LobbyCountdownSeconds
-				GameState.set(Attr.PhaseEndsAt, endsAt)
+		if LobbyService.teamReady() then
+			local team = LobbyService.takeTeam()
+			if #team > 0 then
+				return team
 			end
-			if now() >= endsAt then
-				break
-			end
-		elseif endsAt ~= 0 then
-			endsAt = 0
-			GameState.set(Attr.PhaseEndsAt, 0)
+			LobbyService.open() -- вся команда успела уйти с сервера — ждём заново
 		end
 		tick()
 	end
@@ -213,8 +206,8 @@ local function finishRun()
 end
 
 while true do
-	runLobby()
-	local participants = RoleService.startRound()
+	local team = runLobby()
+	local participants = RoleService.startRound(team)
 	ScoreService.beginRun(participants)
 	VoteService.setRunActive(true)
 	local night = 0

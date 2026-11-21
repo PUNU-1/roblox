@@ -3,6 +3,7 @@
 -- Хранится в атрибутах: ReplicatedStorage.GameState (состояние раунда) и у каждого Player.
 -- Пишет только сервер, клиенты только читают.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -78,7 +79,7 @@ GameState.Attr = {
 -- Атрибуты Player
 GameState.PlayerAttr = {
 	Role = "Role", -- string, GameState.Role
-	Ready = "Ready", -- boolean
+	InTeam = "InTeam", -- boolean, стоит в круге START SHIFT в лобби и попал в команду (не больше 5)
 	InRound = "InRound", -- boolean, игрок участвует в текущей ночи
 	ViewingCameras = "ViewingCameras", -- boolean, открыт телефон или пульт
 	ViewSource = "ViewSource", -- string: "Phone" | "Console"
@@ -122,6 +123,17 @@ function GameState.phase(): string
 		return value
 	end
 	return GameState.Phase.Lobby
+end
+
+-- Команда в лобби: кто стоит в круге START SHIFT (атрибут InTeam ставит сервер, LobbyService).
+function GameState.lobbyTeam(): { Player }
+	local team = {}
+	for _, player in Players:GetPlayers() do
+		if player:GetAttribute(GameState.PlayerAttr.InTeam) == true then
+			table.insert(team, player)
+		end
+	end
+	return team
 end
 
 function GameState.secondsLeft(): number

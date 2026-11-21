@@ -1,4 +1,4 @@
--- Интерфейс игрока: лобби (роль и READY), верхняя строка (таймер, часы ночи),
+-- Интерфейс игрока: лобби (выбор роли, команда в круге START SHIFT), верхняя строка (таймер, часы ночи),
 -- деньги, крупные надписи и экран итога ночи. Клиент только показывает и шлёт намерения.
 
 local Players = game:GetService("Players")
@@ -87,80 +87,80 @@ Remotes.get(Remotes.Names.Banner).OnClientEvent:Connect(function(text, kind)
 	end
 end)
 
----------------------------------------------------------------- лобби
+---------------------------------------------------------------- лобби: выбор роли
+-- Команду собирает круг START SHIFT на полу (LobbyCircle.client, LobbyService), кнопки READY нет.
+-- Курсор в лобби не освобождаем (у кнопок нет Modal): в первом лице надо крутить камеру и дойти до круга.
+-- Поэтому роль с клавиатуры — клавишами 1 / 2 (подписаны на кнопках), на телефоне кнопки нажимаются пальцем.
+
+-- На телефоне и планшете без клавиатуры вместо клавиш — кнопки на экране
+local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+local ROLE_KEYS = {
+	{ role = Role.Patrol, title = "PATROL", label = "1", keys = { Enum.KeyCode.One, Enum.KeyCode.KeypadOne } },
+	{ role = Role.Operator, title = "OPERATOR", label = "2", keys = { Enum.KeyCode.Two, Enum.KeyCode.KeypadTwo } },
+}
 
 local lobbyPanel = Theme.new("Frame", {
 	Name = "Lobby",
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -20),
-	Size = UDim2.new(0.5, 0, 0.45, 0),
+	Size = UDim2.new(0.4, 0, 0.22, 0),
 	BackgroundColor3 = Colors.Navy,
-	BackgroundTransparency = 0.1,
+	BackgroundTransparency = 0.15,
 	Visible = false,
 	Parent = gui,
 }, {
 	Theme.corner(16),
 	Theme.stroke(Colors.Gold, 3),
-	Theme.padding(12),
-	Theme.new("UISizeConstraint", { MinSize = Vector2.new(320, 260) }),
+	Theme.padding(10),
+	Theme.new("UISizeConstraint", { MinSize = Vector2.new(320, 150), MaxSize = Vector2.new(640, 230) }),
 })
 
-Theme.label({ Text = "CHOOSE YOUR ROLE", TextColor3 = Colors.Gold, Size = UDim2.fromScale(1, 0.12), Parent = lobbyPanel })
+Theme.label({ Text = "CHOOSE YOUR ROLE", TextColor3 = Colors.Gold, Size = UDim2.fromScale(1, 0.2), Parent = lobbyPanel })
 
-local roleButtons: { [string]: TextButton } = {
-	[Role.Patrol] = Theme.button({
-		Text = "PATROL",
-		Position = UDim2.fromScale(0, 0.15),
-		Size = UDim2.fromScale(0.48, 0.2),
+local roleButtons: { [string]: TextButton } = {}
+for index, entry in ROLE_KEYS do
+	roleButtons[entry.role] = Theme.button({
+		Text = if touchOnly then entry.title else ("[%s]  %s"):format(entry.label, entry.title),
+		Position = UDim2.fromScale(if index == 1 then 0 else 0.52, 0.26),
+		Size = UDim2.fromScale(0.48, 0.36),
 		Parent = lobbyPanel,
-	}),
-	[Role.Operator] = Theme.button({
-		Text = "OPERATOR",
-		Position = UDim2.fromScale(0.52, 0.15),
-		Size = UDim2.fromScale(0.48, 0.2),
-		Parent = lobbyPanel,
-	}),
-}
+	})
+end
 
 local roleInfo = Theme.label({
 	Font = Theme.BodyFont,
 	TextColor3 = Colors.Marble,
-	Position = UDim2.fromScale(0, 0.37),
-	Size = UDim2.fromScale(1, 0.12),
+	Position = UDim2.fromScale(0, 0.68),
+	Size = UDim2.fromScale(1, 0.32),
 	MaxTextSize = 18,
 	Parent = lobbyPanel,
 })
 
-local readyButton = Theme.button({
-	Text = "READY",
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.fromScale(0.5, 0.52),
-	Size = UDim2.fromScale(0.6, 0.18),
-	BackgroundColor3 = Colors.Green,
-	MaxTextSize = 34,
-	Modal = true, -- пока видно лобби, курсор свободен (вид от первого лица запирает мышь в центре)
-	Parent = lobbyPanel,
-})
-
-local playerList = Theme.label({
-	Font = Theme.BodyFont,
-	RichText = true,
-	TextColor3 = Colors.White,
-	Position = UDim2.fromScale(0, 0.74),
-	Size = UDim2.fromScale(1, 0.26),
-	MaxTextSize = 18,
-	TextYAlignment = Enum.TextYAlignment.Top,
-	Parent = lobbyPanel,
-})
+-- Сервер сам проверит фазу и роль; тут только не шлём лишнего
+local function chooseRole(role: string)
+	if GameState.phase() ~= Phase.Lobby or localPlayer:GetAttribute(PlayerAttr.Role) == role then
+		return
+	end
+	Remotes.get(Remotes.Names.SetRole):FireServer(role)
+end
 
 for role, button in roleButtons do
 	button.Activated:Connect(function()
-		Remotes.get(Remotes.Names.SetRole):FireServer(role)
+		chooseRole(role)
 	end)
 end
 
-readyButton.Activated:Connect(function()
-	Remotes.get(Remotes.Names.SetReady):FireServer(localPlayer:GetAttribute(PlayerAttr.Ready) ~= true)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed or GameState.phase() ~= Phase.Lobby then
+		return
+	end
+	for _, entry in ROLE_KEYS do
+		if table.find(entry.keys, input.KeyCode) then
+			chooseRole(entry.role)
+			return
+		end
+	end
 end)
 
 local function refreshLobby()
@@ -171,17 +171,6 @@ local function refreshLobby()
 		button.TextColor3 = if selected then Colors.Navy else Colors.White
 	end
 	roleInfo.Text = ROLE_INFO[myRole] or ""
-
-	local ready = localPlayer:GetAttribute(PlayerAttr.Ready) == true
-	readyButton.Text = if ready then "READY ✓" else "READY"
-	readyButton.BackgroundColor3 = if ready then Colors.Gold else Colors.Green
-
-	local lines = {}
-	for _, player in Players:GetPlayers() do
-		local mark = if player:GetAttribute(PlayerAttr.Ready) == true then "✓" else "…"
-		table.insert(lines, ("%s — %s %s"):format(player.DisplayName, tostring(player:GetAttribute(PlayerAttr.Role) or Role.Patrol), mark))
-	end
-	playerList.Text = table.concat(lines, "\n")
 end
 
 ---------------------------------------------------------------- итог ночи
@@ -308,8 +297,6 @@ local hintFrame = Theme.new("Frame", {
 }, { Theme.corner(12), Theme.padding(6), Theme.new("UISizeConstraint", { MinSize = Vector2.new(300, 0) }) })
 local hintLabel = Theme.label({ Size = UDim2.fromScale(1, 1), Font = Theme.BodyFont, MaxTextSize = 20, Parent = hintFrame })
 
--- На телефоне и планшете без клавиатуры вместо клавиш — кнопки на экране
-local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local HINT_ARREST = if touchOnly then "Hold the button next to a thief to arrest him" else "Hold E next to a thief to arrest him"
 local HINT_PHONE = if touchOnly then "Phone button — cameras" else "Tab — cameras"
 local HINT_CONSOLE = "Camera console: end of the north corridor"
@@ -373,10 +360,18 @@ local function topBarText(phase: string): string
 		return text or ("Game in progress — night %d"):format(tonumber(GameState.get(Attr.NightNumber)) or 1)
 	end
 	if phase == Phase.Lobby then
-		if left > 0 then
-			return "The museum opens in " .. Theme.formatTime(left)
+		local count = #GameState.lobbyTeam()
+		local inTeam = localPlayer:GetAttribute(PlayerAttr.InTeam) == true
+		if inTeam and left > 0 then
+			return ("You're in!   •   Shift starts in %s   •   Team %d/%d"):format(Theme.formatTime(left), count, Config.Players.Max)
+		elseif inTeam then
+			return "You're in the team!"
+		elseif count >= Config.Players.Max then
+			return ("The team is full (%d/%d) — wait in the guard room"):format(count, Config.Players.Max)
+		elseif left > 0 then
+			return ("Shift starts in %s   •   Step into the circle to join!"):format(Theme.formatTime(left))
 		end
-		return "Choose a role and press READY"
+		return "Step into the START SHIFT circle"
 	elseif phase == Phase.Day then
 		return ("DAY %d   •   Night in %s   •   Tourists: %d"):format(
 			tonumber(GameState.get(Attr.NightNumber)) or 1,
