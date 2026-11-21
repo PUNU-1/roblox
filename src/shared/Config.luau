@@ -98,7 +98,7 @@ local Config = {
 	},
 
 	-- Виды воров по порядку появления (блок 3): новый вид каждые 2 ночи, перед ночью надпись NEW THIEF
-	ThiefOrder = { "Pickpocket", "Breaker", "Brute", "Shadow" },
+	ThiefOrder = { "Pickpocket", "Breaker", "Brute", "Shadow", "Miner", "Glazier", "Cutter" },
 	ThiefTypes = {
 		-- Title — имя в надписи NEW THIEF; FromNight — с какой ночи приходит (баланс);
 		-- Weight — как часто попадается среди обычных воров волны; SpeedMul — скорость от обычного вора;
@@ -154,6 +154,69 @@ local Config = {
 			Color = Color3.fromHex("1C1C24"), -- не совсем чёрный: в луче фонарика его видно
 			Hoodie = Color3.fromHex("202029"),
 		},
+		Miner = { -- Шахтёр: копает подкоп и вылезает из пола рядом с экспонатом
+			Title = "MINER",
+			FromNight = 9,
+			Weight = 0.7,
+			SpeedMul = 1,
+			Door = false, -- приходит из-под пола
+			Skin = Color3.fromHex("E8B48C"),
+			Shirt = Color3.fromHex("6B7A8F"), -- рукава рубашки
+			Overalls = Color3.fromHex("2E4A7D"), -- синий комбинезон
+			Helmet = Color3.fromHex("F2C230"),
+			DigSeconds = 60, -- баланс: сколько копает (не видно и не слышно)
+			DigJitter = 8, -- ± случайно, чтобы шахтёры волны вылезали не в одну секунду
+			CrackSeconds = 2.5, -- за столько секунд до появления пол трескается, гул и пыль
+			EmergeSeconds = 1.8, -- вылезает из дыры
+			EmergeDepth = 5.5, -- начинает вылезать с такой глубины под полом
+			EmergeDistance = 6, -- дыра на таком расстоянии от экспоната
+			LampRange = 18, -- фонарь на каске
+			LampBrightness = 1.6,
+			LampAngle = 50,
+		},
+		Glazier = { -- Стекольщик: режет стеклянный потолок центра и спускается на верёвке к Моне Лизе
+			Title = "GLASS CUTTER",
+			FromNight = 11,
+			Weight = 0.5,
+			SpeedMul = 1,
+			Door = false, -- приходит по крыше
+			NoFlee = true, -- раз уж спустился, идёт до конца
+			Skin = Color3.fromHex("E8B48C"),
+			Suit = Color3.fromHex("22262E"),
+			Harness = Color3.fromHex("F28C28"),
+			Helmet = Color3.fromHex("F2F4F7"),
+			CutSeconds = 5, -- баланс: режет круг в стекле
+			HoleRadius = 2, -- радиус дыры
+			WaitMax = 30, -- баланс: ждёт на крыше, пока охрана отойдёт от места спуска, не дольше
+			ClearRadius = 22, -- спускается, когда охраны ближе этого к месту спуска нет
+			DescendSeconds = 4, -- спуск на верёвке
+			ClimbSeconds = 7, -- баланс: подъём с добычей (снизу его ещё можно успеть арестовать)
+			LandOffset = 2.5, -- приземляется перед экспонатом на столько дальше места вора
+			SkylightMargin = 3, -- дыра не ближе этого к раме стеклянного потолка
+		},
+		Cutter = { -- Светорез: вырубает у щитка POWER свет и камеры во всём музее
+			Title = "POWER CUTTER",
+			FromNight = 13,
+			Weight = 0.5,
+			SpeedMul = 1,
+			Door = true,
+			Skin = Color3.fromHex("C98E66"),
+			Coverall = Color3.fromHex("46505E"),
+			Cap = Color3.fromHex("1E2A44"),
+			Stripe = Color3.fromHex("F2C230"),
+			WorkSeconds = 4, -- баланс: сколько возится у щитка
+		},
+	},
+
+	Blackout = { -- блэкаут (Светорез): гаснут дежурные лампы, подсветка Моны Лизы и все камеры
+		RestoreHoldSeconds = 2, -- сколько держать F у щитка POWER, чтобы вернуть свет
+		PromptDistance = 8,
+		Flickers = 4, -- перед тем как погаснуть, лампы мигают
+		FlickerSeconds = 0.12,
+		StandOffset = 2.6, -- Светорез встаёт перед щитком на столько стадов
+		SparkColor = Color3.fromHex("FFD866"),
+		LampOkColor = Color3.fromHex("3FB56B"), -- лампочка на щитке: свет есть
+		LampOutColor = Color3.fromHex("FF3B3B"), -- свет вырубили
 	},
 
 	Knockdown = { -- охранник от удара Громилы падает на спину и встаёт (анимация — Guards.client)
@@ -208,6 +271,14 @@ local Config = {
 		ShardSpeed = 16, -- как быстро разлетаются
 		ShardSeconds = 5, -- летящие осколки исчезают через столько секунд (на полу остаются до утра)
 		FloorShards = 7, -- осколков остаётся лежать на полу перед витриной
+		DustColor = Color3.fromHex("A08A6A"), -- пыль из подкопа
+		DirtColor = Color3.fromHex("6B4A2E"), -- земля вокруг дыры
+		HoleColor = Color3.fromHex("140E0A"), -- сама дыра
+		CutLineColor = Color3.fromHex("BFF6FF"), -- светящийся след стеклореза
+		CutSegments = 24, -- из скольких кусочков круг на стекле
+		RopeColor = Color3.fromHex("E8A33D"),
+		RopeThickness = 0.14,
+		PulleyHeight = 3.3, -- блок треноги над стеклом
 	},
 
 	Halls = { -- 4 зала по углам музея (решение 69): дороже зал — дороже экспонаты и больше туристов
@@ -400,6 +471,10 @@ local Config = {
 		Punch = "rbxasset://sounds/action_jump_land.mp3", -- ВРЕМЕННЫЙ: удар Громилы
 		GuardFall = "rbxasset://sounds/oof.ogg", -- ВРЕМЕННЫЙ: охранник падает (классическое «oof»)
 		GuardGetUp = "rbxasset://sounds/action_get_up.mp3", -- ВРЕМЕННЫЙ: охранник встаёт
+		Dig = "rbxasset://sounds/impact_explosion_03.mp3", -- ВРЕМЕННЫЙ: стандартный взрыв ниже тоном — гул подкопа
+		GlassCut = "", -- стеклорез режет тихо (звука нет)
+		Sparks = "rbxassetid://9114277402", -- ВРЕМЕННЫЙ: Electric Zaps 6 — искры у щитка, свет гаснет
+		PowerOn = "rbxassetid://9120484192", -- ВРЕМЕННЫЙ: Wall Light Switch — свет вернули
 		StepVolume = 0.6,
 		StepRollOff = 30, -- шаги слышно только рядом
 		EffectRollOff = 60, -- звуки у деталей (касса, доски, камера) слышно в этом радиусе
@@ -420,6 +495,10 @@ local Config = {
 		PunchSpeed = 0.8, -- ниже тоном: тяжёлый удар
 		GuardFallVolume = 0.8,
 		GuardGetUpVolume = 0.6,
+		DigVolume = 0.7,
+		DigSpeed = 0.45, -- низкий гул
+		SparksVolume = 0.8,
+		PowerOnVolume = 0.8,
 	},
 
 	-- Анимации воров и туристов делаются кодом на клиенте (NpcAnimator.client.luau), в Roblox ничего не загружается.
@@ -438,6 +517,9 @@ local Config = {
 		ProwlStride = 0.75, -- Тень: короткие частые шаги на полусогнутых
 		PunchStrikeSeconds = 0.15, -- удар Громилы после замаха (замах — ThiefTypes.Brute.PunchWindup)
 		SmashPeriod = 1.1, -- Громила бьёт витрину: один удар двумя руками за столько секунд
+		ClimbPeriod = 0.8, -- Шахтёр вылезает из дыры, Стекольщик лезет по верёвке: перехват рук
+		CutPeriod = 1.6, -- Стекольщик ведёт стеклорез по кругу
+		WorkSnipSpeed = 14, -- Светорез щёлкает кусачками
 	},
 
 	Lighting = {

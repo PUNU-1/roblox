@@ -593,6 +593,9 @@ local function newLamp(parent: Instance, position: Vector3, size: Vector3, setti
 	light.Brightness = settings.Brightness
 	light.Color = settings.Color
 	light.Parent = lamp
+	if settings == Config.Lighting.NightLamp then
+		lamp:SetAttribute("NightLamp", true) -- дежурная лампа: гаснет в блэкаут (BlackoutService)
+	end
 	return lamp
 end
 

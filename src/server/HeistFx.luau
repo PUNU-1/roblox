@@ -1,10 +1,13 @@
 -- Эффекты краж на карте (блок 3). Только то, что видно и слышно; решения принимает ThiefService.
 --  • Витрины (prop_displaycase_01): вор пинает витрину — стекло трескается, Громила разбивает — осколки;
 --    в обоих случаях тревога «GLASS ALARM — место!».
+--  • Подкоп Шахтёра: трещины, пыль и гул, потом дыра в полу с землёй и обломками плитки.
+--  • Стекольщик: светящийся круг на стеклянном потолке, дыра в стекле, тренога с блоком, верёвка.
 --  • Названия мест для надписей: атрибут Area у пола (MapBuilder).
 --  • Всё, что воры оставили за ночь (трещины, осколки), убирается утром: HeistFx.resetForDay().
 
 local Debris = game:GetService("Debris")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -258,12 +261,332 @@ local function restoreCase(case: Case)
 	case.broken = false
 end
 
+---------------------------------------------------------------- пол и подкоп (Шахтёр)
+
+local nightProps: { Instance } = {} -- дыры, тренога, верёвка: лежат до утра
+local skylight: BasePart? = nil
+local skylightCut: BasePart? = nil -- стекло с дырой (вместо целого)
+local skylightTransparency = 0.6
+
+local function remember(instance: Instance): Instance
+	table.insert(nightProps, instance)
+	return instance
+end
+
+-- Пол под точкой: точка на полу и сама деталь пола (nil — пола нет).
+function HeistFx.floorAt(position: Vector3): (Vector3?, BasePart?)
+	local params = floorParams
+	if not params then
+		return nil, nil
+	end
+	local result = Workspace:Raycast(position + Vector3.new(0, 4, 0), Vector3.new(0, -14, 0), params)
+	if not result then
+		return nil, nil
+	end
+	return result.Position, result.Instance :: BasePart
+end
+
+-- Место, где проходу ничего не мешает (стены, постаменты, витрины).
+local function isClear(point: Vector3): boolean
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore: { Instance } = {}
+	for _, name in { MapSchema.Thieves, MapSchema.Tourists } do
+		local folder = Workspace:FindFirstChild(name)
+		if folder then
+			table.insert(ignore, folder)
+		end
+	end
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(ignore, player.Character)
+		end
+	end
+	params.FilterDescendantsInstances = ignore
+	params.RespectCanCollide = true -- украшения без столкновений не мешают
+	local parts = Workspace:GetPartBoundsInBox(CFrame.new(point + Vector3.new(0, 2.6, 0)), Vector3.new(3, 4, 3), params)
+	return #parts == 0
+end
+
+-- Где Шахтёр вылезет: на полу около экспоната (stand — где встаёт вор, look — сам экспонат),
+-- в свободном месте и подальше от охраны. nil — места нет.
+function HeistFx.digPoint(stand: Vector3, look: Vector3, distance: number, guards: { Vector3 }): Vector3?
+	local best, bestScore = nil, -math.huge
+	local center = Vector3.new(look.X, stand.Y, look.Z)
+	for index = 0, 11 do
+		local angle = index * math.pi / 6
+		local candidate = center + Vector3.new(math.cos(angle), 0, math.sin(angle)) * distance
+		local floorPoint = HeistFx.floorAt(candidate)
+		if floorPoint and math.abs(floorPoint.Y - (stand.Y - 3)) < 1.5 and isClear(floorPoint) then
+			local score = minDistance(floorPoint, guards) + math.random()
+			if score > bestScore then
+				best, bestScore = floorPoint, score
+			end
+		end
+	end
+	if not best then
+		best = HeistFx.floorAt(stand) -- всё занято: прямо там, где встаёт вор
+	end
+	return best
+end
+
+export type Hole = { point: Vector3, dust: ParticleEmitter?, model: Instance? }
+
+local function dustEmitter(point: Vector3): ParticleEmitter
+	local holder = decor("DigDust", Vector3.new(1, 0.2, 1), CFrame.new(point + Vector3.new(0, 0.2, 0)), Heist.DustColor, Enum.Material.SmoothPlastic, Workspace)
+	holder.Transparency = 1
+	remember(holder)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	emitter.Color = ColorSequence.new(Heist.DustColor)
+	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 4.5) })
+	emitter.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 1) })
+	emitter.Lifetime = NumberRange.new(1.2, 2.2)
+	emitter.Speed = NumberRange.new(3, 8)
+	emitter.SpreadAngle = Vector2.new(55, 55)
+	emitter.Drag = 2.5
+	emitter.Acceleration = Vector3.new(0, 1.5, 0)
+	emitter.EmissionDirection = Enum.NormalId.Top
+	emitter.Rate = 30
+	emitter.Parent = holder
+	return emitter
+end
+
+-- Перед тем как вылезти, пол трескается: трещины, пыль, глухой гул. Возвращает дыру для openHole.
+function HeistFx.crackFloor(point: Vector3): Hole
+	local folder = Instance.new("Model")
+	folder.Name = "MinerHole"
+	folder.Parent = Workspace
+	remember(folder)
+	for index = 0, 6 do
+		local angle = index * 0.9 + math.random() * 0.4
+		local length = 1.6 + math.random() * 1.6
+		local cframe = CFrame.new(point + Vector3.new(0, 0.03, 0)) * CFrame.Angles(0, angle, 0) * CFrame.new(length / 2 + 0.6, 0, 0)
+		decor("FloorCrack", Vector3.new(length, 0.04, 0.12), cframe, Heist.HoleColor, Enum.Material.SmoothPlastic, folder)
+	end
+	local sounds = Config.Sounds
+	local anchor = folder:FindFirstChildWhichIsA("BasePart")
+	Audio.playOnce(sounds.Dig, anchor, sounds.DigVolume, nil, sounds.DigSpeed)
+	return { point = point, dust = dustEmitter(point), model = folder }
+end
+
+-- Шахтёр вылезает: пол проваливается, вокруг кучи земли и обломки плитки, облако пыли. Дыра — до утра.
+function HeistFx.openHole(hole: Hole)
+	local point = hole.point
+	local _, floor = HeistFx.floorAt(point)
+	local tileColor = if floor then floor.Color else Color3.fromHex("C9BBA0")
+	local tileMaterial = if floor then floor.Material else Enum.Material.SmoothPlastic
+	local stub: { ModelLibrary.StubPart } = {
+		{ name = "Hole", size = Vector3.new(0.06, 3.4, 3.4), offset = CFrame.new(0, 0.04, 0) * CFrame.Angles(0, 0, math.pi / 2), color = Heist.HoleColor, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Rim", size = Vector3.new(0.05, 3.9, 3.9), offset = CFrame.new(0, 0.03, 0) * CFrame.Angles(0, 0, math.pi / 2), color = Heist.DirtColor, material = Enum.Material.Ground, shape = Enum.PartType.Cylinder, collide = false },
+	}
+	for index = 0, 5 do
+		local angle = index * math.pi / 3 + math.random() * 0.4
+		local radius = 2.1 + math.random() * 0.5
+		local size = 0.7 + math.random() * 0.6
+		table.insert(stub, {
+			name = "Dirt",
+			size = Vector3.new(size * 1.4, size * 0.7, size),
+			offset = CFrame.new(math.cos(angle) * radius, size * 0.2, math.sin(angle) * radius) * CFrame.Angles(0, -angle, 0),
+			color = Heist.DirtColor,
+			material = Enum.Material.Ground,
+			sphere = true,
+			collide = false,
+		})
+		local tileAngle = angle + 0.5
+		table.insert(stub, {
+			name = "Tile",
+			size = Vector3.new(0.9 + math.random() * 0.5, 0.18, 0.8 + math.random() * 0.4),
+			offset = CFrame.new(math.cos(tileAngle) * 2.9, 0.15, math.sin(tileAngle) * 2.9) * CFrame.Angles(math.random() * 0.5 - 0.25, tileAngle, math.random() * 0.6 - 0.3),
+			color = tileColor,
+			material = tileMaterial,
+			collide = false,
+		})
+	end
+	local model = ModelLibrary.place(MapSchema.Models.FloorHole, CFrame.new(point), stub, Workspace)
+	ModelLibrary.forEachPart(model, function(part)
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CastShadow = false
+	end)
+	remember(model)
+	local dust = hole.dust
+	if dust then
+		dust.Rate = 160 -- облако пыли, когда он вылезает
+		task.delay(0.7, function()
+			dust.Rate = 0
+		end)
+	end
+	local sounds = Config.Sounds
+	Audio.playOnce(sounds.Dig, model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart"), sounds.DigVolume, nil, sounds.DigSpeed * 1.3)
+end
+
+---------------------------------------------------------------- стеклянный потолок (Стекольщик)
+
+export type Cut = {
+	center: Vector3, -- центр дыры на верхней стороне стекла
+	radius: number,
+	segments: { BasePart }, -- светящийся след стеклореза
+	union: BasePart?, -- стекло с дырой (считается заранее, пока он режет)
+	pulley: Vector3, -- блок треноги: верх верёвки
+	rope: BasePart?,
+}
+
+function HeistFx.skylight(): BasePart?
+	return skylight
+end
+
+-- Верх стеклянного потолка (y) и проверка, что точка над стеклом не ближе margin к раме.
+function HeistFx.skylightPoint(position: Vector3, margin: number): Vector3?
+	local glass = skylight
+	if not glass then
+		return nil
+	end
+	local localPoint = glass.CFrame:PointToObjectSpace(position)
+	local halfX = math.max(0, glass.Size.X / 2 - margin)
+	local halfZ = math.max(0, glass.Size.Z / 2 - margin)
+	local clamped = Vector3.new(math.clamp(localPoint.X, -halfX, halfX), glass.Size.Y / 2, math.clamp(localPoint.Z, -halfZ, halfZ))
+	return glass.CFrame:PointToWorldSpace(clamped)
+end
+
+-- Стекольщик начал резать: по стеклу пойдёт светящийся круг; стекло с дырой считаем заранее.
+function HeistFx.startCut(center: Vector3, radius: number): Cut
+	local segments = {}
+	local count = Heist.CutSegments
+	local length = 2 * math.pi * radius / count * 1.1
+	for index = 1, count do
+		local angle = (index - 0.5) / count * math.pi * 2
+		local cframe = CFrame.new(center + Vector3.new(math.cos(angle) * radius, 0.04, math.sin(angle) * radius)) * CFrame.Angles(0, -angle + math.pi / 2, 0)
+		local segment = decor("CutLine", Vector3.new(length, 0.05, 0.1), cframe, Heist.CutLineColor, Enum.Material.Neon, Workspace)
+		segment.Transparency = 1
+		remember(segment)
+		table.insert(segments, segment)
+	end
+	local cut: Cut = { center = center, radius = radius, segments = segments, union = nil, pulley = center + Vector3.new(0, Heist.PulleyHeight, 0), rope = nil }
+	local glass = skylight
+	if glass then
+		task.spawn(function()
+			local cutter = Instance.new("Part")
+			cutter.Shape = Enum.PartType.Cylinder
+			cutter.Size = Vector3.new(glass.Size.Y + 2, radius * 2, radius * 2)
+			cutter.CFrame = CFrame.new(center.X, glass.Position.Y, center.Z) * CFrame.Angles(0, 0, math.pi / 2)
+			local ok, result = pcall(function()
+				return glass:SubtractAsync({ cutter })
+			end)
+			cutter:Destroy()
+			if ok and result then
+				result.Name = "SkylightCut"
+				result.Anchored = true
+				result.UsePartColor = true
+				result.Color = glass.Color
+				result.Material = glass.Material
+				result.Transparency = glass.Transparency
+				result.CastShadow = false
+				cut.union = result
+			else
+				warn("[HeistFx] Не получилось вырезать дыру в стекле:", result)
+			end
+		end)
+	end
+	return cut
+end
+
+-- Сколько круга уже прорезано (0..1).
+function HeistFx.cutProgress(cut: Cut, fraction: number)
+	local shown = math.floor(math.clamp(fraction, 0, 1) * #cut.segments + 0.5)
+	for index, segment in cut.segments do
+		segment.Transparency = if index <= shown then 0 else 1
+	end
+end
+
+-- Круг прорезан: в стекле дыра, стеклянный диск отложен в сторону, над дырой тренога с блоком.
+function HeistFx.finishCut(cut: Cut)
+	for _, segment in cut.segments do
+		segment.Transparency = 0
+		segment.Color = Color3.fromHex("8C9AA6") -- край дыры
+		segment.Material = Enum.Material.Metal
+	end
+	local glass = skylight
+	if glass then
+		local union = cut.union
+		if union and not skylightCut then
+			union.Parent = glass.Parent
+			skylightCut = union
+			glass.Transparency = 1
+			glass.CanCollide = false
+			glass.CanQuery = false
+		end
+		-- Вырезанный диск: приподнят и лежит на стекле рядом с дырой
+		local disc = decor("GlassDisc", Vector3.new(glass.Size.Y, cut.radius * 2, cut.radius * 2), CFrame.new(cut.center + Vector3.new(cut.radius * 2 + 1.4, 0.2, 0)) * CFrame.Angles(0.1, 0, math.pi / 2), glass.Color, Enum.Material.Glass, Workspace)
+		disc.Shape = Enum.PartType.Cylinder
+		disc.Transparency = 0.45
+		remember(disc)
+	end
+	-- Тренога: три ноги сходятся над дырой, наверху блок для верёвки
+	local apex = Vector3.new(0, Heist.PulleyHeight + 0.3, 0)
+	local stub: { ModelLibrary.StubPart } = {
+		{ name = "Hub", size = Vector3.new(0.45, 0.45, 0.45), offset = CFrame.new(apex), color = Color3.fromHex("3A3F4B"), material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ name = "Pulley", size = Vector3.new(0.18, 0.7, 0.7), offset = CFrame.new(apex - Vector3.new(0, 0.4, 0)), color = Color3.fromHex("C8343A"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	}
+	for index = 0, 2 do
+		local angle = index * math.pi * 2 / 3
+		local foot = Vector3.new(math.cos(angle), 0, math.sin(angle)) * (cut.radius + 1)
+		local middle = (foot + apex) / 2
+		table.insert(stub, {
+			name = "Leg",
+			size = Vector3.new(0.16, (apex - foot).Magnitude, 0.16),
+			offset = CFrame.lookAt(middle, apex) * CFrame.Angles(-math.pi / 2, 0, 0),
+			color = Color3.fromHex("A9B0BC"),
+			material = Enum.Material.Metal,
+		})
+		table.insert(stub, { name = "Foot", size = Vector3.new(0.4, 0.12, 0.4), offset = CFrame.new(foot + Vector3.new(0, 0.06, 0)), color = Color3.fromHex("2B2F3A"), material = Enum.Material.Rubber })
+	end
+	local tripod = ModelLibrary.place(MapSchema.Models.Tripod, CFrame.new(cut.center), stub, Workspace)
+	ModelLibrary.forEachPart(tripod, function(part)
+		part.CanCollide = false
+		part.CanQuery = false
+	end)
+	remember(tripod)
+end
+
+-- Верёвка от блока треноги вниз до bottomY (до обвязки вора или до пола).
+function HeistFx.setRope(cut: Cut, bottomY: number)
+	local top = cut.pulley
+	local length = math.max(0.2, top.Y - bottomY)
+	local rope = cut.rope
+	if not rope then
+		local created = decor("GlazierRope", Vector3.new(Heist.RopeThickness, length, Heist.RopeThickness), CFrame.new(top), Heist.RopeColor, Enum.Material.Fabric, Workspace)
+		remember(created)
+		cut.rope = created
+		rope = created
+	end
+	if rope then
+		rope.Size = Vector3.new(Heist.RopeThickness, length, Heist.RopeThickness)
+		rope.CFrame = CFrame.new(top.X, top.Y - length / 2, top.Z)
+	end
+end
+
 ---------------------------------------------------------------- день и ночь
 
--- Утро: витрины целые, следы воров убраны.
+-- Утро: витрины целые, следы воров (дыры в полу, тренога, верёвка, дыра в стекле) убраны.
 function HeistFx.resetForDay()
 	for _, case in cases do
 		restoreCase(case)
+	end
+	for _, instance in nightProps do
+		instance:Destroy()
+	end
+	table.clear(nightProps)
+	local cutGlass = skylightCut
+	if cutGlass then
+		cutGlass:Destroy()
+		skylightCut = nil
+	end
+	local glass = skylight
+	if glass then
+		glass.Transparency = skylightTransparency
+		glass.CanCollide = true
+		glass.CanQuery = true
 	end
 end
 
@@ -280,6 +603,13 @@ function HeistFx.init(map: Instance)
 	end
 	if #cases == 0 then
 		warn("[HeistFx] На карте нет витрин prop_displaycase_01 — воры не смогут шуметь")
+	end
+	local glass = map:FindFirstChild(MapSchema.Skylight, true)
+	if glass and glass:IsA("BasePart") then
+		skylight = glass
+		skylightTransparency = glass.Transparency
+	else
+		warn("[HeistFx] На карте нет стеклянного потолка Skylight — Стекольщик будет входить через дверь")
 	end
 end
 

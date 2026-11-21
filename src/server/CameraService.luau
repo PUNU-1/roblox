@@ -206,9 +206,10 @@ function CameraService.isBroken(point: BasePart): boolean
 	return point:GetAttribute(Attr.Broken) == true
 end
 
--- Камера работает: куплена, не сломана, её зал открыт.
+-- Камера работает: куплена, не сломана, её зал открыт и в музее есть свет (блэкаут гасит все камеры).
 function CameraService.isWorking(point: BasePart): boolean
 	return isOwned(point) and not CameraService.isBroken(point) and GameState.isHallOpen(point:GetAttribute(Attr.Hall))
+		and GameState.get(GameState.Attr.Blackout) ~= true
 end
 
 -- Ближайшая работающая камера (её и ломает взломщик).

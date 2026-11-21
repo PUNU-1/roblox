@@ -27,6 +27,9 @@ local function now(): number
 end
 
 local function visibleFromSomeCamera(position: Vector3): boolean
+	if GameState.get(GameState.Attr.Blackout) == true then
+		return false -- блэкаут: камеры не работают
+	end
 	for _, point in cameraPoints do
 		local working = point:GetAttribute(GameState.CameraAttr.Owned) == true and point:GetAttribute(GameState.CameraAttr.Broken) ~= true
 		if working and (point.Position - position).Magnitude <= Config.Comms.MarkMaxDistance then

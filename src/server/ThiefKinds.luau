@@ -173,6 +173,149 @@ local function shadow(): Model?
 	return model
 end
 
+-- Шахтёр: синий комбинезон с лямками, жёлтая каска с фонарём (фонарь правда светит), пышные усы,
+-- пятно грязи на щеке, кирка за спиной.
+local function miner(): Model?
+	local info = Config.ThiefTypes.Miner
+	local model = ThiefKinds.rig({ head = info.Skin, torso = info.Overalls, arms = info.Shirt, legs = info.Overalls })
+	if not model then
+		return nil
+	end
+	local h = sizeOf(model, "Head")
+	local yellowDark = Color3.fromHex("D9A91E")
+	ThiefKinds.attach(model, "Head", MapSchema.Models.MinerHelmet, {
+		{ name = "Dome", size = Vector3.new(h.X * 1.18, h.Y * 0.95, h.Z * 1.18), offset = CFrame.new(0, h.Y * 0.3, 0), color = info.Helmet, sphere = true },
+		{ name = "Brim", size = Vector3.new(0.12, h.X * 1.5, h.Z * 1.5), offset = CFrame.new(0, h.Y * 0.2, -0.05) * CFrame.Angles(0, 0, math.pi / 2), color = yellowDark, shape = Enum.PartType.Cylinder },
+		{ name = "Ridge", size = Vector3.new(0.2, h.Y * 0.16, h.Z * 1.0), offset = CFrame.new(0, h.Y * 0.74, 0), color = yellowDark },
+		{ name = "LampHousing", size = Vector3.new(0.36, 0.44, 0.44), offset = CFrame.new(0, h.Y * 0.4, -h.Z * 0.6) * CFrame.Angles(0, math.pi / 2, 0), color = Color3.fromHex("3A3F4B"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "Lens", size = Vector3.new(0.05, 0.36, 0.36), offset = CFrame.new(0, h.Y * 0.4, -h.Z * 0.6 - 0.19) * CFrame.Angles(0, math.pi / 2, 0), color = Color3.fromHex("FFF3C4"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder },
+	}, CFrame.identity)
+	ThiefKinds.attach(model, "Head", MapSchema.Models.MinerMoustache, {
+		{ name = "MoustacheL", size = Vector3.new(h.X * 0.32, h.Y * 0.13, 0.14), offset = CFrame.new(-h.X * 0.15, -h.Y * 0.13, -h.Z * 0.52) * CFrame.Angles(0, 0, 0.28), color = Color3.fromHex("5A3A22"), material = Enum.Material.Fabric },
+		{ name = "MoustacheR", size = Vector3.new(h.X * 0.32, h.Y * 0.13, 0.14), offset = CFrame.new(h.X * 0.15, -h.Y * 0.13, -h.Z * 0.52) * CFrame.Angles(0, 0, -0.28), color = Color3.fromHex("5A3A22"), material = Enum.Material.Fabric },
+		{ name = "Dirt", size = Vector3.new(h.X * 0.18, h.Y * 0.1, 0.03), offset = CFrame.new(h.X * 0.3, h.Y * 0.0, -h.Z * 0.5), color = Color3.fromHex("8A6A50") },
+	}, CFrame.identity)
+	-- Свет фонаря: точка в голове, светит вперёд, куда смотрит голова
+	local head = model:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then
+		local lampPoint = Instance.new("Attachment")
+		lampPoint.Name = "MinerLamp"
+		lampPoint.CFrame = CFrame.new(0, h.Y * 0.4, -h.Z * 0.7)
+		lampPoint.Parent = head
+		local light = Instance.new("SpotLight")
+		light.Face = Enum.NormalId.Front
+		light.Range = info.LampRange
+		light.Brightness = info.LampBrightness
+		light.Angle = info.LampAngle
+		light.Color = Color3.fromHex("FFE7B0")
+		light.Parent = lampPoint
+	end
+	local t = sizeOf(model, "UpperTorso")
+	local denimDark = Color3.fromHex("23395F")
+	ThiefKinds.attach(model, "UpperTorso", MapSchema.Models.MinerOveralls, {
+		{ name = "Bib", size = Vector3.new(t.X * 0.5, t.Y * 0.42, 0.06), offset = CFrame.new(0, t.Y * 0.02, -t.Z * 0.53), color = denimDark, material = Enum.Material.Fabric },
+		{ name = "StrapFrontL", size = Vector3.new(0.22, t.Y * 1.0, 0.05), offset = CFrame.new(-t.X * 0.24, t.Y * 0.02, -t.Z * 0.54), color = denimDark, material = Enum.Material.Fabric },
+		{ name = "StrapFrontR", size = Vector3.new(0.22, t.Y * 1.0, 0.05), offset = CFrame.new(t.X * 0.24, t.Y * 0.02, -t.Z * 0.54), color = denimDark, material = Enum.Material.Fabric },
+		{ name = "StrapBack", size = Vector3.new(t.X * 0.6, t.Y * 0.9, 0.05), offset = CFrame.new(0, 0, t.Z * 0.53), color = denimDark, material = Enum.Material.Fabric },
+		{ name = "ButtonL", size = Vector3.new(0.16, 0.16, 0.06), offset = CFrame.new(-t.X * 0.24, t.Y * 0.2, -t.Z * 0.57), color = info.Helmet, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ name = "ButtonR", size = Vector3.new(0.16, 0.16, 0.06), offset = CFrame.new(t.X * 0.24, t.Y * 0.2, -t.Z * 0.57), color = info.Helmet, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+	}, CFrame.identity)
+	-- Кирка за спиной наискосок: ручка и железная голова с двумя загнутыми концами
+	ThiefKinds.attach(model, "UpperTorso", MapSchema.Models.MinerPickaxe, {
+		{ name = "Handle", size = Vector3.new(0.2, 2.7, 0.2), offset = CFrame.identity, color = Color3.fromHex("7A5230"), material = Enum.Material.Wood },
+		{ name = "Head", size = Vector3.new(1.0, 0.3, 0.26), offset = CFrame.new(0, 1.25, 0), color = Color3.fromHex("8A93A6"), material = Enum.Material.Metal },
+		{ name = "PickL", size = Vector3.new(0.6, 0.2, 0.2), offset = CFrame.new(-0.7, 1.17, 0) * CFrame.Angles(0, 0, 0.3), color = Color3.fromHex("8A93A6"), material = Enum.Material.Metal },
+		{ name = "PickR", size = Vector3.new(0.6, 0.2, 0.2), offset = CFrame.new(0.7, 1.17, 0) * CFrame.Angles(0, 0, -0.3), color = Color3.fromHex("8A93A6"), material = Enum.Material.Metal },
+		{ name = "Grip", size = Vector3.new(0.24, 0.5, 0.24), offset = CFrame.new(0, -1.1, 0), color = Color3.fromHex("2B2F3A"), material = Enum.Material.Rubber },
+	}, CFrame.new(0, 0, t.Z * 0.66) * CFrame.Angles(0, 0, 0.6))
+	return model
+end
+
+-- Стекольщик: тёмный костюм, белый шлем альпиниста, очки и маска, оранжевая обвязка с карабинами,
+-- моток верёвки на плече, в руке присоска-стеклорез.
+local function glazier(): Model?
+	local info = Config.ThiefTypes.Glazier
+	local model = ThiefKinds.rig({ head = info.Skin, torso = info.Suit, arms = info.Suit, legs = info.Suit })
+	if not model then
+		return nil
+	end
+	local h = sizeOf(model, "Head")
+	local strap = Color3.fromHex("2B2F3A")
+	ThiefKinds.attach(model, "Head", MapSchema.Models.GlazierHelmet, {
+		{ name = "Shell", size = Vector3.new(h.X * 1.15, h.Y * 0.9, h.Z * 1.15), offset = CFrame.new(0, h.Y * 0.3, 0), color = info.Helmet, sphere = true },
+		{ name = "Vent", size = Vector3.new(h.X * 0.12, 0.06, h.Z * 0.6), offset = CFrame.new(-h.X * 0.18, h.Y * 0.73, 0), color = strap },
+		{ name = "Vent", size = Vector3.new(h.X * 0.12, 0.06, h.Z * 0.6), offset = CFrame.new(h.X * 0.18, h.Y * 0.73, 0), color = strap },
+		{ name = "StrapL", size = Vector3.new(0.06, h.Y * 0.7, 0.1), offset = CFrame.new(-h.X * 0.52, -h.Y * 0.08, 0), color = strap },
+		{ name = "StrapR", size = Vector3.new(0.06, h.Y * 0.7, 0.1), offset = CFrame.new(h.X * 0.52, -h.Y * 0.08, 0), color = strap },
+		{ name = "GoggleBand", size = Vector3.new(h.X * 1.07, h.Y * 0.14, h.Z * 1.07), offset = CFrame.new(0, h.Y * 0.1, 0), color = strap, material = Enum.Material.Fabric },
+		{ name = "LensL", size = Vector3.new(h.X * 0.32, h.Y * 0.24, 0.1), offset = CFrame.new(-h.X * 0.2, h.Y * 0.1, -h.Z * 0.55), color = Color3.fromHex("3BC6C1"), material = Enum.Material.Glass, transparency = 0.15 },
+		{ name = "LensR", size = Vector3.new(h.X * 0.32, h.Y * 0.24, 0.1), offset = CFrame.new(h.X * 0.2, h.Y * 0.1, -h.Z * 0.55), color = Color3.fromHex("3BC6C1"), material = Enum.Material.Glass, transparency = 0.15 },
+		{ name = "Mask", size = Vector3.new(h.X * 1.04, h.Y * 0.32, h.Z * 1.04), offset = CFrame.new(0, -h.Y * 0.28, 0), color = Color3.fromHex("33373F"), material = Enum.Material.Fabric },
+	}, CFrame.identity)
+	local t = sizeOf(model, "UpperTorso")
+	local steel = STEEL
+	ThiefKinds.attach(model, "UpperTorso", MapSchema.Models.GlazierHarness, {
+		{ name = "StrapFL", size = Vector3.new(0.22, t.Y * 1.02, 0.06), offset = CFrame.new(-t.X * 0.22, 0, -t.Z * 0.53), color = info.Harness, material = Enum.Material.Fabric },
+		{ name = "StrapFR", size = Vector3.new(0.22, t.Y * 1.02, 0.06), offset = CFrame.new(t.X * 0.22, 0, -t.Z * 0.53), color = info.Harness, material = Enum.Material.Fabric },
+		{ name = "StrapBL", size = Vector3.new(0.22, t.Y * 1.02, 0.06), offset = CFrame.new(-t.X * 0.22, 0, t.Z * 0.53), color = info.Harness, material = Enum.Material.Fabric },
+		{ name = "StrapBR", size = Vector3.new(0.22, t.Y * 1.02, 0.06), offset = CFrame.new(t.X * 0.22, 0, t.Z * 0.53), color = info.Harness, material = Enum.Material.Fabric },
+		{ name = "Chest", size = Vector3.new(t.X * 0.7, 0.2, 0.06), offset = CFrame.new(0, t.Y * 0.14, -t.Z * 0.55), color = info.Harness, material = Enum.Material.Fabric },
+		{ name = "Belt", size = Vector3.new(t.X * 1.05, 0.24, t.Z * 1.08), offset = CFrame.new(0, -t.Y * 0.42, 0), color = info.Harness, material = Enum.Material.Fabric },
+		{ name = "Buckle", size = Vector3.new(0.34, 0.3, 0.08), offset = CFrame.new(0, -t.Y * 0.42, -t.Z * 0.56), color = steel, material = Enum.Material.Metal },
+		{ name = "Carabiner", size = Vector3.new(0.14, 0.32, 0.06), offset = CFrame.new(-t.X * 0.36, -t.Y * 0.56, -t.Z * 0.5), color = steel, material = Enum.Material.Metal },
+		{ name = "Carabiner", size = Vector3.new(0.14, 0.32, 0.06), offset = CFrame.new(t.X * 0.36, -t.Y * 0.56, -t.Z * 0.5), color = steel, material = Enum.Material.Metal },
+		{ name = "RopeCoil", size = Vector3.new(0.3, t.Y * 0.75, t.Y * 0.75), offset = CFrame.new(-t.X * 0.55, t.Y * 0.05, 0.05), color = Config.Heist.RopeColor, material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder },
+	}, CFrame.identity)
+	local g = sizeOf(model, "RightHand")
+	ThiefKinds.attach(model, "RightHand", MapSchema.Models.GlazierCutter, {
+		{ name = "Handle", size = Vector3.new(0.24, 0.7, 0.24), offset = CFrame.new(0, -g.Y * 0.5 - 0.25, 0), color = Color3.fromHex("5A6070"), material = Enum.Material.Metal },
+		{ name = "Cup", size = Vector3.new(0.14, 0.85, 0.85), offset = CFrame.new(0, -g.Y * 0.5 - 0.66, 0) * CFrame.Angles(0, 0, math.pi / 2), color = Color3.fromHex("C8343A"), material = Enum.Material.Rubber, shape = Enum.PartType.Cylinder },
+		{ name = "Wheel", size = Vector3.new(0.05, 0.28, 0.28), offset = CFrame.new(0, -g.Y * 0.5 - 0.2, -0.22), color = steel, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	}, CFrame.identity)
+	return model
+end
+
+-- Светорез: серый комбинезон со светоотражающей полосой, кепка козырьком назад, очки на лбу, маска,
+-- пояс с инструментами, красные кусачки в руке.
+local function cutter(): Model?
+	local info = Config.ThiefTypes.Cutter
+	local model = ThiefKinds.rig({ head = info.Skin, torso = info.Coverall, arms = info.Coverall, legs = info.Coverall })
+	if not model then
+		return nil
+	end
+	local h = sizeOf(model, "Head")
+	ThiefKinds.attach(model, "Head", MapSchema.Models.CutterCap, {
+		{ name = "Crown", size = Vector3.new(h.X * 1.1, h.Y * 0.62, h.Z * 1.1), offset = CFrame.new(0, h.Y * 0.32, 0), color = info.Cap, material = Enum.Material.Fabric, sphere = true },
+		{ name = "Visor", size = Vector3.new(h.X * 0.8, 0.1, h.Z * 0.5), offset = CFrame.new(0, h.Y * 0.24, h.Z * 0.66), color = info.Cap, material = Enum.Material.Fabric },
+		{ name = "Button", size = Vector3.new(0.14, 0.1, 0.14), offset = CFrame.new(0, h.Y * 0.64, 0), color = info.Stripe },
+		{ name = "GoggleBand", size = Vector3.new(h.X * 1.06, h.Y * 0.12, h.Z * 1.06), offset = CFrame.new(0, h.Y * 0.16, 0), color = DARK, material = Enum.Material.Fabric },
+		{ name = "LensL", size = Vector3.new(h.X * 0.28, h.Y * 0.2, 0.1), offset = CFrame.new(-h.X * 0.19, h.Y * 0.2, -h.Z * 0.55), color = Color3.fromHex("F28C28"), material = Enum.Material.Glass, transparency = 0.1 },
+		{ name = "LensR", size = Vector3.new(h.X * 0.28, h.Y * 0.2, 0.1), offset = CFrame.new(h.X * 0.19, h.Y * 0.2, -h.Z * 0.55), color = Color3.fromHex("F28C28"), material = Enum.Material.Glass, transparency = 0.1 },
+		{ name = "Mask", size = Vector3.new(h.X * 1.05, h.Y * 0.34, h.Z * 1.05), offset = CFrame.new(0, -h.Y * 0.26, 0), color = Color3.fromHex("5A6070"), material = Enum.Material.Fabric },
+	}, CFrame.identity)
+	local t = sizeOf(model, "UpperTorso")
+	ThiefKinds.attach(model, "UpperTorso", MapSchema.Models.CutterStripes, {
+		{ name = "Stripe", size = Vector3.new(t.X * 1.03, 0.2, t.Z * 1.05), offset = CFrame.new(0, -t.Y * 0.08, 0), color = info.Stripe },
+		{ name = "Pocket", size = Vector3.new(t.X * 0.25, t.Y * 0.22, 0.06), offset = CFrame.new(t.X * 0.24, t.Y * 0.22, -t.Z * 0.53), color = Color3.fromHex("3A4250"), material = Enum.Material.Fabric },
+		{ name = "Pen", size = Vector3.new(0.06, 0.3, 0.06), offset = CFrame.new(t.X * 0.3, t.Y * 0.36, -t.Z * 0.56), color = Color3.fromHex("C8343A") },
+	}, CFrame.identity)
+	local l = sizeOf(model, "LowerTorso")
+	ThiefKinds.attach(model, "LowerTorso", MapSchema.Models.CutterToolbelt, {
+		{ name = "Belt", size = Vector3.new(l.X * 1.06, math.max(0.3, l.Y * 0.9), l.Z * 1.08), offset = CFrame.identity, color = Color3.fromHex("6B4A2E"), material = Enum.Material.Leather },
+		{ name = "PouchL", size = Vector3.new(0.5, 0.6, 0.35), offset = CFrame.new(-l.X * 0.36, -0.25, -l.Z * 0.52), color = Color3.fromHex("5A3E26"), material = Enum.Material.Leather },
+		{ name = "PouchR", size = Vector3.new(0.45, 0.5, 0.35), offset = CFrame.new(l.X * 0.36, -0.2, -l.Z * 0.52), color = Color3.fromHex("5A3E26"), material = Enum.Material.Leather },
+		{ name = "Screwdriver", size = Vector3.new(0.1, 0.5, 0.1), offset = CFrame.new(l.X * 0.3, 0.05, -l.Z * 0.62), color = info.Stripe },
+		{ name = "Tape", size = Vector3.new(0.2, 0.45, 0.45), offset = CFrame.new(-l.X * 0.56, -0.1, 0.1), color = Color3.fromHex("2B2F3A"), shape = Enum.PartType.Cylinder },
+	}, CFrame.identity)
+	local g = sizeOf(model, "RightHand")
+	ThiefKinds.attach(model, "RightHand", MapSchema.Models.CutterSnips, {
+		{ name = "HandleL", size = Vector3.new(0.13, 0.7, 0.13), offset = CFrame.new(-0.08, -g.Y * 0.5 - 0.15, 0) * CFrame.Angles(0, 0, -0.12), color = Color3.fromHex("C8343A"), material = Enum.Material.Rubber },
+		{ name = "HandleR", size = Vector3.new(0.13, 0.7, 0.13), offset = CFrame.new(0.08, -g.Y * 0.5 - 0.15, 0) * CFrame.Angles(0, 0, 0.12), color = Color3.fromHex("C8343A"), material = Enum.Material.Rubber },
+		{ name = "Jaws", size = Vector3.new(0.16, 0.42, 0.1), offset = CFrame.new(0, -g.Y * 0.5 - 0.7, 0), color = STEEL, material = Enum.Material.Metal },
+	}, CFrame.identity)
+	return model
+end
+
 local BUILDERS: { [string]: () -> Model? } = {
 	Pickpocket = function()
 		return pickpocket(Config.ThiefTypes.Pickpocket.Color)
@@ -182,6 +325,9 @@ local BUILDERS: { [string]: () -> Model? } = {
 	end,
 	Brute = brute,
 	Shadow = shadow,
+	Miner = miner,
+	Glazier = glazier,
+	Cutter = cutter,
 }
 
 -- Модель вора этого вида (ещё не в мире). nil — если Roblox не смог собрать персонажа.

@@ -341,7 +341,8 @@ end
 
 local cameraDots: { TextButton } = {}
 
--- Сломанная камера: вместо картинки помехи и «NO SIGNAL» (камеру перезапускают на пульте)
+-- Сломанная камера: вместо картинки помехи и «NO SIGNAL» (камеру перезапускают на пульте).
+-- Блэкаут (Светорез, блок 3): все камеры — «NO POWER», свет возвращают у щитка POWER.
 local noSignal = Theme.new("Frame", {
 	Name = "NoSignal",
 	Size = UDim2.fromScale(1, 1),
@@ -351,7 +352,7 @@ local noSignal = Theme.new("Frame", {
 	ZIndex = 1,
 	Parent = gui,
 })
-Theme.label({
+local noSignalTitle = Theme.label({
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.35),
 	Size = UDim2.new(0.6, 0, 0, 60),
@@ -361,14 +362,18 @@ Theme.label({
 	ZIndex = 1,
 	Parent = noSignal,
 })
-Theme.label({
+local NO_SIGNAL_HINT = if UserInputService.KeyboardEnabled
+	then "Restart the cameras: red switch next to the console on the balcony (hold F)"
+	else "Restart the cameras: red switch next to the console on the balcony"
+local NO_POWER_HINT = if UserInputService.KeyboardEnabled
+	then "The power is out: POWER box in the staff corridor (hold F)"
+	else "The power is out: POWER box in the staff corridor"
+local noSignalHint = Theme.label({
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.45),
 	Size = UDim2.new(0.6, 0, 0, 26),
 	Font = Theme.BodyFont,
-	Text = if UserInputService.KeyboardEnabled
-		then "Restart the cameras: red switch next to the console on the balcony (hold F)"
-		else "Restart the cameras: red switch next to the console on the balcony",
+	Text = NO_SIGNAL_HINT,
 	MaxTextSize = 20,
 	ZIndex = 1,
 	Parent = noSignal,
@@ -542,7 +547,10 @@ local function refreshCameraButtons()
 		button.TextTransparency = if available or index == currentIndex then 0 else 0.4
 	end
 	refreshFloors()
-	noSignal.Visible = cameraBroken(currentIndex)
+	local blackout = GameState.get(Attr.Blackout) == true
+	noSignal.Visible = blackout or cameraBroken(currentIndex)
+	noSignalTitle.Text = if blackout then "NO POWER" else "NO SIGNAL"
+	noSignalHint.Text = if blackout then NO_POWER_HINT else NO_SIGNAL_HINT
 	for index, dot in cameraDots do
 		local owned = cameraOwned(index)
 		local ring = dot:FindFirstChild("Ring")
