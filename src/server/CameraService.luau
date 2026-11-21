@@ -19,7 +19,6 @@ local CameraService = {}
 local points: { BasePart } = {}
 local repairPrompt: ProximityPrompt? = nil
 local repairLamp: BasePart? = nil
-local hallCenters: { [string]: Vector3 } = {}
 
 local function anyBroken(): boolean
 	for _, point in points do
@@ -103,14 +102,13 @@ function CameraService.nearestWorking(position: Vector3): BasePart?
 	return best
 end
 
--- Где встать вору под камерой: на полу, чуть ближе к середине зала.
+-- Где встать вору под камерой: на полу под кронштейном, чуть дальше от стены (StandPoint пишет MapBuilder).
 function CameraService.standPoint(point: BasePart): Vector3
-	local hall = point:GetAttribute("Hall")
-	local center = hallCenters[if typeof(hall) == "string" then hall else GameState.Hall.Main] or Vector3.zero
-	local flat = Vector3.new(point.Position.X, 3, point.Position.Z)
-	local toCenter = Vector3.new(center.X - flat.X, 0, center.Z - flat.Z)
-	local inset = Config.CameraBreaker.StandInset
-	return if toCenter.Magnitude > inset then flat + toCenter.Unit * inset else flat
+	local stand = point:GetAttribute(GameState.CameraAttr.StandPoint)
+	if typeof(stand) == "Vector3" then
+		return stand
+	end
+	return Vector3.new(point.Position.X, 3, point.Position.Z)
 end
 
 function CameraService.breakCamera(point: BasePart)
@@ -136,15 +134,6 @@ function CameraService.init(map: Instance)
 			if child:IsA("BasePart") then
 				child:SetAttribute("Broken", false)
 				table.insert(points, child)
-			end
-		end
-	end
-	local geometry = map:FindFirstChild(MapSchema.Geometry)
-	if geometry then
-		for _, part in geometry:GetChildren() do
-			local hall = part:GetAttribute("Hall")
-			if part:IsA("BasePart") and typeof(hall) == "string" then
-				hallCenters[hall] = part.Position
 			end
 		end
 	end

@@ -82,15 +82,23 @@ local Config = {
 	CameraBreaker = { -- вор, который выключает камеру
 		FromNight = 3, -- баланс: с какой ночи появляется
 		Chance = 0.3, -- баланс: какая доля воров — взломщики
-		BreakSeconds = 2, -- сколько ломает камеру
-		StandInset = 3, -- встаёт под камерой, чуть ближе к середине зала
+		BreakSeconds = 2, -- сколько ломает камеру (встаёт на полу под кронштейном камеры)
 		Color = Color3.fromHex("5A1A1A"), -- тёмно-красный костюм, чтобы отличался
 	},
 
-	Halls = {
-		Jewelry = { Price = 400, Title = "JEWELRY HALL" }, -- баланс: цена зала
-		Sculptures = { Price = 600, Title = "SCULPTURE HALL" },
+	Halls = { -- 4 зала по углам музея (решение 69): дороже зал — дороже экспонаты и больше туристов
+		Sculptures = { Price = 300, Title = "SCULPTURE HALL" }, -- баланс: цена зала
+		Dinosaurs = { Price = 450, Title = "DINOSAUR HALL" },
+		Jewelry = { Price = 600, Title = "JEWELRY HALL" },
+		Space = { Price = 800, Title = "SPACE HALL" },
 		BoardsFallSeconds = 1.2, -- доски падают, когда зал оплачен
+	},
+
+	Doors = { -- 4 двери входов и дверь STAFF ONLY открываются сами, когда рядом кто-то есть
+		OpenRadius = 11, -- стадов от середины двери (по полу): ближе — дверь открывается
+		CloseDelay = 1.2, -- закрывается через столько секунд, как рядом никого
+		CheckSeconds = 0.2, -- как часто сервер проверяет, есть ли кто рядом
+		SlideSeconds = 0.6, -- створки плавно отъезжают за столько секунд (анимация у клиентов)
 	},
 
 	Exhibits = {

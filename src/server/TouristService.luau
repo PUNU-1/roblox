@@ -1,6 +1,6 @@
--- Туристы днём: входят через вход для туристов, платят за билет («+$5» над головой, деньги
+-- Туристы днём: входят через одну из 4 дверей музея, платят за билет («+$10» над головой, деньги
 -- делятся поровну между игроками), гуляют от одного места к другому — смотрят, иногда
--- фотографируют — и уходят. Чем привлекательнее экспонаты, тем больше туристов за день.
+-- фотографируют — и уходят через ближайшую дверь. Чем привлекательнее экспонаты, тем больше туристов за день.
 -- Движения рук и ног делает NpcAnimator на клиентах по атрибуту AnimState.
 
 local Debris = game:GetService("Debris")
@@ -51,9 +51,9 @@ local SHIRTS = { "E74C3C", "3498DB", "2ECC71", "F1C40F", "9B59B6", "E67E22", "1A
 local PANTS = { "34495E", "2C3E50", "5D4037", "1F3A60", "4A4A4A" }
 
 local tourists: { [Model]: Tourist } = {}
-local floors: { BasePart } = {} -- полы залов (атрибут Hall)
+local floors: { BasePart } = {} -- полы залов (атрибут Hall), кроме служебных (Wander = false)
 local folder: Folder
-local entrance: BasePart? = nil
+local entrances: { BasePart } = {} -- точки снаружи у 4 дверей
 local attractionsProvider: (() -> { Attraction })? = nil
 local updateConnection: RBXScriptConnection? = nil
 local spawnThread: thread? = nil
@@ -181,14 +181,27 @@ local function startVisit(tourist: Tourist)
 	setAnim(tourist, Anim.Stroll)
 end
 
+-- Ближайшая дверь (по прямой) — через неё турист уходит.
+local function nearestEntrance(position: Vector3): BasePart?
+	local best, bestDistance = nil, math.huge
+	for _, marker in entrances do
+		local distance = flatDistance(marker.Position, position)
+		if distance < bestDistance then
+			best, bestDistance = marker, distance
+		end
+	end
+	return best
+end
+
 local function startLeaving(tourist: Tourist)
 	if closing then
 		tourist.humanoid.WalkSpeed = TouristConfig.LeaveWalkSpeed
 	end
 	tourist.state = "Leave"
 	setAnim(tourist, Anim.Stroll)
-	if entrance then
-		goTo(tourist, entrance.Position)
+	local exit = nearestEntrance(tourist.root.Position)
+	if exit then
+		goTo(tourist, exit.Position)
 	end
 end
 
@@ -257,7 +270,7 @@ local function createTourist(): Model?
 end
 
 local function spawnTourist(): boolean
-	if not entrance then
+	if #entrances == 0 then
 		return false
 	end
 	local model = createTourist()
@@ -274,7 +287,7 @@ local function spawnTourist(): boolean
 	ModelLibrary.setCollisionGroup(model, ModelLibrary.Groups.Tourists)
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	humanoid.WalkSpeed = TouristConfig.WalkSpeed
-	model:PivotTo((entrance :: BasePart).CFrame)
+	model:PivotTo(pick(entrances).CFrame) -- через любую из 4 дверей
 	model.Parent = folder
 	pcall(function()
 		root:SetNetworkOwner(nil)
@@ -408,16 +421,21 @@ function TouristService.init(map: Instance)
 	local geometry = map:FindFirstChild(MapSchema.Geometry)
 	if geometry then
 		for _, part in geometry:GetChildren() do
-			if part:IsA("BasePart") and part:GetAttribute("Hall") ~= nil then
+			if part:IsA("BasePart") and part:GetAttribute("Hall") ~= nil and part:GetAttribute("Wander") ~= false then
 				table.insert(floors, part)
 			end
 		end
 	end
-	local marker = map:FindFirstChild(MapSchema.TouristEntrance, true)
-	if marker and marker:IsA("BasePart") then
-		entrance = marker
-	else
-		warn("[TouristService] На карте нет входа для туристов")
+	local entranceFolder = map:FindFirstChild(MapSchema.Entrances)
+	if entranceFolder then
+		for _, marker in entranceFolder:GetChildren() do
+			if marker:IsA("BasePart") then
+				table.insert(entrances, marker)
+			end
+		end
+	end
+	if #entrances == 0 then
+		warn("[TouristService] На карте нет входов для туристов")
 	end
 end
 

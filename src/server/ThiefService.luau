@@ -104,7 +104,7 @@ local function nearestGuard(position: Vector3): (Vector3?, number)
 	return bestPosition, bestDistance
 end
 
--- Входы боковых залов работают, только когда зал открыт.
+-- Вход работает, только когда его зал открыт (все 4 двери музея — в главном зале, открыты всегда).
 local function openEntrances(): { BasePart }
 	local list = {}
 	for _, entrance in entrances do
@@ -630,7 +630,7 @@ function ThiefService.init(map: Instance)
 		created.Parent = Workspace
 		folder = created
 	end
-	local entranceFolder = map:FindFirstChild(MapSchema.ThiefEntrances)
+	local entranceFolder = map:FindFirstChild(MapSchema.Entrances)
 	if entranceFolder then
 		for _, child in entranceFolder:GetChildren() do
 			if child:IsA("BasePart") then

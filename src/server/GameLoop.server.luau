@@ -25,6 +25,7 @@ local CommsService = require(Server:WaitForChild("CommsService"))
 local TouristService = require(Server:WaitForChild("TouristService"))
 local HallService = require(Server:WaitForChild("HallService"))
 local CameraService = require(Server:WaitForChild("CameraService"))
+local DoorService = require(Server:WaitForChild("DoorService"))
 local VoteService = require(Server:WaitForChild("VoteService"))
 local Audio = require(Server:WaitForChild("Audio"))
 
@@ -45,6 +46,7 @@ CommsService.init(map)
 TouristService.init(map)
 HallService.init(map)
 CameraService.init(map)
+DoorService.init(map)
 VoteService.init()
 
 -- Что смотрят туристы: Мону Лизу и купленные экспонаты в открытых залах.

@@ -15,6 +15,9 @@ export type StubPart = {
 	name: string?,
 	shape: Enum.PartType?,
 	transparency: number?,
+	wedge: boolean?, -- клин (WedgePart): скос от верхнего заднего ребра к нижнему переднему
+	sphere: boolean?, -- овал: шар, растянутый по размеру детали (SpecialMesh), для яиц, шлемов, планет
+	collide: boolean?, -- false — сквозь деталь можно пройти (мелкие украшения)
 }
 
 local ModelLibrary = {}
@@ -50,19 +53,34 @@ local function forEachPart(root: Instance, callback: (BasePart) -> ())
 end
 ModelLibrary.forEachPart = forEachPart
 
-local function newStubPart(spec: StubPart, index: number): Part
-	local part = Instance.new("Part")
+local function newStubPart(spec: StubPart, index: number): BasePart
+	local part: BasePart
+	if spec.wedge then
+		part = Instance.new("WedgePart")
+	else
+		local block = Instance.new("Part")
+		if spec.shape then
+			block.Shape = spec.shape
+		end
+		part = block
+	end
 	part.Name = spec.name or ("Stub" .. index)
 	part.Size = spec.size
 	part.CFrame = spec.offset
 	part.Color = spec.color
 	part.Material = spec.material or Enum.Material.SmoothPlastic
-	if spec.shape then
-		part.Shape = spec.shape
-	end
 	part.Transparency = spec.transparency or 0
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
+	if spec.collide == false then
+		part.CanCollide = false
+		part.CanTouch = false
+	end
+	if spec.sphere then
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = part
+	end
 	return part
 end
 
@@ -111,7 +129,7 @@ function ModelLibrary.accessory(name: string, stubParts: { StubPart }, attachmen
 		stripScripts(accessory)
 	else
 		accessory = Instance.new("Accessory")
-		local handle: Part? = nil
+		local handle: BasePart? = nil
 		for index, spec in stubParts do
 			local part = newStubPart(spec, index)
 			if not handle then

@@ -1,8 +1,8 @@
--- Боковые залы (Драгоценности, Скульптуры): закрыты заколоченными дверями с ценой.
+-- 4 зала за деньги (Скульптуры, Динозавры, Драгоценности, Космос): закрыты заколоченными дверями с ценой.
 -- Днём игрок подходит к двери и держит F: хватает денег — покупает зал сразу, нет — все его деньги
 -- идут в полоску, остальное докладывают другие (Purchase.luau, у каждого свой кошелёк).
--- Набрали цену — доски падают, зал открыт: его камеры работают, у него появляется вход для воров.
--- Здесь же главная дверь для туристов: днём открыта, ночью закрыта.
+-- Набрали цену — доски падают, зал открыт: его камеры работают, туристы и воры идут к его экспонатам.
+-- Двери входов открываются сами (DoorService).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -33,7 +33,6 @@ type Door = {
 
 local doors: { [string]: Door } = {}
 local doorsFolder: Instance? = nil
-local frontDoor: BasePart? = nil
 local dayActive = false
 
 local function hallSettings(hall: string): { Price: number, Title: string }?
@@ -126,19 +125,15 @@ local function attachPrompt(door: Door)
 	door.prompt = prompt
 end
 
--- Днём можно вкладывать деньги и главная дверь открыта; ночью — нет.
+-- Днём можно вкладывать деньги, ночью — нет.
 function HallService.setDayActive(active: boolean)
 	dayActive = active
 	for _, door in doors do
 		refreshPrompt(door)
 	end
-	if frontDoor then
-		frontDoor.CanCollide = not active
-		frontDoor.Transparency = if active then 1 else 0
-	end
 end
 
--- Новый забег: все боковые залы снова заколочены, вложенные деньги обнуляются.
+-- Новый забег: все залы снова заколочены, вложенные деньги обнуляются.
 function HallService.reset()
 	for _, door in doors do
 		if door.model then
@@ -178,10 +173,6 @@ function HallService.init(map: Instance)
 				updateSign(door)
 			end
 		end
-	end
-	local door = map:FindFirstChild(MapSchema.FrontDoor)
-	if door and door:IsA("BasePart") then
-		frontDoor = door
 	end
 end
 

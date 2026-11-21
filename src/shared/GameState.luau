@@ -35,11 +35,32 @@ GameState.ThiefAnim = {
 	Arrest = "Arrest", -- руки вверх, потом руки вперёд в наручники
 }
 
--- Залы музея. Главный открыт всегда, боковые открываются за деньги (вскладчину).
+-- Залы музея. Главный (центр, коридоры, входные холлы) открыт всегда,
+-- 4 зала по углам открываются за деньги (вскладчину).
 GameState.Hall = {
 	Main = "Main",
-	Jewelry = "Jewelry",
 	Sculptures = "Sculptures",
+	Dinosaurs = "Dinosaurs",
+	Jewelry = "Jewelry",
+	Space = "Space",
+}
+
+-- Залы за деньги по порядку цены (для подсказок и проверок).
+GameState.PaidHalls = { "Sculptures", "Dinosaurs", "Jewelry", "Space" }
+
+-- Атрибуты точки камеры (Map.CameraPoints.CameraN). Пишет только сервер.
+GameState.CameraAttr = {
+	Index = "Index", -- number, номер камеры (1..N)
+	Hall = "Hall", -- string, зал: камера закрытого зала не работает
+	Owned = "Owned", -- boolean, камера куплена (первая — бесплатная)
+	Broken = "Broken", -- boolean, сломал вор-взломщик
+	StandPoint = "StandPoint", -- Vector3, где на полу встаёт взломщик, чтобы сломать камеру
+}
+
+-- Атрибуты двери, которая открывается сама (Map.Doors): сервер решает, клиенты двигают створки.
+GameState.DoorAttr = {
+	Open = "Open", -- boolean, у модели двери
+	SlideX = "SlideX", -- number, у створки: на сколько она сдвигается вдоль своей оси X, когда дверь открыта
 }
 
 -- Атрибут GameState «зал открыт»: HallOpen_Jewelry и т.д.
