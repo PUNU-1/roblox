@@ -5,6 +5,7 @@
 
 local ContextActionService = game:GetService("ContextActionService")
 local GuiService = game:GetService("GuiService")
+local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -387,11 +388,14 @@ local function isNight(): boolean
 	return GameState.phase() == Phase.Night
 end
 
+-- Ночью камеры — ночное видение: ч/б и светлее, чем видит глаз (в залах темно).
+-- Яркость меняется только у этого игрока и только пока он смотрит камеры.
 local function applyColorMode()
 	if colorEffect then
 		colorEffect.Saturation = if isNight() then Config.Cameras.NightSaturation else 0
 		colorEffect.Contrast = if isNight() then Config.Cameras.NightContrast else 0
 	end
+	Lighting.ExposureCompensation = if viewing and isNight() then Config.Cameras.NightExposure else 0
 end
 
 local function playStatic()
@@ -672,6 +676,7 @@ local function closeView()
 		colorEffect:Destroy()
 		colorEffect = nil
 	end
+	applyColorMode() -- вернуть обычную яркость
 	local camera = Workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Custom
 	camera.FieldOfView = 70

@@ -77,6 +77,7 @@ end
 
 -- Лобби: ждём, пока все нажмут READY или пройдёт отсчёт после первого READY.
 local function runLobby()
+	setLighting(Config.Lighting.Lobby)
 	setPhase(Phase.Lobby, nil)
 	RoleService.resetReady()
 	RoleService.setConsoleEnabled(false)
@@ -102,7 +103,7 @@ local function runLobby()
 	end
 end
 
--- День: светло, игроки в музее (позже — туристы и покупки). Возвращает false, если все ушли.
+-- День: светло, туристы, покупки. Возвращает false, если все ушли.
 local function runDay(night: number): boolean
 	VoteService.admitApproved() -- кого пустили голосованием, входят с утра
 	ExhibitService.returnAll()
@@ -191,7 +192,7 @@ local function finishRun()
 	RoleService.setConsoleEnabled(false)
 	ExhibitService.setDayActive(false)
 	ExhibitService.reset()
-	setLighting(Config.Lighting.Night)
+	setLighting(Config.Lighting.Lobby)
 	GameState.set(Attr.NightNumber, 0)
 end
 

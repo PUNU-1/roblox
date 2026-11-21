@@ -29,7 +29,8 @@ local Config = {
 		FieldOfView = 80,
 		Names = { "Main Hall S", "Main Hall N", "Jewelry W", "Jewelry E", "Sculptures E", "Sculptures W" },
 		NightSaturation = -1, -- ночью картинка чёрно-белая
-		NightContrast = 0.15,
+		NightContrast = 0.25,
+		NightExposure = 2.5, -- ночное видение: камеры видят в темноте (яркость картинки ×2^2.5)
 		ConsoleHoldSeconds = 0.5, -- сколько держать E у пульта
 		ConsolePromptDistance = 8,
 		RepairHoldSeconds = 2, -- сколько держать F у пульта, чтобы перезапустить сломанные камеры
@@ -215,23 +216,49 @@ local Config = {
 	},
 
 	Lighting = {
+		Lobby = { -- комната охраны перед первым днём: вечер
+			ClockTime = 18,
+			Brightness = 1.5,
+			Ambient = Color3.fromRGB(130, 125, 120),
+			OutdoorAmbient = Color3.fromRGB(140, 135, 130),
+		},
 		Day = { -- день: светло, туристы
 			ClockTime = 14,
 			Brightness = 2,
 			Ambient = Color3.fromRGB(150, 150, 150),
 			OutdoorAmbient = Color3.fromRGB(170, 170, 170),
 		},
-		Night = { -- первая ночь: снаружи темно, в зале свет включён
+		Night = { -- ночью темно (решение 57): дежурные лампы, подсветка Моны Лизы и фонарики
 			ClockTime = 0,
-			Brightness = 1,
-			Ambient = Color3.fromRGB(150, 150, 165),
-			OutdoorAmbient = Color3.fromRGB(150, 150, 165),
+			Brightness = 0,
+			Ambient = Color3.fromRGB(28, 30, 42), -- баланс: насколько темно (больше — светлее)
+			OutdoorAmbient = Color3.fromRGB(28, 30, 42),
+		},
+		NightLamp = { -- тусклые синие дежурные лампы на стенах залов и в коридоре
+			Range = 14,
+			Brightness = 0.7,
+			Color = Color3.fromRGB(120, 150, 255),
+		},
+		LobbyLamp = { -- тёплая лампа в комнате охраны (опоздавшие ждут тут и ночью)
+			Range = 30,
+			Brightness = 1.2,
+			Color = Color3.fromRGB(255, 220, 170),
 		},
 		PaintingLight = { -- мягкая подсветка Моны Лизы, чтобы её было видно
 			Range = 18,
 			Brightness = 1.2,
 			Color = Color3.fromRGB(255, 225, 170),
 		},
+	},
+
+	Flashlight = { -- фонарик охранника ночью (решение 57), горит всегда, пока ты на смене
+		Range = 40, -- баланс: как далеко светит свой фонарик
+		Angle = 45, -- ширина луча в градусах
+		Brightness = 3,
+		Color = Color3.fromRGB(255, 244, 214),
+		OthersRange = 30, -- фонарики других охранников (свет из головы), без теней
+		OthersBrightness = 2,
+		HandOffset = CFrame.new(0.5, -0.4, 0), -- свой фонарик чуть правее и ниже глаз
 	},
 
 	Hints = {

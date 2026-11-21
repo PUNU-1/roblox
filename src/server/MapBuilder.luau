@@ -17,7 +17,6 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
-local Lighting = game:GetService("Lighting")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -127,12 +126,39 @@ local function newWall(
 	segment(cursor, to, 0, height)
 end
 
-local function applyNightLighting()
-	local night = Config.Lighting.Night
-	Lighting.ClockTime = night.ClockTime
-	Lighting.Brightness = night.Brightness
-	Lighting.Ambient = night.Ambient
-	Lighting.OutdoorAmbient = night.OutdoorAmbient
+-- Лампа на стене: светящаяся планка + точечный свет. Ночью это почти единственный свет в залах.
+local function newLamp(parent: Instance, position: Vector3, size: Vector3, settings: { Range: number, Brightness: number, Color: Color3 })
+	local lamp = newPart(parent, "Lamp", size, CFrame.new(position), settings.Color, Enum.Material.Neon)
+	lamp.CanCollide = false
+	lamp.CanQuery = false
+	lamp.CastShadow = false
+	local light = Instance.new("PointLight")
+	light.Range = settings.Range
+	light.Brightness = settings.Brightness
+	light.Color = settings.Color
+	light.Parent = lamp
+end
+
+local function buildLamps(props: Folder)
+	local night = Config.Lighting.NightLamp
+	local alongX = Vector3.new(1.6, 0.4, 0.3) -- на стенах вдоль X (север / юг)
+	local alongZ = Vector3.new(0.3, 0.4, 1.6) -- на стенах вдоль Z (запад / восток)
+	-- Главный зал: по две на северной и южной стене
+	for _, x in { -25, 25 } do
+		newLamp(props, Vector3.new(x, 10, -34.3), alongX, night)
+		newLamp(props, Vector3.new(x, 10, 34.3), alongX, night)
+	end
+	-- Драгоценности и Скульптуры: по одной на северной и южной стене
+	for _, x in { -75, 75 } do
+		newLamp(props, Vector3.new(x, 10, -24.3), alongX, night)
+		newLamp(props, Vector3.new(x, 10, 24.3), alongX, night)
+	end
+	-- Коридор и диспетчерская
+	newLamp(props, Vector3.new(-43.3, 8, -60), alongZ, night)
+	newLamp(props, Vector3.new(-43.3, 8, -95), alongZ, night)
+	newLamp(props, Vector3.new(-40, 9, -115.8), alongX, night)
+	-- Комната охраны: тёплый свет, опоздавшие ждут тут и ночью
+	newLamp(props, Vector3.new(0, 10, 169.3), alongX, Config.Lighting.LobbyLamp)
 end
 
 local function warnAboutDefaultPlace()
@@ -412,7 +438,6 @@ function MapBuilder.build(): Instance
 	end
 
 	warnAboutDefaultPlace()
-	applyNightLighting()
 
 	local map = newFolder(Workspace, MapSchema.Root)
 	local geometry = newFolder(map, MapSchema.Geometry)
@@ -435,6 +460,7 @@ function MapBuilder.build(): Instance
 	buildEntrances(entrances)
 	buildControlRoom(map, geometry)
 	buildLobby(geometry, props, markers)
+	buildLamps(props)
 
 	newMarker(markers, MapSchema.PatrolSpawn, CFrame.new(-40, 3, -28))
 	newMarker(markers, MapSchema.TouristEntrance, CFrame.new(0, 3, 42)) -- снаружи главного входа
