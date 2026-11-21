@@ -1,10 +1,12 @@
--- Готовые фразы: кнопка на экране открывает список, нажал фразу — она всплывает у всех.
--- Работает и на ПК (мышью), и на телефоне (касанием).
+-- Готовые фразы: кнопка на экране (или Q) открывает список, нажал фразу (или её цифру) — она всплывает у всех.
+-- Работает и на ПК, и на телефоне (касанием). Пока список открыт, курсор свободен (вид от первого лица).
 
+local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TextChatService = game:GetService("TextChatService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -16,6 +18,11 @@ local Phase = GameState.Phase
 local Colors = Theme.Colors
 
 local gui = Theme.screenGui("Comms", 3)
+local keyboard = UserInputService.KeyboardEnabled
+
+local TOGGLE_ACTION = "QuickPhrases"
+local PICK_ACTION = "PickPhrase"
+local DIGIT_KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine }
 
 -- Слева посередине: внизу слева на телефоне джойстик движения
 local toggleButton = Theme.button({
@@ -24,7 +31,7 @@ local toggleButton = Theme.button({
 	Position = UDim2.new(0, 16, 0.45, 0),
 	Size = UDim2.new(0, 120, 0, 50),
 	BackgroundColor3 = Colors.Navy,
-	Text = "💬 Say",
+	Text = if keyboard then "💬 Say (Q)" else "💬 Say",
 	Parent = gui,
 })
 Theme.stroke(Colors.Gold, 2).Parent = toggleButton
@@ -40,25 +47,80 @@ local list = Theme.new("Frame", {
 })
 Theme.new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = list })
 
+local function say(index: number)
+	Remotes.get(Remotes.Names.QuickPhrase):FireServer(index)
+end
+
+local setListOpen: (boolean) -> ()
+
 for index, phrase in Config.Comms.Phrases do
 	local button = Theme.button({
 		LayoutOrder = index,
 		Size = UDim2.new(1, 0, 0, 40),
 		BackgroundColor3 = Colors.NavyLight,
 		Font = Theme.BodyFont,
-		Text = phrase,
+		Text = if keyboard and DIGIT_KEYS[index] then ("%d  %s"):format(index, phrase) else phrase,
 		MaxTextSize = 20,
+		Modal = index == 1, -- пока список виден, курсор свободен
 		Parent = list,
 	})
 	button.Activated:Connect(function()
-		Remotes.get(Remotes.Names.QuickPhrase):FireServer(index)
-		list.Visible = false
+		say(index)
+		setListOpen(false)
 	end)
 end
 
+-- Цифры выбирают фразу, только пока список открыт (иначе цифры переключают камеры)
+local function onPick(_name: string, state: Enum.UserInputState, input: InputObject)
+	if state ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Pass
+	end
+	local index = table.find(DIGIT_KEYS, input.KeyCode)
+	if index and Config.Comms.Phrases[index] then
+		say(index)
+		setListOpen(false)
+		return Enum.ContextActionResult.Sink
+	end
+	return Enum.ContextActionResult.Pass
+end
+
+setListOpen = function(open: boolean)
+	if list.Visible == open then
+		return
+	end
+	list.Visible = open
+	if open then
+		local keys = {}
+		for index in Config.Comms.Phrases do
+			table.insert(keys, DIGIT_KEYS[index])
+		end
+		ContextActionService:BindActionAtPriority(PICK_ACTION, onPick, false, Enum.ContextActionPriority.High.Value, table.unpack(keys))
+	else
+		ContextActionService:UnbindAction(PICK_ACTION)
+	end
+end
+
 toggleButton.Activated:Connect(function()
-	list.Visible = not list.Visible
+	setListOpen(not list.Visible)
 end)
+
+local toggleBound = false
+local function setToggleBound(bound: boolean)
+	if bound == toggleBound then
+		return
+	end
+	toggleBound = bound
+	if bound then
+		ContextActionService:BindAction(TOGGLE_ACTION, function(_name, state)
+			if state == Enum.UserInputState.Begin then
+				setListOpen(not list.Visible)
+			end
+			return Enum.ContextActionResult.Sink
+		end, false, Enum.KeyCode.Q)
+	else
+		ContextActionService:UnbindAction(TOGGLE_ACTION)
+	end
+end
 
 -- Лента фраз слева сверху
 local feed = Theme.new("Frame", {
@@ -133,7 +195,8 @@ RunService.Heartbeat:Connect(function(dt)
 	local phase = GameState.phase()
 	local show = phase == Phase.Day or phase == Phase.Night
 	toggleButton.Visible = show
+	setToggleBound(show)
 	if not show then
-		list.Visible = false
+		setListOpen(false)
 	end
 end)

@@ -277,6 +277,7 @@ local function onCharacterAdded(player: Player, character: Model)
 end
 
 local function onPlayerAdded(player: Player)
+	player.CameraMode = Enum.CameraMode.LockFirstPerson -- вид от первого лица (решение 56)
 	player:SetAttribute(PlayerAttr.Role, Role.Patrol)
 	player:SetAttribute(PlayerAttr.Ready, false)
 	player:SetAttribute(PlayerAttr.InRound, false)

@@ -197,6 +197,7 @@ local closeButton = Theme.button({
 	BackgroundColor3 = Colors.Red,
 	Text = "CLOSE (Tab)",
 	ZIndex = 2,
+	Modal = true, -- пока открыт экран камер, курсор свободен: можно нажимать на воров и кнопки
 	Parent = panel,
 })
 

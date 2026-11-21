@@ -138,6 +138,7 @@ local readyButton = Theme.button({
 	Size = UDim2.fromScale(0.6, 0.18),
 	BackgroundColor3 = Colors.Green,
 	MaxTextSize = 34,
+	Modal = true, -- пока видно лобби, курсор свободен (вид от первого лица запирает мышь в центре)
 	Parent = lobbyPanel,
 })
 
