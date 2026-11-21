@@ -74,6 +74,17 @@ local function anyoneLeft(): boolean
 	return #RoleService.participants() > 0
 end
 
+-- Длина дня и ночи растёт с каждым днём забега (решение 66): день 30 -> 60 сек, ночь 2 -> 5 мин.
+local function daySeconds(day: number): number
+	local phases = Config.Phases
+	return math.min(phases.DayMaxSeconds, phases.DayFirstSeconds + (day - 1) * phases.DayGrowSeconds)
+end
+
+local function nightSeconds(night: number): number
+	local phases = Config.Phases
+	return math.min(phases.NightMaxSeconds, phases.NightFirstSeconds + (night - 1) * phases.NightGrowSeconds)
+end
+
 local function setLighting(settings: { ClockTime: number, Brightness: number, Ambient: Color3, OutdoorAmbient: Color3 })
 	Lighting.ClockTime = settings.ClockTime
 	Lighting.Brightness = settings.Brightness
@@ -107,11 +118,12 @@ local function runDay(night: number): boolean
 	setLighting(Config.Lighting.Day)
 	MapBuilder.setDayLights(map, true) -- днём горят люстры
 	GameState.set(Attr.NightNumber, night)
-	setPhase(Phase.Day, Config.Phases.DaySeconds)
+	local length = daySeconds(night)
+	setPhase(Phase.Day, length)
 	RoleService.setConsoleEnabled(true)
 	TrapService.beginDay()
 	ScoreService.beginDay()
-	TouristService.beginDay(ExhibitService.totalAppeal())
+	TouristService.beginDay(ExhibitService.totalAppeal(), length)
 	HallService.setDayActive(true)
 	ExhibitService.setDayActive(true)
 	bannerRemote:FireAllClients(("DAY %d"):format(night), "info")
@@ -139,8 +151,9 @@ local function runNight(night: number): (boolean, boolean)
 	ExhibitService.setDayActive(false)
 	setLighting(Config.Lighting.Night)
 	MapBuilder.setDayLights(map, false) -- ночью только дежурные лампы и фонарики
-	setPhase(Phase.Night, Config.Phases.NightSeconds)
+	local length = nightSeconds(night)
 	GameState.set(Attr.NightStartedAt, now())
+	setPhase(Phase.Night, length)
 	TrapService.beginNight()
 	local participants = RoleService.participants()
 	ScoreService.beginNight(participants)
@@ -150,7 +163,7 @@ local function runNight(night: number): (boolean, boolean)
 	local escapedConnection = ThiefService.Escaped.Event:Connect(function()
 		survived = false
 	end)
-	ThiefService.beginNight(#participants, night)
+	ThiefService.beginNight(#participants, night, length)
 	bannerRemote:FireAllClients(("NIGHT %d"):format(night), "danger")
 
 	while survived and GameState.secondsLeft() > 0 do

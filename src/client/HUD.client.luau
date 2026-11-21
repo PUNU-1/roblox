@@ -5,7 +5,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -379,11 +378,9 @@ local function topBarText(phase: string): string
 			tonumber(GameState.get(Attr.TouristsToday)) or 0
 		)
 	elseif phase == Phase.Night then
-		local started = GameState.get(Attr.NightStartedAt)
-		local elapsed = if typeof(started) == "number" then Workspace:GetServerTimeNow() - started else 0
 		return ("NIGHT %d   •   %s   •   Caught: %d"):format(
 			tonumber(GameState.get(Attr.NightNumber)) or 1,
-			Theme.nightClock(elapsed),
+			Theme.nightClock(GameState.nightProgress()),
 			tonumber(GameState.get(Attr.Caught)) or 0
 		)
 	end

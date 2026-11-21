@@ -136,6 +136,17 @@ function GameState.lobbyTeam(): { Player }
 	return team
 end
 
+-- Какая часть ночи прошла: 0 — полночь, 1 — 06:00. Ночь бывает разной длины (решение 66),
+-- поэтому длину берём из времени начала ночи и конца фазы.
+function GameState.nightProgress(): number
+	local started = folder:GetAttribute(GameState.Attr.NightStartedAt)
+	local endsAt = folder:GetAttribute(GameState.Attr.PhaseEndsAt)
+	if typeof(started) ~= "number" or typeof(endsAt) ~= "number" or endsAt <= started then
+		return 0
+	end
+	return math.clamp((workspace:GetServerTimeNow() - started) / (endsAt - started), 0, 1)
+end
+
 function GameState.secondsLeft(): number
 	local endsAt = folder:GetAttribute(GameState.Attr.PhaseEndsAt)
 	if typeof(endsAt) ~= "number" or endsAt <= 0 then

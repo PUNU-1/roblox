@@ -127,9 +127,9 @@ function Theme.formatTime(seconds: number): string
 	return ("%d:%02d"):format(total // 60, total % 60)
 end
 
--- Часы ночи: 5 минут игры = с 00:00 до 06:00.
-function Theme.nightClock(elapsed: number): string
-	local fraction = math.clamp(elapsed / Config.Phases.NightSeconds, 0, 1)
+-- Часы ночи: вся ночь (от 2 до 5 минут игры) = с 00:00 до 06:00. fraction — GameState.nightProgress().
+function Theme.nightClock(fraction: number): string
+	fraction = math.clamp(fraction, 0, 1)
 	local hours = Config.Clock.StartHour + fraction * (Config.Clock.EndHour - Config.Clock.StartHour)
 	local hour = math.floor(hours)
 	local minute = math.floor((hours - hour) * 60)

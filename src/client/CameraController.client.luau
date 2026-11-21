@@ -664,9 +664,7 @@ local function openView()
 		recDot.Visible = blink % 1 < 0.5
 		grain.BackgroundTransparency = 0.95 + math.random() * 0.04
 		if isNight() then
-			local started = GameState.get(Attr.NightStartedAt)
-			local elapsed = if typeof(started) == "number" then Workspace:GetServerTimeNow() - started else 0
-			clockLabel.Text = Theme.nightClock(elapsed)
+			clockLabel.Text = Theme.nightClock(GameState.nightProgress())
 		else
 			clockLabel.Text = "DAY " .. Theme.formatTime(GameState.secondsLeft())
 		end

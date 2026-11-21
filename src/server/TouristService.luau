@@ -326,13 +326,16 @@ function TouristService.setAttractions(provider: () -> { Attraction })
 end
 
 -- appeal — сумма привлекательности купленных экспонатов (Мона Лиза входит в базу).
-function TouristService.beginDay(appeal: number)
+-- daySeconds — длина этого дня (растёт с каждым днём, решение 66).
+function TouristService.beginDay(appeal: number, daySeconds: number)
 	TouristService.endDay()
 	closing = false
 	touristsToday = 0
 	GameState.set(GameState.Attr.TouristsToday, 0)
 	local total = touristsForDay(appeal)
-	local window = Config.Phases.DaySeconds * TouristConfig.SpawnWindow
+	-- Туристы приходят в первую часть дня, пока музей открыт (за 10 сек до ночи он закрывается)
+	local openSeconds = math.max(1, daySeconds - TouristConfig.LeaveBeforeNightSeconds)
+	local window = openSeconds * TouristConfig.SpawnWindow
 	local interval = window / math.max(1, total)
 
 	spawnThread = task.spawn(function()

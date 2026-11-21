@@ -543,23 +543,32 @@ end
 
 ---------------------------------------------------------------- ночь
 
-local function spawnLoop(playerCount: number)
-	local perNight = ThiefConfig.PerNight
-	local difficulty = Config.Difficulty
-	local total = perNight[math.clamp(playerCount, 1, #perNight)] + (currentNight - 1) * difficulty.ExtraThievesPerNight
-	local intervalScale = math.max(difficulty.MinIntervalMultiplier, 1 - (currentNight - 1) * difficulty.IntervalShrinkPerNight)
-	local maxAlive = playerCount + ThiefConfig.MaxAliveExtra
-	local nightStart = now()
+-- Сколько воров придёт за ночь (решение 70): в 1-ю ночь 3 на игрока, каждую следующую +1 на игрока,
+-- но только до 5-й ночи — дальше сложность растёт за счёт видов воров и планов (блок 3).
+function ThiefService.countForNight(playerCount: number, night: number): number
+	local players = math.max(1, playerCount)
+	local grownNights = math.clamp(night, 1, ThiefConfig.GrowUntilNight) - 1
+	return players * (ThiefConfig.PerPlayerFirstNight + grownNights * ThiefConfig.PerPlayerGrowth)
+end
 
-	task.wait(random:NextNumber(ThiefConfig.FirstSpawnMin, ThiefConfig.FirstSpawnMax))
+-- Воры приходят по одному: первый через 15-30 сек, дальше паузы, которые делят остаток ночи на всех воров.
+local function spawnLoop(playerCount: number, nightLength: number)
+	local total = ThiefService.countForNight(playerCount, currentNight)
+	local maxAlive = playerCount + ThiefConfig.MaxAliveExtra
+	local firstDelay = random:NextNumber(ThiefConfig.FirstSpawnMin, ThiefConfig.FirstSpawnMax)
+	local window = math.max(0, nightLength - firstDelay - ThiefConfig.LastSpawnBeforeEnd)
+	local average = if total > 1 then math.min(ThiefConfig.IntervalMax, window / (total - 1)) else 0
+
+	task.wait(firstDelay)
 	local spawned = 0
 	while active and spawned < total do
 		if aliveCount() < maxAlive and spawnThief() then
 			spawned += 1
-			local fraction = math.clamp((now() - nightStart) / Config.Phases.NightSeconds, 0, 1)
-			local interval = ThiefConfig.IntervalStart + (ThiefConfig.IntervalEnd - ThiefConfig.IntervalStart) * fraction
+			-- В начале ночи паузы длиннее средней, к утру короче: воры приходят всё чаще
+			local fraction = if total > 2 then (spawned - 1) / (total - 2) else 0
+			local scale = ThiefConfig.IntervalStartScale + (ThiefConfig.IntervalEndScale - ThiefConfig.IntervalStartScale) * fraction
 			local jitter = 1 + ThiefConfig.IntervalJitter * (random:NextNumber() * 2 - 1)
-			task.wait(interval * jitter * intervalScale)
+			task.wait(average * scale * jitter)
 		else
 			task.wait(1)
 		end
@@ -567,13 +576,14 @@ local function spawnLoop(playerCount: number)
 end
 
 -- night — какая по счёту ночь: чем дальше, тем больше воров, они быстрее, появляются взломщики.
-function ThiefService.beginNight(playerCount: number, night: number)
+-- nightLength — сколько секунд идёт эта ночь (растёт с каждой ночью, решение 66).
+function ThiefService.beginNight(playerCount: number, night: number, nightLength: number)
 	ThiefService.endNight()
 	currentNight = math.max(1, night)
 	local difficulty = Config.Difficulty
 	speedMultiplier = math.min(difficulty.MaxSpeedMultiplier, 1 + (currentNight - 1) * difficulty.SpeedGrowthPerNight)
 	active = true
-	spawnThread = task.spawn(spawnLoop, playerCount)
+	spawnThread = task.spawn(spawnLoop, playerCount, nightLength)
 	local accumulator = 0
 	updateConnection = RunService.Heartbeat:Connect(function(dt)
 		accumulator += dt
