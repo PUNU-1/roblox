@@ -105,20 +105,36 @@ local Config = {
 		MonaLisaChance = 0.5, -- баланс: как часто вор идёт за Моной Лизой, если есть другие экспонаты
 		PedestalHeight = 3.3, -- верх постамента
 		HideDepth = 200, -- пока вор несёт копию экспоната, настоящий спрятан на столько стадов под картой
-		-- Экспонат для каждого постамента (атрибут Slot у постамента)
-		Slots = { "GoldVase", "AncientClock", "Necklace", "Crown", "Scepter", "Diamond", "Amphora", "Bust", "Statue", "Lion" },
-		-- баланс: цена и привлекательность (сколько туристов добавляет за день)
+		-- Экспонат для каждого постамента (атрибут Slot у постамента): 2 в центре и по 4 в каждом зале,
+		-- в зале — по возрастанию цены. Порядок постаментов задаёт MapBuilder.
+		Slots = {
+			"GoldVase", "AncientClock", -- центр (рядом с Моной Лизой)
+			"Amphora", "Bust", "Statue", "Lion", -- Скульптуры
+			"DinoTooth", "RaptorClaw", "DinoEgg", "TRexSkull", -- Динозавры
+			"Necklace", "Crown", "Scepter", "Diamond", -- Драгоценности
+			"MoonRock", "Meteorite", "AstronautHelmet", "RocketModel", -- Космос
+		},
+		-- баланс: цена и привлекательность (сколько туристов добавляет за день, турист = $10).
+		-- Дороже зал — дороже экспонаты и больше туристов.
 		Kinds = {
-			GoldVase = { Title = "Golden Vase", Price = 120, Appeal = 1 },
-			AncientClock = { Title = "Ancient Clock", Price = 180, Appeal = 2 },
-			Necklace = { Title = "Necklace", Price = 100, Appeal = 1 },
-			Crown = { Title = "Crown", Price = 150, Appeal = 2 },
-			Scepter = { Title = "Scepter", Price = 200, Appeal = 2 },
-			Diamond = { Title = "Diamond", Price = 300, Appeal = 3 },
+			GoldVase = { Title = "Golden Vase", Price = 150, Appeal = 2 },
+			AncientClock = { Title = "Ancient Clock", Price = 250, Appeal = 3 },
 			Amphora = { Title = "Amphora", Price = 100, Appeal = 1 },
 			Bust = { Title = "Bust", Price = 150, Appeal = 2 },
-			Statue = { Title = "Statue", Price = 250, Appeal = 3 },
-			Lion = { Title = "Stone Lion", Price = 300, Appeal = 3 },
+			Statue = { Title = "Statue", Price = 200, Appeal = 2 },
+			Lion = { Title = "Stone Lion", Price = 250, Appeal = 3 },
+			DinoTooth = { Title = "Dino Tooth", Price = 150, Appeal = 2 },
+			RaptorClaw = { Title = "Raptor Claw", Price = 200, Appeal = 2 },
+			DinoEgg = { Title = "Dino Egg", Price = 250, Appeal = 3 },
+			TRexSkull = { Title = "T-Rex Skull", Price = 350, Appeal = 4 },
+			Necklace = { Title = "Necklace", Price = 200, Appeal = 2 },
+			Crown = { Title = "Crown", Price = 250, Appeal = 3 },
+			Scepter = { Title = "Scepter", Price = 300, Appeal = 3 },
+			Diamond = { Title = "Diamond", Price = 400, Appeal = 5 },
+			MoonRock = { Title = "Moon Rock", Price = 250, Appeal = 3 },
+			Meteorite = { Title = "Meteorite", Price = 300, Appeal = 3 },
+			AstronautHelmet = { Title = "Astronaut Helmet", Price = 400, Appeal = 4 },
+			RocketModel = { Title = "Rocket Model", Price = 500, Appeal = 5 },
 		},
 	},
 

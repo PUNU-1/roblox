@@ -1180,6 +1180,76 @@ local function buildHall(k: number, hallDoors: Folder, kit: MapDecor.Kit)
 	MapDecor.hall(kit, hall, T, HALL_RECT, slabs)
 end
 
+---------------------------------------------------------------- постаменты
+
+-- Постамент под каждый зал (модель одна — prop_pedestal_01, заглушка своя у каждого зала). Верх — 3.3.
+local PEDESTAL_STUBS: { [string]: { ModelLibrary.StubPart } } = {
+	Main = { -- мраморная тумба с золотым верхом
+		{ size = Vector3.new(2.4, 3, 2.4), offset = CFrame.new(0, 1.5, 0), color = COLORS.Marble, material = Enum.Material.Marble },
+		{ size = Vector3.new(2.8, 0.3, 2.8), offset = CFrame.new(0, 3.15, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+		{ size = Vector3.new(2.8, 0.3, 2.8), offset = CFrame.new(0, 0.15, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+	},
+	Sculptures = { -- белая мраморная колонна-тумба на каменной базе
+		{ size = Vector3.new(2.9, 0.5, 2.9), offset = CFrame.new(0, 0.25, 0), color = COLORS.Stone, material = Enum.Material.Marble },
+		{ size = Vector3.new(2.2, 2.5, 2.2), offset = CFrame.new(0, 1.75, 0), color = COLORS.WhiteMarble, material = Enum.Material.Marble },
+		{ size = Vector3.new(2.5, 0.15, 2.5), offset = CFrame.new(0, 2.85, 0), color = COLORS.Stone, material = Enum.Material.Marble },
+		{ size = Vector3.new(2.9, 0.3, 2.9), offset = CFrame.new(0, 3.15, 0), color = COLORS.WhiteMarble, material = Enum.Material.Marble },
+	},
+	Dinosaurs = { -- глыба песчаника с каменной плитой, табличка, камешки
+		{ size = Vector3.new(2.8, 2.9, 2.6), offset = CFrame.new(0, 1.45, 0), color = hex("C9A46A"), material = Enum.Material.Sandstone },
+		{ size = Vector3.new(3.1, 0.4, 2.9), offset = CFrame.new(0, 3.1, 0), color = hex("8A7A5A"), material = Enum.Material.Slate },
+		{ size = Vector3.new(1.4, 0.5, 0.06), offset = CFrame.new(0, 2.1, -1.33), color = COLORS.DarkWood, material = Enum.Material.Wood },
+		{ size = Vector3.new(1.1, 0.7, 0.9), offset = CFrame.new(1.3, 0.35, -1.3) * CFrame.Angles(0, 0.5, 0), color = hex("8E8A80"), material = Enum.Material.Slate, collide = false },
+		{ size = Vector3.new(0.7, 0.5, 0.6), offset = CFrame.new(-1.4, 0.25, -1.2) * CFrame.Angles(0, -0.4, 0), color = hex("A39E92"), material = Enum.Material.Slate, collide = false },
+	},
+	Jewelry = { -- тёмное дерево, золотые пояса, бархатная подушка
+		{ size = Vector3.new(2.8, 0.25, 2.8), offset = CFrame.new(0, 0.125, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+		{ size = Vector3.new(2.3, 2.8, 2.3), offset = CFrame.new(0, 1.65, 0), color = COLORS.DarkWood, material = Enum.Material.Wood },
+		{ size = Vector3.new(2.8, 0.25, 2.8), offset = CFrame.new(0, 3.175, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+		{ size = Vector3.new(2, 0.06, 2), offset = CFrame.new(0, 3.3, 0), color = hex("5E2A7A"), material = Enum.Material.Fabric },
+	},
+	Space = { -- тёмно-синяя тумба со светящимися кольцами
+		{ size = Vector3.new(2.8, 0.3, 2.8), offset = CFrame.new(0, 0.15, 0), color = hex("2B2F3A"), material = Enum.Material.Metal },
+		{ size = Vector3.new(2, 2.7, 2), offset = CFrame.new(0, 1.65, 0), color = COLORS.Navy },
+		{ size = Vector3.new(2.3, 0.15, 2.3), offset = CFrame.new(0, 0.45, 0), color = COLORS.Turquoise, material = Enum.Material.Neon },
+		{ size = Vector3.new(2.3, 0.15, 2.3), offset = CFrame.new(0, 2.85, 0), color = COLORS.Turquoise, material = Enum.Material.Neon },
+		{ size = Vector3.new(2.8, 0.3, 2.8), offset = CFrame.new(0, 3.15, 0), color = hex("3A4250"), material = Enum.Material.Metal },
+	},
+}
+
+-- Где стоят постаменты залов (в координатах зала Скульптур): x, z и куда смотрит экспонат.
+-- Порядок = порядок экспонатов в Config.Exhibits.Slots (в зале — по возрастанию цены).
+local HALL_PEDESTALS: { [string]: { { number } } } = {
+	Sculptures = { { -52, 58, 0, 1 }, { -52, 96, 0, -1 }, { -80, 77, 1, 0 }, { -24, 77, -1, 0 } }, -- крестом вокруг фонтана
+	Dinosaurs = { { -62, 56, 0, 1 }, { -62, 98, 0, -1 }, { -30, 56, 0, 1 }, { -30, 98, 0, -1 } }, -- по бокам от скелета
+	Jewelry = { { -70, 68, 0, 1 }, { -70, 86, 0, -1 }, { -40, 68, 0, 1 }, { -40, 86, 0, -1 } }, -- вдоль ковровой дорожки
+	Space = { { -62, 58, 0, 1 }, { -62, 96, 0, -1 }, { -34, 58, 0, 1 }, { -34, 96, 0, -1 } }, -- под планетами
+}
+
+-- Постаменты: 2 в центре рядом с Моной Лизой и по 4 в каждом зале. Атрибуты Hall и Slot — для покупки экспонатов.
+local function buildPedestals(folder: Folder)
+	local spots: { { hall: string, cframe: CFrame, stub: string } } = {}
+	for _, x in { -21, 21 } do
+		local position = Vector3.new(x, 0, 8)
+		table.insert(spots, { hall = GameState.Hall.Main, cframe = CFrame.lookAt(position, position + Vector3.new(0, 0, 1)), stub = "Main" })
+	end
+	for k = 0, 3 do
+		local hall = WING_HALLS[k]
+		local T = turn(k)
+		for _, spot in HALL_PEDESTALS[hall] do
+			local position = Vector3.new(spot[1], 0, spot[2])
+			local cframe = T * CFrame.lookAt(position, position + Vector3.new(spot[3], 0, spot[4]))
+			table.insert(spots, { hall = hall, cframe = cframe, stub = hall })
+		end
+	end
+	for index, spot in spots do
+		local pedestal = ModelLibrary.place(MapSchema.Models.Pedestal, spot.cframe, PEDESTAL_STUBS[spot.stub], folder)
+		pedestal.Name = "Pedestal" .. index
+		pedestal:SetAttribute("Hall", spot.hall)
+		pedestal:SetAttribute("Slot", index)
+	end
+end
+
 ---------------------------------------------------------------- служебный угол
 
 local function buildStaffArea(doorsFolder: Folder)
@@ -1592,6 +1662,7 @@ function MapBuilder.build(): Instance
 	local entrances = newFolder(map, MapSchema.Entrances)
 	local cameraPoints = newFolder(map, MapSchema.CameraPoints)
 	local hallDoors = newFolder(map, MapSchema.HallDoors)
+	local pedestals = newFolder(map, MapSchema.Pedestals)
 	local doorsFolder = newFolder(map, MapSchema.Doors)
 	local kit = makeKit()
 
@@ -1609,6 +1680,7 @@ function MapBuilder.build(): Instance
 		buildWing(k, doorsFolder)
 		buildHall(k, hallDoors, kit)
 	end
+	buildPedestals(pedestals)
 	buildStaffArea(doorsFolder)
 	buildShellAndFacades()
 	buildEntrances(entrances)

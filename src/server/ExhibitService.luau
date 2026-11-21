@@ -60,6 +60,41 @@ type Slot = {
 local GOLD = Color3.fromHex("D4A93A")
 local MARBLE = Color3.fromHex("F2EEE6")
 local WOOD = Color3.fromHex("7A5230")
+local BONE = Color3.fromHex("E9DFC6")
+local BONE_DARK = Color3.fromHex("C9B98F")
+local SOCKET = Color3.fromHex("3A2E22")
+local STAND = Color3.fromHex("2B2F3A")
+local NAVY = Color3.fromHex("1E2A44")
+
+local function rad(degrees: number): number
+	return math.rad(degrees)
+end
+
+-- Ровный ряд зубов на челюсти черепа (вперёд — в −Z).
+local function teeth(y: number, zFrom: number, zTo: number, count: number): { ModelLibrary.StubPart }
+	local list: { ModelLibrary.StubPart } = {}
+	for i = 0, count - 1 do
+		local z = zFrom + (zTo - zFrom) * i / math.max(1, count - 1)
+		for _, x in { -0.55, 0.55 } do
+			table.insert(list, {
+				name = "Tooth",
+				size = Vector3.new(0.14, 0.3, 0.14),
+				offset = CFrame.new(x, y, z) * CFrame.Angles(math.pi, 0, 0),
+				color = Color3.fromHex("F7F3EA"),
+				wedge = true,
+			})
+		end
+	end
+	return list
+end
+
+local function join(first: { ModelLibrary.StubPart }, second: { ModelLibrary.StubPart }): { ModelLibrary.StubPart }
+	local result: { ModelLibrary.StubPart } = table.clone(first)
+	for _, part in second do
+		table.insert(result, part)
+	end
+	return result
+end
 
 -- Заглушки экспонатов из деталей (друг может заменить моделью с тем же именем: exhibit_<вид>_01).
 local STUBS: { [string]: { ModelLibrary.StubPart } } = {
@@ -111,6 +146,96 @@ local STUBS: { [string]: { ModelLibrary.StubPart } } = {
 		{ size = Vector3.new(0.8, 2, 0.6), offset = CFrame.new(0, 1.4, 0), color = MARBLE, material = Enum.Material.Marble },
 		{ size = Vector3.new(2.2, 0.3, 0.3), offset = CFrame.new(0, 2.1, 0) * CFrame.Angles(0, 0, 0.4), color = MARBLE, material = Enum.Material.Marble },
 		{ size = Vector3.new(0.7, 0.7, 0.7), offset = CFrame.new(0, 2.75, 0), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball },
+	},
+	-- Динозавры (блок 2)
+	TRexSkull = join({
+		{ name = "Jaw", size = Vector3.new(1.6, 0.35, 2.6), offset = CFrame.new(0, 0.3, -0.45) * CFrame.Angles(rad(-5), 0, 0), color = BONE_DARK },
+		{ name = "Cranium", size = Vector3.new(2, 1.3, 1.5), offset = CFrame.new(0, 1.1, 0.55), color = BONE },
+		{ name = "Brow", size = Vector3.new(2.1, 0.35, 0.8), offset = CFrame.new(0, 1.85, 0.35), color = BONE },
+		{ name = "Snout", size = Vector3.new(1.4, 0.9, 1.6), offset = CFrame.new(0, 0.95, -0.9), color = BONE },
+		{ name = "SnoutTip", size = Vector3.new(1.15, 0.7, 0.6), offset = CFrame.new(0, 0.88, -1.9), color = BONE },
+		{ name = "Nostrils", size = Vector3.new(0.7, 0.12, 0.25), offset = CFrame.new(0, 1.24, -1.95), color = SOCKET },
+		{ name = "EyeL", size = Vector3.new(0.12, 0.5, 0.5), offset = CFrame.new(-1.01, 1.25, 0.35), color = SOCKET },
+		{ name = "EyeR", size = Vector3.new(0.12, 0.5, 0.5), offset = CFrame.new(1.01, 1.25, 0.35), color = SOCKET },
+		{ name = "CheekL", size = Vector3.new(0.12, 0.35, 0.8), offset = CFrame.new(-0.71, 0.9, -0.7), color = SOCKET },
+		{ name = "CheekR", size = Vector3.new(0.12, 0.35, 0.8), offset = CFrame.new(0.71, 0.9, -0.7), color = SOCKET },
+		{ name = "Neck", size = Vector3.new(0.8, 0.8, 0.6), offset = CFrame.new(0, 0.95, 1.55), color = BONE_DARK },
+	}, teeth(0.4, -2.05, -0.55, 4)),
+	DinoEgg = {
+		{ name = "Nest", size = Vector3.new(0.5, 1.9, 1.9), offset = CFrame.new(0, 0.25, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("7A5A34"), material = Enum.Material.Grass, shape = Enum.PartType.Cylinder },
+		{ name = "NestRim", size = Vector3.new(0.3, 2.1, 2.1), offset = CFrame.new(0, 0.5, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("5C4326"), material = Enum.Material.Wood, shape = Enum.PartType.Cylinder },
+		{ name = "Twig", size = Vector3.new(0.12, 0.12, 1.9), offset = CFrame.new(0.4, 0.62, 0) * CFrame.Angles(0, rad(20), rad(10)), color = Color3.fromHex("4A3520"), material = Enum.Material.Wood },
+		{ name = "Twig", size = Vector3.new(0.12, 0.12, 1.9), offset = CFrame.new(-0.4, 0.62, 0.1) * CFrame.Angles(0, rad(-35), rad(-8)), color = Color3.fromHex("4A3520"), material = Enum.Material.Wood },
+		{ name = "Twig", size = Vector3.new(1.9, 0.12, 0.12), offset = CFrame.new(0, 0.62, -0.45) * CFrame.Angles(0, rad(10), 0), color = Color3.fromHex("4A3520"), material = Enum.Material.Wood },
+		{ name = "Egg", size = Vector3.new(1.1, 1.5, 1.1), offset = CFrame.new(0, 1.25, 0), color = Color3.fromHex("D8CBA8"), sphere = true },
+		{ name = "Spot", size = Vector3.new(0.26, 0.26, 0.26), offset = CFrame.new(0.42, 1.35, -0.2), color = Color3.fromHex("8E7A52"), shape = Enum.PartType.Ball },
+		{ name = "Spot", size = Vector3.new(0.22, 0.22, 0.22), offset = CFrame.new(-0.36, 1.05, -0.32), color = Color3.fromHex("8E7A52"), shape = Enum.PartType.Ball },
+		{ name = "Spot", size = Vector3.new(0.2, 0.2, 0.2), offset = CFrame.new(0.05, 1.72, -0.36), color = Color3.fromHex("8E7A52"), shape = Enum.PartType.Ball },
+		{ name = "Spot", size = Vector3.new(0.24, 0.24, 0.24), offset = CFrame.new(-0.32, 1.5, 0.34), color = Color3.fromHex("8E7A52"), shape = Enum.PartType.Ball },
+	},
+	RaptorClaw = {
+		{ name = "Stand", size = Vector3.new(1.2, 0.3, 0.9), offset = CFrame.new(0, 0.15, 0), color = STAND, material = Enum.Material.Metal },
+		{ name = "Label", size = Vector3.new(0.8, 0.12, 0.05), offset = CFrame.new(0, 0.15, -0.47), color = GOLD, material = Enum.Material.Metal },
+		{ name = "Root", size = Vector3.new(0.45, 0.45, 0.4), offset = CFrame.new(0, 0.5, 0.2), color = BONE_DARK },
+		{ name = "Claw", size = Vector3.new(0.4, 0.6, 0.36), offset = CFrame.new(0, 0.95, 0.12), color = BONE },
+		{ name = "Claw", size = Vector3.new(0.34, 0.55, 0.3), offset = CFrame.new(0, 1.42, -0.02) * CFrame.Angles(rad(-20), 0, 0), color = BONE },
+		{ name = "Claw", size = Vector3.new(0.28, 0.5, 0.25), offset = CFrame.new(0, 1.82, -0.28) * CFrame.Angles(rad(-42), 0, 0), color = BONE_DARK },
+		{ name = "Claw", size = Vector3.new(0.22, 0.45, 0.2), offset = CFrame.new(0, 2.08, -0.62) * CFrame.Angles(rad(-68), 0, 0), color = Color3.fromHex("9C8A64") },
+		{ name = "Tip", size = Vector3.new(0.15, 0.35, 0.14), offset = CFrame.new(0, 2.16, -0.95) * CFrame.Angles(rad(-95), 0, 0), color = Color3.fromHex("6B5A40") },
+	},
+	DinoTooth = {
+		{ name = "Stand", size = Vector3.new(1, 0.3, 1), offset = CFrame.new(0, 0.15, 0), color = STAND, material = Enum.Material.Metal },
+		{ name = "Rod", size = Vector3.new(0.12, 0.35, 0.12), offset = CFrame.new(0, 0.47, 0), color = STAND, material = Enum.Material.Metal },
+		{ name = "Root", size = Vector3.new(0.5, 0.3, 0.36), offset = CFrame.new(0, 0.78, 0), color = Color3.fromHex("B8A47E") },
+		{ name = "Tooth", size = Vector3.new(0.6, 0.5, 0.42), offset = CFrame.new(0, 1.15, 0), color = BONE },
+		{ name = "Tooth", size = Vector3.new(0.48, 0.5, 0.35), offset = CFrame.new(0, 1.6, 0.04) * CFrame.Angles(rad(8), 0, 0), color = BONE },
+		{ name = "Tooth", size = Vector3.new(0.34, 0.5, 0.26), offset = CFrame.new(0, 2.02, 0.1) * CFrame.Angles(rad(14), 0, 0), color = BONE },
+		{ name = "Tip", size = Vector3.new(0.18, 0.32, 0.15), offset = CFrame.new(0, 2.34, 0.17) * CFrame.Angles(rad(20), 0, 0), color = Color3.fromHex("F7F3EA") },
+	},
+	-- Космос (блок 2)
+	Meteorite = {
+		{ name = "Stand", size = Vector3.new(0.3, 1.4, 1.4), offset = CFrame.new(0, 0.15, 0) * CFrame.Angles(0, 0, rad(90)), color = STAND, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "Prong", size = Vector3.new(0.1, 0.8, 0.1), offset = CFrame.new(0.45, 0.6, 0) * CFrame.Angles(0, 0, rad(-15)), color = GOLD, material = Enum.Material.Metal },
+		{ name = "Prong", size = Vector3.new(0.1, 0.8, 0.1), offset = CFrame.new(-0.25, 0.6, 0.4) * CFrame.Angles(rad(15), 0, rad(10)), color = GOLD, material = Enum.Material.Metal },
+		{ name = "Prong", size = Vector3.new(0.1, 0.8, 0.1), offset = CFrame.new(-0.25, 0.6, -0.4) * CFrame.Angles(rad(-15), 0, rad(10)), color = GOLD, material = Enum.Material.Metal },
+		{ name = "Rock", size = Vector3.new(1.3, 1.3, 1.3), offset = CFrame.new(0, 1.3, 0), color = Color3.fromHex("3B3530"), material = Enum.Material.Basalt, shape = Enum.PartType.Ball },
+		{ name = "Rock", size = Vector3.new(0.9, 0.9, 0.9), offset = CFrame.new(0.42, 1.6, 0.2), color = Color3.fromHex("4A403A"), material = Enum.Material.Slate, shape = Enum.PartType.Ball },
+		{ name = "Rock", size = Vector3.new(0.8, 0.8, 0.8), offset = CFrame.new(-0.36, 1.1, -0.25), color = Color3.fromHex("2F2925"), material = Enum.Material.Basalt, shape = Enum.PartType.Ball },
+		{ name = "Glow", size = Vector3.new(0.08, 0.55, 0.06), offset = CFrame.new(0.3, 1.25, -0.6) * CFrame.Angles(0, 0, rad(25)), color = Color3.fromHex("FF8A3D"), material = Enum.Material.Neon },
+		{ name = "Glow", size = Vector3.new(0.08, 0.45, 0.06), offset = CFrame.new(-0.45, 1.5, 0.45) * CFrame.Angles(0, rad(40), rad(-30)), color = Color3.fromHex("FF8A3D"), material = Enum.Material.Neon },
+		{ name = "Glow", size = Vector3.new(0.06, 0.35, 0.06), offset = CFrame.new(0.6, 1.75, 0.1) * CFrame.Angles(0, 0, rad(-40)), color = Color3.fromHex("FFC24A"), material = Enum.Material.Neon },
+	},
+	AstronautHelmet = {
+		{ name = "Collar", size = Vector3.new(0.35, 1.55, 1.55), offset = CFrame.new(0, 0.18, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("A9B0BC"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "Helmet", size = Vector3.new(1.6, 1.6, 1.6), offset = CFrame.new(0, 1.15, 0), color = Color3.fromHex("F2F4F7"), shape = Enum.PartType.Ball },
+		{ name = "Visor", size = Vector3.new(1.15, 0.85, 0.5), offset = CFrame.new(0, 1.22, -0.6), color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal, sphere = true },
+		{ name = "VisorRim", size = Vector3.new(1.3, 0.14, 0.2), offset = CFrame.new(0, 1.7, -0.58), color = Color3.fromHex("A9B0BC"), material = Enum.Material.Metal },
+		{ name = "Lamp", size = Vector3.new(0.26, 0.26, 0.26), offset = CFrame.new(0.55, 1.72, -0.42), color = Color3.fromHex("FFFFFF"), material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+		{ name = "Antenna", size = Vector3.new(0.06, 0.6, 0.06), offset = CFrame.new(-0.45, 2.05, 0.25), color = Color3.fromHex("A9B0BC"), material = Enum.Material.Metal },
+		{ name = "Patch", size = Vector3.new(0.06, 0.3, 0.45), offset = CFrame.new(0.79, 1.15, 0.12), color = Color3.fromHex("2E6FD8") },
+		{ name = "PatchStripe", size = Vector3.new(0.07, 0.08, 0.45), offset = CFrame.new(0.8, 1.15, 0.12), color = Color3.fromHex("C8343A") },
+	},
+	RocketModel = {
+		{ name = "Stand", size = Vector3.new(1.2, 0.2, 1.2), offset = CFrame.new(0, 0.1, 0), color = STAND, material = Enum.Material.Metal },
+		{ name = "Nozzle", size = Vector3.new(0.3, 0.5, 0.5), offset = CFrame.new(0, 0.35, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("3A3F4B"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "Body", size = Vector3.new(1.6, 0.7, 0.7), offset = CFrame.new(0, 1.3, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("F2F4F7"), shape = Enum.PartType.Cylinder },
+		{ name = "Band", size = Vector3.new(0.18, 0.74, 0.74), offset = CFrame.new(0, 1.8, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("C8343A"), shape = Enum.PartType.Cylinder },
+		{ name = "Band", size = Vector3.new(0.14, 0.74, 0.74), offset = CFrame.new(0, 0.75, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("C8343A"), shape = Enum.PartType.Cylinder },
+		{ name = "Window", size = Vector3.new(0.08, 0.3, 0.3), offset = CFrame.new(0, 1.45, -0.36) * CFrame.Angles(0, rad(90), 0), color = Color3.fromHex("7FE7FF"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder },
+		{ name = "Nose", size = Vector3.new(0.4, 0.56, 0.56), offset = CFrame.new(0, 2.3, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("F2F4F7"), shape = Enum.PartType.Cylinder },
+		{ name = "Nose", size = Vector3.new(0.3, 0.36, 0.36), offset = CFrame.new(0, 2.63, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("F2F4F7"), shape = Enum.PartType.Cylinder },
+		{ name = "Tip", size = Vector3.new(0.26, 0.26, 0.26), offset = CFrame.new(0, 2.86, 0), color = Color3.fromHex("C8343A"), shape = Enum.PartType.Ball },
+		{ name = "Fin", size = Vector3.new(0.1, 0.7, 0.45), offset = CFrame.new(0, 0.85, -0.55), color = Color3.fromHex("C8343A"), wedge = true },
+		{ name = "Fin", size = Vector3.new(0.1, 0.7, 0.45), offset = CFrame.Angles(0, rad(120), 0) * CFrame.new(0, 0.85, -0.55), color = Color3.fromHex("C8343A"), wedge = true },
+		{ name = "Fin", size = Vector3.new(0.1, 0.7, 0.45), offset = CFrame.Angles(0, rad(240), 0) * CFrame.new(0, 0.85, -0.55), color = Color3.fromHex("C8343A"), wedge = true },
+	},
+	MoonRock = {
+		{ name = "Base", size = Vector3.new(0.3, 1.3, 1.3), offset = CFrame.new(0, 0.15, 0) * CFrame.Angles(0, 0, rad(90)), color = NAVY, shape = Enum.PartType.Cylinder },
+		{ name = "Ring", size = Vector3.new(0.08, 1.36, 1.36), offset = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "Rock", size = Vector3.new(0.8, 0.8, 0.8), offset = CFrame.new(0, 0.72, 0), color = Color3.fromHex("A7A9AC"), material = Enum.Material.Slate, shape = Enum.PartType.Ball },
+		{ name = "Rock", size = Vector3.new(0.5, 0.5, 0.5), offset = CFrame.new(0.25, 0.86, 0.15), color = Color3.fromHex("8E9094"), material = Enum.Material.Slate, shape = Enum.PartType.Ball },
+		{ name = "Dome", size = Vector3.new(1.15, 1.45, 1.15), offset = CFrame.new(0, 0.98, 0), color = Color3.fromHex("BFE3F2"), material = Enum.Material.Glass, transparency = 0.75, sphere = true },
+		{ name = "Label", size = Vector3.new(0.6, 0.14, 0.05), offset = CFrame.new(0, 0.16, -0.66), color = GOLD, material = Enum.Material.Metal },
 	},
 	Lion = {
 		{ size = Vector3.new(2, 1, 1), offset = CFrame.new(0, 0.9, 0), color = MARBLE, material = Enum.Material.Marble },
@@ -330,9 +455,10 @@ end
 
 ---------------------------------------------------------------- покупка на постаментах
 
+-- Верх постамента, экспонат смотрит туда же, куда постамент (вор встаёт перед ним).
 local function slotTop(slot: Slot): CFrame
 	local pivot = slot.pedestal:GetPivot()
-	return CFrame.new(pivot.Position + Vector3.new(0, ExhibitConfig.PedestalHeight, 0))
+	return pivot.Rotation + pivot.Position + Vector3.new(0, ExhibitConfig.PedestalHeight, 0)
 end
 
 refreshSlot = function(slot: Slot)
