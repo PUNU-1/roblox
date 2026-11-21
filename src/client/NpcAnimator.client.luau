@@ -1,6 +1,6 @@
 -- Анимации NPC кодом: воры и туристы. Каждый клиент сам двигает суставы R15 (Transform) по состоянию,
 -- которое сервер пишет в атрибут модели (AnimState). Воры: крадётся, бежит, снимает экспонат, несёт,
--- арест. Туристы: гуляет, смотрит на экспонат, фотографирует.
+-- арест, пинает витрину, ждёт присев (блок 3). Туристы: гуляет, смотрит на экспонат, фотографирует.
 -- В Roblox ничего загружать не нужно, а сеть не нагружается: Transform видит только этот клиент.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -192,6 +192,51 @@ local function arrestPose(t: number): Pose
 	return pose
 end
 
+-- Пинает витрину (шумит, чтобы выманить охрану): правая нога бьёт вперёд, руки в стороны для равновесия.
+local function kickPose(t: number): Pose
+	local pose: Pose = {}
+	local p = (t % Settings.KickPeriod) / Settings.KickPeriod
+	-- Замах назад, резкий удар вперёд, нога возвращается
+	local swing
+	if p < 0.35 then
+		swing = lerp(0, -0.5, smooth(p / 0.35))
+	elseif p < 0.5 then
+		swing = lerp(-0.5, 1.35, smooth((p - 0.35) / 0.15))
+	else
+		swing = lerp(1.35, 0, smooth((p - 0.5) / 0.5))
+	end
+	local hit = math.max(0, swing)
+	pose.Root = CFrame.new(0, -0.08, 0)
+	pose.Waist = R(0.12 + 0.18 * hit, 0.1, 0)
+	pose.Neck = R(-0.15)
+	pose.LeftShoulder = R(0.3, 0, -0.7 - 0.3 * hit)
+	pose.RightShoulder = R(-0.2 - 0.3 * hit, 0, 0.7 + 0.2 * hit)
+	pose.LeftElbow = R(0.6)
+	pose.RightElbow = R(0.5)
+	pose.LeftHip = R(0.1)
+	pose.LeftKnee = R(-0.25)
+	pose.LeftAnkle = R(0.15)
+	pose.RightHip = R(swing)
+	pose.RightKnee = R(-math.max(0.1, 1.1 - hit * 0.8))
+	pose.RightAnkle = R(-0.3 * hit)
+	return pose
+end
+
+-- Присел во входном холле и ждёт: рука на колене, голова медленно выглядывает влево-вправо.
+local function holdPose(clock: number): Pose
+	local pose: Pose = {}
+	pose.Root = CFrame.new(0, -0.75, 0)
+	legs(pose, 0, 0, 0, 0, 0.9, 0)
+	pose.Waist = R(-0.4, 0.25 * math.sin(clock * 0.6), 0)
+	pose.Neck = R(0.4, 0.6 * math.sin(clock * 0.9), 0)
+	pose.LeftShoulder = R(0.55, 0, 0.1)
+	pose.LeftElbow = R(1.1)
+	pose.RightShoulder = R(0.95, 0, -0.25)
+	pose.RightElbow = R(1.5)
+	pose.RightWrist = R(-0.5)
+	return pose
+end
+
 -- Турист гуляет: спокойный шаг, руки слегка покачиваются, головой вертит по сторонам.
 local function strollPose(clock: number, phase: number, move: number): Pose
 	local pose: Pose = {}
@@ -247,6 +292,10 @@ local function poseFor(state: any, t: number, clock: number, phase: number, move
 		return stealPose(t)
 	elseif state == Anim.Arrest then
 		return arrestPose(t)
+	elseif state == Anim.Kick then
+		return kickPose(t)
+	elseif state == Anim.Hold then
+		return holdPose(clock)
 	end
 	return sneakPose(clock, phase, move)
 end

@@ -27,6 +27,7 @@ local MapSchema = {
 	FuseBox = "FuseBox", -- щиток POWER в служебном коридоре (вор, который выключает свет, блок 3)
 	ArmoryRack = "ArmoryRack", -- оружейная стойка (товары — блок 4)
 	CameraPlaque = "CameraPlaque", -- табличка под местом камеры: на ней кнопка покупки
+	AreaAttribute = "Area", -- атрибут пола: название места для надписей («CENTER HALL», «SOUTH CORRIDOR»)
 
 	-- Папки, которые появляются во время игры (прямо в Workspace)
 	Thieves = "Thieves", -- воры

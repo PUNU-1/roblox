@@ -19,6 +19,8 @@ local LobbyService = require(Server:WaitForChild("LobbyService"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
 local ExhibitService = require(Server:WaitForChild("ExhibitService"))
 local ThiefService = require(Server:WaitForChild("ThiefService"))
+local WaveService = require(Server:WaitForChild("WaveService"))
+local HeistFx = require(Server:WaitForChild("HeistFx"))
 local CatchService = require(Server:WaitForChild("CatchService"))
 local TrapService = require(Server:WaitForChild("TrapService"))
 local CommsService = require(Server:WaitForChild("CommsService"))
@@ -39,6 +41,7 @@ local map = MapBuilder.build()
 RoleService.init(map)
 LobbyService.init(map)
 ExhibitService.init(map)
+HeistFx.init(map)
 ThiefService.init(map)
 CatchService.init()
 TrapService.init(map)
@@ -117,6 +120,7 @@ end
 local function runDay(night: number): boolean
 	VoteService.admitApproved() -- кого пустили голосованием, входят с утра
 	ExhibitService.returnAll()
+	HeistFx.resetForDay() -- следы воров (трещины на витринах) убраны
 	setLighting(Config.Lighting.Day)
 	MapBuilder.setDayLights(map, true) -- днём горят люстры
 	GameState.set(Attr.NightNumber, night)
@@ -168,7 +172,8 @@ local function runNight(night: number): (boolean, boolean)
 	local escapedConnection = ThiefService.Escaped.Event:Connect(function()
 		survived = false
 	end)
-	ThiefService.beginNight(#participants, night, length)
+	ThiefService.beginNight(night)
+	WaveService.beginNight(#participants, night, length) -- волны воров и их планы
 	bannerRemote:FireAllClients(("NIGHT %d"):format(night), "danger")
 
 	while survived and GameState.secondsLeft() > 0 do
@@ -180,6 +185,7 @@ local function runNight(night: number): (boolean, boolean)
 	end
 
 	escapedConnection:Disconnect()
+	WaveService.endNight()
 	ThiefService.endNight()
 	Audio.stopMusic()
 	return survived, aborted
@@ -213,7 +219,9 @@ local function finishRun()
 	HallService.reset()
 	CameraService.setDayActive(false)
 	CameraService.reset() -- остаётся только бесплатная камера на Мону Лизу
+	WaveService.endNight()
 	ThiefService.endNight()
+	HeistFx.resetForDay()
 	TrapService.clear()
 	RoleService.endRound()
 	RoleService.setConsoleEnabled(false)

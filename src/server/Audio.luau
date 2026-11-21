@@ -26,10 +26,14 @@ function Audio.create(id: string, parent: Instance?, volume: number?, looped: bo
 end
 
 -- Проиграть один раз и удалить. maxSeconds — оборвать длинный звук раньше (например, сирену).
-function Audio.playOnce(id: string, parent: Instance?, volume: number?, maxSeconds: number?)
+-- speed — выше (больше 1) или ниже тоном: так из одного звука получаются разные.
+function Audio.playOnce(id: string, parent: Instance?, volume: number?, maxSeconds: number?, speed: number?)
 	local sound = Audio.create(id, parent, volume, false)
 	if not sound then
 		return
+	end
+	if speed then
+		sound.PlaybackSpeed = speed
 	end
 	sound.Ended:Once(function()
 		sound:Destroy()

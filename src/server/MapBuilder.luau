@@ -611,6 +611,7 @@ type RoomSpec = {
 	skylightName: string?, -- имя стекла (MapSchema.Skylight — только у центра)
 	ceilingColor: Color3?,
 	lampSpacing: number?, -- шаг дежурных ламп по длинным стенам; 0 — без ламп
+	area: string?, -- название места для надписей (атрибут Area у пола): «CENTER HALL», «SOUTH CORRIDOR»
 }
 
 type BuiltRoom = { rect: Rect, kind: string }
@@ -632,6 +633,9 @@ local function buildRoom(spec: RoomSpec, kind: string?): (Part, { Part })
 	end
 	if spec.wander == false then
 		floor:SetAttribute("Wander", false)
+	end
+	if spec.area then
+		floor:SetAttribute(MapSchema.AreaAttribute, spec.area) -- «GLASS ALARM — WEST CORRIDOR!» (блок 3)
 	end
 	table.insert(builtRooms, { rect = r, kind = kind or spec.hall or "Main" })
 
@@ -869,6 +873,7 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 		skylight = SKYLIGHT,
 		skylightName = MapSchema.Skylight, -- стекольщики режут его в блоке 3
 		lampSpacing = 22,
+		area = "CENTER HALL",
 	}, "Center")
 	checkerTiles(CENTER, 11, COLORS.MarbleDark)
 
@@ -1024,10 +1029,10 @@ local function buildWing(k: number, doorsFolder: Folder)
 	end
 
 	local lobby = rotRect(k, WING.Lobby)
-	buildRoom({ name = side .. "Lobby", rect = lobby, height = LOBBY_H, style = STYLES.Lobby, floorColor = COLORS.Marble, floorMaterial = Enum.Material.Marble, hall = main, lampSpacing = 30 }, "Lobby")
+	buildRoom({ name = side .. "Lobby", rect = lobby, height = LOBBY_H, style = STYLES.Lobby, floorColor = COLORS.Marble, floorMaterial = Enum.Material.Marble, hall = main, lampSpacing = 30, area = string.upper(side) .. " ENTRANCE" }, "Lobby")
 	checkerTiles(lobby, 4, hex("C9BBA0"))
 	for _, key in { "C1", "C2", "C3" } do
-		buildRoom({ name = side .. "Corridor", rect = rotRect(k, WING[key]), height = CORRIDOR_H, style = STYLES.Corridor, floorColor = COLORS.Parquet, floorMaterial = Enum.Material.WoodPlanks, hall = main, lampSpacing = 20 }, "Corridor")
+		buildRoom({ name = side .. "Corridor", rect = rotRect(k, WING[key]), height = CORRIDOR_H, style = STYLES.Corridor, floorColor = COLORS.Parquet, floorMaterial = Enum.Material.WoodPlanks, hall = main, lampSpacing = 20, area = string.upper(side) .. " CORRIDOR" }, "Corridor")
 	end
 	carpetPath(T)
 
@@ -1180,6 +1185,7 @@ local function buildHall(k: number, hallDoors: Folder, kit: MapDecor.Kit)
 		skylight = if look.skylight then rotRect(k, look.skylight) else nil,
 		ceilingColor = look.ceiling,
 		lampSpacing = 28,
+		area = (Config.Halls :: any)[hall].Title,
 	}, hall)
 	buildHallDoor(hallDoors, hall, T * Vector3.new(HALL_DOOR.x, 0, (HALL_DOOR.z1 + HALL_DOOR.z2) / 2), T:VectorToWorldSpace(Vector3.new(1, 0, 0)))
 	MapDecor.hall(kit, hall, T, HALL_RECT, slabs)
@@ -1259,8 +1265,8 @@ end
 
 local function buildStaffArea(doorsFolder: Folder)
 	local main = GameState.Hall.Main
-	buildRoom({ name = "StaffCorridor", rect = STAFF_CORRIDOR, height = STAFF_H, style = STYLES.Staff, floorColor = hex("5A6070"), floorMaterial = Enum.Material.Concrete, hall = main, wander = false, lampSpacing = 18 }, "Staff")
-	buildRoom({ name = "Armory", rect = ARMORY, height = STAFF_H, style = STYLES.Armory, floorColor = hex("4A505C"), floorMaterial = Enum.Material.DiamondPlate, hall = main, wander = false, lampSpacing = 14 }, "Staff")
+	buildRoom({ name = "StaffCorridor", rect = STAFF_CORRIDOR, height = STAFF_H, style = STYLES.Staff, floorColor = hex("5A6070"), floorMaterial = Enum.Material.Concrete, hall = main, wander = false, lampSpacing = 18, area = "STAFF CORRIDOR" }, "Staff")
+	buildRoom({ name = "Armory", rect = ARMORY, height = STAFF_H, style = STYLES.Armory, floorColor = hex("4A505C"), floorMaterial = Enum.Material.DiamondPlate, hall = main, wander = false, lampSpacing = 14, area = "ARMORY" }, "Staff")
 	-- Жёлто-чёрная полоса по полу у входа и табличка на стороне коридора
 	decorPart("HazardStripe", Vector3.new(2, 0.05, 6), CFrame.new(49.2, 0.03, 102), hex("F2C230"))
 	wallSign(Vector3.new(46, 10.6, 102), Vector3.new(-1, 0, 0), 5, 1.4, "STAFF ONLY", hex("FFFFFF"), COLORS.Red)

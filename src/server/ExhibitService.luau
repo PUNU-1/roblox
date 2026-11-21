@@ -293,23 +293,88 @@ function ExhibitService.isFree(exhibit: Exhibit, thief: Model?): boolean
 		and table.find(exhibits, exhibit) ~= nil
 end
 
--- Цель для нового вора: чаще Мона Лиза, иначе любой свободный купленный экспонат.
-function ExhibitService.pickTarget(thief: Model?): Exhibit?
-	local others = {}
+-- Сколько по полу от точки до ближайшего охранника (охраны нет — бесконечно далеко).
+local function guardDistance(position: Vector3, guards: { Vector3 }): number
+	local best = math.huge
+	for _, guard in guards do
+		local offset = guard - position
+		best = math.min(best, Vector3.new(offset.X, 0, offset.Z).Magnitude)
+	end
+	return best
+end
+
+-- Цель вора (блок 3: воры следят за охраной). guards — где стоят охранники.
+--  mode = "Main"  — только Мона Лиза (если её уже снимают или несут — экспонат подальше от охраны);
+--  mode = "Cheap" — дешёвый экспонат подальше от Моны Лизы (приманка уводит туда охрану);
+--  mode = nil     — чаще Мона Лиза, если рядом с ней нет охраны, иначе экспонат, рядом с которым охраны нет.
+-- avoid — экспонаты, которые уже выбрали другие воры (шахтёры вылезают у разных экспонатов).
+function ExhibitService.pickTarget(thief: Model?, mode: string?, guards: { Vector3 }?, avoid: { Exhibit }?): Exhibit?
+	local guardList = guards or {}
+	local others: { Exhibit } = {}
+	local main: Exhibit? = nil
 	for _, exhibit in exhibits do
-		if not exhibit.isMain and ExhibitService.isFree(exhibit, thief) and GameState.isHallOpen(exhibit.hall) then
-			table.insert(others, exhibit)
+		if ExhibitService.isFree(exhibit, thief) and GameState.isHallOpen(exhibit.hall) and not (avoid and table.find(avoid, exhibit)) then
+			if exhibit.isMain then
+				main = exhibit
+			else
+				table.insert(others, exhibit)
+			end
 		end
 	end
-	local main = mainExhibit
-	local mainFree = main ~= nil and ExhibitService.isFree(main, thief)
-	if mainFree and (#others == 0 or random:NextNumber() < ExhibitConfig.MonaLisaChance) then
+	local radius = Config.Smart.GuardedTargetRadius
+	local function farthestFromGuards(list: { Exhibit }): Exhibit?
+		local best, bestDistance = nil, -1
+		for _, exhibit in list do
+			local distance = guardDistance(exhibit.stand, guardList) + random:NextNumber() -- случайно при равенстве
+			if distance > bestDistance then
+				best, bestDistance = exhibit, distance
+			end
+		end
+		return best
+	end
+
+	if mode == "Main" then
+		return main or farthestFromGuards(others)
+	end
+	if mode == "Cheap" then
+		local home = if mainExhibit then mainExhibit.home.Position else Vector3.zero
+		local best, bestDistance = nil, -1
+		for _, exhibit in others do
+			local distance = (exhibit.home.Position - home).Magnitude
+			if distance > bestDistance then
+				best, bestDistance = exhibit, distance
+			end
+		end
+		return best
+	end
+
+	local mainSafe = main ~= nil and guardDistance(main.stand, guardList) >= radius
+	if main and mainSafe and (#others == 0 or random:NextNumber() < ExhibitConfig.MonaLisaChance) then
 		return main
 	end
-	if #others > 0 then
-		return others[random:NextInteger(1, #others)]
+	local safe: { Exhibit } = {}
+	for _, exhibit in others do
+		if guardDistance(exhibit.stand, guardList) >= radius then
+			table.insert(safe, exhibit)
+		end
 	end
-	return if mainFree then main else nil
+	if #safe > 0 then
+		return safe[random:NextInteger(1, #safe)]
+	end
+	if main and mainSafe then
+		return main
+	end
+	-- Всё под охраной: берут то, что дальше всего от охранников
+	local all = table.clone(others)
+	if main then
+		table.insert(all, main)
+	end
+	return farthestFromGuards(all)
+end
+
+-- Мона Лиза (её экспонат).
+function ExhibitService.main(): Exhibit?
+	return mainExhibit
 end
 
 function ExhibitService.getCarried(thief: Model): Exhibit?

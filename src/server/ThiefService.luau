@@ -1,7 +1,9 @@
--- Вор-Карманник: появляется у входа -> крадётся к Моне Лизе -> снимает её за 3 сек ->
--- бежит с картиной над головой к ближайшему выходу. Замечает охранника и убегает.
--- Пока один вор несёт картину (или снимает её), остальные загораживают путь охране.
--- Всё поведение считает сервер.
+-- Воры (блок 3). У каждого вора есть вид (Config.ThiefTypes, внешний вид — ThiefKinds) и приказ от волны
+-- (Options, WaveService): через какую дверь войти, что сделать до кражи, ждать ли во входном холле.
+-- Обычный путь: дверь без охраны -> (задание) -> (ждёт) -> экспонат подальше от охраны -> кража 3 сек ->
+-- бегом с экспонатом над головой к ближайшей двери. Замечает охранника — убегает.
+-- Пока один вор несёт (или снимает) Мону Лизу, остальные загораживают путь охране.
+-- Всё поведение считает сервер; руки и ноги двигают клиенты (NpcAnimator) по атрибуту AnimState.
 
 local Debris = game:GetService("Debris")
 local PathfindingService = game:GetService("PathfindingService")
@@ -22,8 +24,12 @@ local CameraService = require(Server:WaitForChild("CameraService"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
 local RoleService = require(Server:WaitForChild("RoleService"))
 local Audio = require(Server:WaitForChild("Audio"))
+local HeistFx = require(Server:WaitForChild("HeistFx"))
+local ThiefKinds = require(Server:WaitForChild("ThiefKinds"))
 
 local ThiefConfig = Config.Thief
+local Smart = Config.Smart
+local Anim = GameState.ThiefAnim
 
 local ThiefService = {}
 
@@ -32,16 +38,29 @@ ThiefService.Escaped = Instance.new("BindableEvent")
 -- Появился новый вор (model). CatchService вешает на него кнопку ареста.
 ThiefService.Spawned = Instance.new("BindableEvent")
 
+-- Приказ вору от волны (WaveService и планы Tactics). Всё необязательно.
+export type Options = {
+	kind: string?, -- вид вора (Config.ThiefTypes), по умолчанию Pickpocket
+	entrance: BasePart?, -- через какую дверь войти (nil — сам выберет дверь без охраны)
+	target: string?, -- "Main" — Мона Лиза, "Cheap" — дешёвый экспонат подальше от неё, nil — сам по охране
+	task: string?, -- задание до кражи: "Lure" — пнуть витрину вдали от охраны, "Camera" — сломать камеру
+	hold: (() -> boolean)?, -- ждать во входном холле, пока не вернёт true
+	holdTimeout: number?, -- но не дольше стольки секунд
+	silent: boolean?, -- шагов не слышно
+	loud: boolean?, -- бежит и громко топает (приманка)
+	noFlee: boolean?, -- не убегает от охраны
+	plan: string?, -- какой план (для отладки)
+}
+
 type Thief = {
 	model: Model,
 	humanoid: Humanoid,
 	root: BasePart,
 	path: Path,
-	state: string, -- Approach | GoBreak | Break | Steal | Escape | Flee | Block | Arrested | Escaped
-	kind: string, -- Pickpocket | Breaker (ломает камеру, потом крадёт как обычный)
-	breakTarget: BasePart?, -- камера, которую ломает
-	breakStarted: number,
-	cameraDone: boolean,
+	kind: string,
+	info: any, -- Config.ThiefTypes[kind]
+	options: Options,
+	state: string, -- Approach | GoTask | Task | Hold | Steal | Escape | Flee | Block | Arrested | Escaped
 	waypoints: { PathWaypoint },
 	waypointIndex: number,
 	pathTarget: Vector3?,
@@ -51,6 +70,18 @@ type Thief = {
 	target: ExhibitService.Exhibit?, -- какой экспонат крадёт
 	fleeUntil: number,
 	fleeTarget: Vector3,
+	-- задание до кражи
+	task: string?,
+	taskDone: boolean,
+	taskStarted: number,
+	taskCase: HeistFx.Case?, -- витрина, которую пинает
+	cameraQueue: { BasePart }, -- камеры, которые надо сломать
+	autoCamera: boolean, -- взломщик без приказа: сам находит ближайшую работающую камеру (одну)
+	-- ожидание во входном холле
+	holdPoint: Vector3,
+	holdStarted: number,
+	holdDone: boolean,
+	holdArrived: boolean,
 	footsteps: Sound?,
 	connections: { RBXScriptConnection },
 }
@@ -59,20 +90,12 @@ local thieves: { [Model]: Thief } = {}
 local folder: Folder
 local entrances: { BasePart } = {}
 local active = false
-local spawnThread: thread? = nil
 local updateConnection: RBXScriptConnection? = nil
 local random = Random.new()
 local currentNight = 1
 local speedMultiplier = 1
 
 local bannerRemote = Remotes.get(Remotes.Names.Banner)
-
-local MASK_STUB: { ModelLibrary.StubPart } = {
-	{ size = Vector3.new(1.3, 1.3, 1.3), offset = CFrame.identity, color = ThiefConfig.Color, material = Enum.Material.Fabric },
-	{ size = Vector3.new(1.0, 0.28, 0.05), offset = CFrame.new(0, 0.15, -0.66), color = Color3.fromHex("F5CDA8") },
-	{ size = Vector3.new(0.16, 0.16, 0.04), offset = CFrame.new(-0.22, 0.15, -0.7), color = Color3.fromHex("111111") },
-	{ size = Vector3.new(0.16, 0.16, 0.04), offset = CFrame.new(0.22, 0.15, -0.7), color = Color3.fromHex("111111") },
-}
 
 local function now(): number
 	return Workspace:GetServerTimeNow()
@@ -86,23 +109,38 @@ local function flatDistance(a: Vector3, b: Vector3): number
 	return flat(a - b).Magnitude
 end
 
+local function kindInfo(kind: string): any
+	return (Config.ThiefTypes :: any)[kind] or Config.ThiefTypes.Pickpocket
+end
+
 ---------------------------------------------------------------- охранники рядом
 
-local function nearestGuard(position: Vector3): (Vector3?, number)
-	local bestPosition, bestDistance = nil, math.huge
+-- Где сейчас охранники (живые участники смены).
+function ThiefService.guardPositions(): { Vector3 }
+	local list = {}
 	for _, player in RoleService.participants() do
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		if root and root:IsA("BasePart") and humanoid and humanoid.Health > 0 then
-			local distance = flatDistance(root.Position, position)
-			if distance < bestDistance then
-				bestPosition, bestDistance = root.Position, distance
-			end
+			table.insert(list, root.Position)
+		end
+	end
+	return list
+end
+
+local function nearestGuard(position: Vector3): (Vector3?, number)
+	local bestPosition, bestDistance = nil, math.huge
+	for _, guard in ThiefService.guardPositions() do
+		local distance = flatDistance(guard, position)
+		if distance < bestDistance then
+			bestPosition, bestDistance = guard, distance
 		end
 	end
 	return bestPosition, bestDistance
 end
+
+---------------------------------------------------------------- двери
 
 -- Вход работает, только когда его зал открыт (все 4 двери музея — в главном зале, открыты всегда).
 local function openEntrances(): { BasePart }
@@ -113,6 +151,10 @@ local function openEntrances(): { BasePart }
 		end
 	end
 	return list
+end
+
+function ThiefService.entrances(): { BasePart }
+	return openEntrances()
 end
 
 local function nearestEntrance(position: Vector3): Vector3?
@@ -126,24 +168,75 @@ local function nearestEntrance(position: Vector3): Vector3?
 	return best
 end
 
+-- Дверь для вора (воры следят за охраной): у которой нет охранника ближе EntranceGuardRadius.
+-- Таких несколько — любая из них; все под охраной — та, где охрана дальше всего. exclude — уже занятые двери волны.
+function ThiefService.pickEntrance(exclude: { BasePart }?): BasePart?
+	local open = openEntrances()
+	local pool = {}
+	for _, entrance in open do
+		if not (exclude and table.find(exclude, entrance)) then
+			table.insert(pool, entrance)
+		end
+	end
+	if #pool == 0 then
+		pool = open -- все двери уже заняты волной — можно и вдвоём через одну
+	end
+	if #pool == 0 then
+		return nil
+	end
+	local guards = ThiefService.guardPositions()
+	local free, best, bestDistance = {}, nil, -1
+	for _, entrance in pool do
+		local distance = math.huge
+		for _, guard in guards do
+			distance = math.min(distance, flatDistance(guard, entrance.Position))
+		end
+		if distance >= Smart.EntranceGuardRadius then
+			table.insert(free, entrance)
+		end
+		if distance > bestDistance then
+			best, bestDistance = entrance, distance
+		end
+	end
+	if #free > 0 then
+		return free[random:NextInteger(1, #free)]
+	end
+	return best
+end
+
+-- Место ожидания во входном холле: чуть за дверью, немного вбок.
+local function holdPointFor(entrance: BasePart): Vector3
+	local cframe = entrance.CFrame
+	local point = cframe.Position + flat(cframe.LookVector).Unit * Smart.HoldInside
+		+ flat(cframe.RightVector).Unit * random:NextNumber(-Smart.HoldSpread, Smart.HoldSpread)
+	return Vector3.new(point.X, entrance.Position.Y, point.Z)
+end
+
 ---------------------------------------------------------------- анимации и шаги
 
 -- Сами движения рук и ног делает каждый клиент (NpcAnimator.client.luau).
 -- Сервер только сообщает, что вор сейчас делает.
-local ANIM_FOR_STATE: { [string]: string } = {
-	Approach = GameState.ThiefAnim.Sneak,
-	GoBreak = GameState.ThiefAnim.Sneak,
-	Break = GameState.ThiefAnim.Steal,
-	Flee = GameState.ThiefAnim.Run,
-	Block = GameState.ThiefAnim.Run,
-	Steal = GameState.ThiefAnim.Steal,
-	Escape = GameState.ThiefAnim.Carry,
-	Escaped = GameState.ThiefAnim.Carry,
-	Arrested = GameState.ThiefAnim.Arrest,
-}
+local function animFor(thief: Thief): string
+	local state = thief.state
+	if state == "Arrested" then
+		return Anim.Arrest
+	elseif state == "Steal" then
+		return Anim.Steal
+	elseif state == "Escape" or state == "Escaped" then
+		return Anim.Carry
+	elseif state == "Flee" or state == "Block" then
+		return Anim.Run
+	elseif state == "Task" then
+		return if thief.task == "Lure" then Anim.Kick else Anim.Steal
+	elseif state == "Hold" and thief.holdArrived then
+		return Anim.Hold
+	end
+	-- Идёт: приманка бежит, остальные крадутся
+	return if thief.options.loud then Anim.Run else Anim.Sneak
+end
 
 local function syncAnim(thief: Thief)
-	local anim = ANIM_FOR_STATE[thief.state] or GameState.ThiefAnim.Sneak
+	local anim = animFor(thief)
 	if thief.model:GetAttribute(GameState.NpcAttr.AnimState) ~= anim then
 		thief.model:SetAttribute(GameState.NpcAttr.AnimStateAt, now())
 		thief.model:SetAttribute(GameState.NpcAttr.AnimState, anim)
@@ -151,11 +244,17 @@ local function syncAnim(thief: Thief)
 end
 
 local function setupFootsteps(thief: Thief)
-	local footsteps = Audio.create(Config.Sounds.ThiefStep, thief.root, Config.Sounds.StepVolume, true)
+	if thief.options.silent then
+		return
+	end
+	local sounds = Config.Sounds
+	local loud = thief.options.loud == true
+	local volume = sounds.StepVolume * (if loud then ThiefConfig.LoudStepMultiplier else 1)
+	local footsteps = Audio.create(sounds.ThiefStep, thief.root, volume, true)
 	if not footsteps then
 		return
 	end
-	footsteps.RollOffMaxDistance = Config.Sounds.StepRollOff
+	footsteps.RollOffMaxDistance = sounds.StepRollOff * (if loud then ThiefConfig.LoudStepMultiplier else 1)
 	thief.footsteps = footsteps
 	table.insert(
 		thief.connections,
@@ -215,15 +314,27 @@ local function stand(thief: Thief)
 	thief.humanoid:MoveTo(thief.root.Position)
 end
 
+local function face(thief: Thief, point: Vector3)
+	local position = thief.root.Position
+	if flatDistance(position, point) > 0.1 then
+		thief.root.CFrame = CFrame.lookAt(position, Vector3.new(point.X, position.Y, point.Z))
+	end
+end
+
 ---------------------------------------------------------------- поведение
 
 local function speedFor(thief: Thief, base: number): number
-	local speed = base * speedMultiplier
+	local speed = base * speedMultiplier * (thief.info.SpeedMul or 1)
 	local slowedUntil = thief.model:GetAttribute("SlowedUntil")
 	if typeof(slowedUntil) == "number" and slowedUntil > now() then
 		return speed * ThiefConfig.SlowMultiplier
 	end
 	return speed
+end
+
+-- Скорость, пока вор идёт к цели: крадётся, а приманка бежит.
+local function walkSpeed(thief: Thief): number
+	return speedFor(thief, if thief.options.loud then ThiefConfig.RunSpeed else ThiefConfig.SneakSpeed)
 end
 
 -- «!» над головой: вор заметил охранника. Сквозь стены не видно.
@@ -263,6 +374,81 @@ local function startEscape(thief: Thief, exhibit: ExhibitService.Exhibit)
 	Audio.alarm()
 end
 
+-- Что делать дальше, когда вор свободен: задание, ожидание в холле или кража.
+local function nextState(thief: Thief): string
+	if thief.task and not thief.taskDone then
+		return "GoTask"
+	elseif thief.options.hold and not thief.holdDone then
+		return "Hold"
+	end
+	return "Approach"
+end
+
+local function finishTask(thief: Thief)
+	thief.taskDone = true
+	thief.state = nextState(thief)
+end
+
+-- Где вору делать задание. nil — делать нечего (витрин нет, камеры уже сломаны), задание закончено.
+local function taskPoint(thief: Thief): Vector3?
+	if thief.task == "Lure" then
+		local case = thief.taskCase
+		if not case or case.cracked or case.broken then
+			case = HeistFx.pickCase(ThiefService.guardPositions())
+			thief.taskCase = case
+		end
+		return if case then case.stand else nil
+	elseif thief.task == "Camera" then
+		while #thief.cameraQueue > 0 and not CameraService.isWorking(thief.cameraQueue[1]) do
+			table.remove(thief.cameraQueue, 1)
+		end
+		local camera = thief.cameraQueue[1]
+		if not camera and thief.autoCamera then
+			-- Взломщик без приказа: ближайшая работающая камера
+			camera = CameraService.nearestWorking(thief.root.Position)
+			if camera then
+				table.insert(thief.cameraQueue, camera)
+			end
+		end
+		return if camera then CameraService.standPoint(camera) else nil
+	end
+	return nil
+end
+
+local function taskSeconds(thief: Thief): number
+	if thief.task == "Lure" then
+		return Smart.LureSeconds
+	end
+	return thief.info.BreakSeconds or 2
+end
+
+-- Задание сделано: витрина в трещинах с тревогой или сломанная камера.
+local function completeTask(thief: Thief)
+	if thief.task == "Lure" then
+		local case = thief.taskCase
+		if case then
+			HeistFx.caseAlarm(case)
+		end
+		finishTask(thief)
+	elseif thief.task == "Camera" then
+		local camera = table.remove(thief.cameraQueue, 1)
+		if camera then
+			CameraService.breakCamera(camera)
+		end
+		thief.autoCamera = false -- сам ломает только одну камеру
+		if #thief.cameraQueue == 0 then
+			finishTask(thief)
+		else
+			thief.state = "GoTask"
+		end
+	end
+end
+
+-- Состояния, в которых вор замечает охранника и убегает.
+local FLEE_STATES = { Approach = true, GoTask = true, Hold = true }
+-- Состояния, из которых вор бросается загораживать того, кто несёт Мону Лизу.
+local BLOCK_STATES = { Approach = true, GoTask = true, Hold = true, Flee = true }
+
 local function updateThief(thief: Thief)
 	if thief.state == "Arrested" or thief.state == "Escaped" then
 		return
@@ -275,18 +461,15 @@ local function updateThief(thief: Thief)
 	-- Выбираем, что делать
 	if carried then
 		thief.state = "Escape"
-	elseif mainBusy and mainBusy ~= model then
+	elseif mainBusy and mainBusy ~= model and BLOCK_STATES[thief.state] then
 		thief.state = "Block"
 	elseif thief.state == "Block" or thief.state == "Escape" then
-		thief.state = "Approach"
+		thief.state = nextState(thief)
 	elseif thief.state == "Flee" and now() >= thief.fleeUntil then
-		thief.state = "Approach"
-	end
-	if thief.state == "Approach" and thief.kind == "Breaker" and not thief.cameraDone then
-		thief.state = "GoBreak"
+		thief.state = nextState(thief)
 	end
 
-	if thief.state == "Approach" or thief.state == "GoBreak" then
+	if FLEE_STATES[thief.state] and not thief.options.noFlee then
 		local guardPosition, guardDistance = nearestGuard(position)
 		if guardPosition and guardDistance < ThiefConfig.FleeRadius then
 			-- Заметил охранника — убегает в другую сторону
@@ -302,40 +485,50 @@ local function updateThief(thief: Thief)
 	end
 
 	-- Делаем
-	if thief.state == "GoBreak" then
-		local camera = thief.breakTarget
-		if not camera or CameraService.isBroken(camera) then
-			camera = CameraService.nearestWorking(position)
-			thief.breakTarget = camera
-		end
-		if not camera then
-			thief.cameraDone = true -- ломать нечего — крадёт как обычный
-			thief.state = "Approach"
+	local state = thief.state
+	if state == "GoTask" then
+		local point = taskPoint(thief)
+		if not point then
+			finishTask(thief)
+		elseif flatDistance(position, point) < (if thief.task == "Lure" then Smart.CaseReach else ThiefConfig.StealReachDistance) then
+			thief.state = "Task"
+			thief.taskStarted = now()
+			stand(thief)
+			local look = if thief.task == "Lure" and thief.taskCase
+				then thief.taskCase.model:GetPivot().Position
+				elseif thief.cameraQueue[1] then thief.cameraQueue[1].Position
+				else point
+			face(thief, look)
 		else
-			local spot = CameraService.standPoint(camera)
-			if flatDistance(position, spot) < ThiefConfig.StealReachDistance then
-				thief.state = "Break"
-				thief.breakStarted = now()
-				stand(thief)
-				thief.root.CFrame = CFrame.lookAt(position, Vector3.new(camera.Position.X, position.Y, camera.Position.Z))
-			else
-				moveTowards(thief, spot, speedFor(thief, ThiefConfig.SneakSpeed))
-			end
+			moveTowards(thief, point, walkSpeed(thief))
 		end
-	elseif thief.state == "Break" then
+	elseif state == "Task" then
 		stand(thief)
-		if now() - thief.breakStarted >= Config.CameraBreaker.BreakSeconds then
-			if thief.breakTarget then
-				CameraService.breakCamera(thief.breakTarget)
-			end
-			thief.cameraDone = true
-			thief.state = "Approach"
+		if now() - thief.taskStarted >= taskSeconds(thief) then
+			completeTask(thief)
 		end
-	elseif thief.state == "Approach" then
-		-- Цель пропала (её унёс другой вор или снимает другой) — выбираем новую
+	elseif state == "Hold" then
+		local hold = thief.options.hold
+		if thief.holdStarted <= 0 then
+			thief.holdStarted = now()
+		end
+		local timeout = thief.options.holdTimeout or Smart.HoldTimeout
+		if not hold or hold() or now() - thief.holdStarted >= timeout then
+			thief.holdDone = true
+			thief.holdArrived = false
+			thief.state = "Approach"
+		elseif flatDistance(position, thief.holdPoint) > 2.5 then
+			thief.holdArrived = false
+			moveTowards(thief, thief.holdPoint, walkSpeed(thief))
+		else
+			thief.holdArrived = true
+			stand(thief)
+		end
+	elseif state == "Approach" then
+		-- Цель пропала (её унёс другой вор или снимает другой) — выбираем новую, подальше от охраны
 		local target = thief.target
 		if not target or not ExhibitService.isFree(target, model) then
-			target = ExhibitService.pickTarget(model)
+			target = ExhibitService.pickTarget(model, thief.options.target, ThiefService.guardPositions())
 			thief.target = target
 		end
 		if not target then
@@ -344,12 +537,11 @@ local function updateThief(thief: Thief)
 			thief.state = "Steal"
 			thief.stealStarted = now()
 			stand(thief)
-			local look = target.look
-			thief.root.CFrame = CFrame.lookAt(position, Vector3.new(look.X, position.Y, look.Z))
+			face(thief, target.look)
 		else
-			moveTowards(thief, target.stand, speedFor(thief, ThiefConfig.SneakSpeed))
+			moveTowards(thief, target.stand, walkSpeed(thief))
 		end
-	elseif thief.state == "Steal" then
+	elseif state == "Steal" then
 		stand(thief)
 		local target = thief.target
 		if not target or target.stealer ~= model then
@@ -363,7 +555,7 @@ local function updateThief(thief: Thief)
 				thief.state = "Approach"
 			end
 		end
-	elseif thief.state == "Escape" then
+	elseif state == "Escape" then
 		local exit = nearestEntrance(position)
 		if exit and carried then
 			if flatDistance(position, exit) < ThiefConfig.EscapeReachDistance then
@@ -383,9 +575,9 @@ local function updateThief(thief: Thief)
 				moveTowards(thief, exit, speedFor(thief, ThiefConfig.CarrySpeed))
 			end
 		end
-	elseif thief.state == "Flee" then
+	elseif state == "Flee" then
 		moveTowards(thief, thief.fleeTarget, speedFor(thief, ThiefConfig.RunSpeed))
-	elseif thief.state == "Block" then
+	elseif state == "Block" then
 		-- Встаёт между охранником и тем, кто снимает или несёт Мону Лизу
 		local protected = mainBusy
 		local protectedRoot = protected and protected:FindFirstChild("HumanoidRootPart")
@@ -408,18 +600,8 @@ end
 
 ---------------------------------------------------------------- появление и удаление
 
-local function createRig(color: Color3): Model?
-	local description = Instance.new("HumanoidDescription")
-	description.HeadColor = color
-	description.TorsoColor = color
-	description.LeftArmColor = color
-	description.RightArmColor = color
-	description.LeftLegColor = color
-	description.RightLegColor = color
-	return ModelLibrary.createRig(description)
-end
-
-local function aliveCount(): number
+-- Сколько воров сейчас занимают место в музее (пойманные, которые вот-вот исчезнут, не считаются).
+function ThiefService.aliveCount(): number
 	local count = 0
 	for _, thief in thieves do
 		if thief.state ~= "Arrested" then
@@ -429,49 +611,49 @@ local function aliveCount(): number
 	return count
 end
 
-local function spawnThief(): boolean
-	if #entrances == 0 then
-		return false
+-- Новый вор по приказу волны. Возвращает модель или nil (нет дверей, Roblox не собрал персонажа, ночь кончилась).
+function ThiefService.spawnSpecial(options: Options): Model?
+	if not active then
+		return nil
 	end
-	local breaker = currentNight >= Config.CameraBreaker.FromNight and random:NextNumber() < Config.CameraBreaker.Chance
-	local model = createRig(if breaker then Config.CameraBreaker.Color else ThiefConfig.Color)
+	local kind = options.kind or "Pickpocket"
+	local info = kindInfo(kind)
+	local entrance = options.entrance or ThiefService.pickEntrance()
+	if not entrance then
+		return nil
+	end
+	local model = ThiefKinds.build(kind)
 	if not model then
-		return false
+		return nil
 	end
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	local root = model:FindFirstChild("HumanoidRootPart")
-	if not (humanoid and root and root:IsA("BasePart")) then
-		model:Destroy()
-		return false
+	if not active or not (humanoid and root and root:IsA("BasePart")) then
+		model:Destroy() -- ночь кончилась, пока собирался персонаж, или он собрался без частей
+		return nil
 	end
-	model.Name = "Thief"
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	humanoid.WalkSpeed = ThiefConfig.SneakSpeed
-	humanoid:AddAccessory(ModelLibrary.accessory(MapSchema.Models.ThiefMask, MASK_STUB, "FaceCenterAttachment"))
 	ModelLibrary.setCollisionGroup(model, ModelLibrary.Groups.Thieves)
-
-	local open = openEntrances()
-	if #open == 0 then
-		model:Destroy()
-		return false
-	end
-	local entrance = open[random:NextInteger(1, #open)]
 	model:PivotTo(entrance.CFrame)
 	model.Parent = folder
 	pcall(function()
 		root:SetNetworkOwner(nil) -- воров двигает только сервер
 	end)
 
+	local taskName = options.task
+	if taskName == nil and kind == "Breaker" then
+		taskName = "Camera" -- взломщик сначала ломает ближайшую камеру
+	end
 	local thief: Thief = {
 		model = model,
 		humanoid = humanoid,
 		root = root,
 		path = PathfindingService:CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = false, WaypointSpacing = 4 }),
+		kind = kind,
+		info = info,
+		options = options,
 		state = "Approach",
-		kind = if breaker then "Breaker" else "Pickpocket",
-		breakTarget = nil,
-		breakStarted = 0,
-		cameraDone = false,
 		waypoints = {},
 		waypointIndex = 1,
 		pathTarget = nil,
@@ -481,15 +663,26 @@ local function spawnThief(): boolean
 		target = nil,
 		fleeUntil = 0,
 		fleeTarget = root.Position,
+		task = taskName,
+		taskDone = false,
+		taskStarted = 0,
+		taskCase = nil,
+		cameraQueue = {},
+		autoCamera = taskName == "Camera" and options.task == nil,
+		holdPoint = holdPointFor(entrance),
+		holdStarted = 0,
+		holdDone = false,
+		holdArrived = false,
 		footsteps = nil,
 		connections = {},
 	}
+	thief.state = nextState(thief)
 	thieves[model] = thief
 	syncAnim(thief)
 	setupFootsteps(thief)
 	ScoreService.addSpawned()
 	ThiefService.Spawned:Fire(model)
-	return true
+	return model
 end
 
 -- Убирает вора совсем (после ареста или в конце ночи).
@@ -516,6 +709,29 @@ end
 function ThiefService.isArrested(model: Model): boolean
 	local thief = thieves[model]
 	return thief == nil or thief.state == "Arrested"
+end
+
+-- Вора больше нет в музее: пойман, убежал или исчез.
+function ThiefService.isGone(model: Model?): boolean
+	if not model then
+		return false
+	end
+	local thief = thieves[model]
+	return thief == nil or thief.state == "Arrested" or thief.state == "Escaped"
+end
+
+-- Задание вора сделано (витрина, камеры…) — или вора уже нет.
+function ThiefService.taskDone(model: Model?): boolean
+	if not model then
+		return false
+	end
+	local thief = thieves[model]
+	return thief == nil or thief.task == nil or thief.taskDone
+end
+
+-- Вор несёт экспонат.
+function ThiefService.isCarrying(model: Model?): boolean
+	return model ~= nil and ExhibitService.getCarried(model) ~= nil
 end
 
 -- Арест: вор замирает (руки вверх, потом в наручники — анимация на клиентах). Картина, если была у него, возвращается на стену.
@@ -551,39 +767,13 @@ function ThiefService.countForNight(playerCount: number, night: number): number
 	return players * (ThiefConfig.PerPlayerFirstNight + grownNights * ThiefConfig.PerPlayerGrowth)
 end
 
--- Воры приходят по одному: первый через 15-30 сек, дальше паузы, которые делят остаток ночи на всех воров.
-local function spawnLoop(playerCount: number, nightLength: number)
-	local total = ThiefService.countForNight(playerCount, currentNight)
-	local maxAlive = playerCount + ThiefConfig.MaxAliveExtra
-	local firstDelay = random:NextNumber(ThiefConfig.FirstSpawnMin, ThiefConfig.FirstSpawnMax)
-	local window = math.max(0, nightLength - firstDelay - ThiefConfig.LastSpawnBeforeEnd)
-	local average = if total > 1 then math.min(ThiefConfig.IntervalMax, window / (total - 1)) else 0
-
-	task.wait(firstDelay)
-	local spawned = 0
-	while active and spawned < total do
-		if aliveCount() < maxAlive and spawnThief() then
-			spawned += 1
-			-- В начале ночи паузы длиннее средней, к утру короче: воры приходят всё чаще
-			local fraction = if total > 2 then (spawned - 1) / (total - 2) else 0
-			local scale = ThiefConfig.IntervalStartScale + (ThiefConfig.IntervalEndScale - ThiefConfig.IntervalStartScale) * fraction
-			local jitter = 1 + ThiefConfig.IntervalJitter * (random:NextNumber() * 2 - 1)
-			task.wait(average * scale * jitter)
-		else
-			task.wait(1)
-		end
-	end
-end
-
--- night — какая по счёту ночь: чем дальше, тем больше воров, они быстрее, появляются взломщики.
--- nightLength — сколько секунд идёт эта ночь (растёт с каждой ночью, решение 66).
-function ThiefService.beginNight(playerCount: number, night: number, nightLength: number)
+-- night — какая по счёту ночь: чем дальше, тем воры быстрее. Когда и кто приходит, решает WaveService.
+function ThiefService.beginNight(night: number)
 	ThiefService.endNight()
 	currentNight = math.max(1, night)
 	local difficulty = Config.Difficulty
 	speedMultiplier = math.min(difficulty.MaxSpeedMultiplier, 1 + (currentNight - 1) * difficulty.SpeedGrowthPerNight)
 	active = true
-	spawnThread = task.spawn(spawnLoop, playerCount, nightLength)
 	local accumulator = 0
 	updateConnection = RunService.Heartbeat:Connect(function(dt)
 		accumulator += dt
@@ -601,10 +791,6 @@ end
 
 function ThiefService.endNight()
 	active = false
-	if spawnThread then
-		pcall(task.cancel, spawnThread)
-		spawnThread = nil
-	end
 	if updateConnection then
 		updateConnection:Disconnect()
 		updateConnection = nil
