@@ -328,7 +328,7 @@ local function hintText(phase: string): string?
 	if phase == Phase.Day then
 		local money = tonumber(localPlayer:GetAttribute(PlayerAttr.Money)) or 0
 		local closedHall = not GameState.isHallOpen(GameState.Hall.Jewelry) or not GameState.isHallOpen(GameState.Hall.Sculptures)
-		if closedHall and money >= Config.Halls.ContributeStep then
+		if closedHall and money > 0 then
 			return "Chip in at boarded doors and pedestals (hold E): new halls, exhibits, laser grids"
 		end
 		return "Thieves come at midnight. Don't let them take the Mona Lisa!   •   " .. cameras

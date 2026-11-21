@@ -1,5 +1,6 @@
 -- Боковые залы (Драгоценности, Скульптуры): закрыты заколоченными дверями с ценой.
--- Днём игрок подходит к двери и держит E — вкладывает деньги (вскладчину, у каждого свой кошелёк).
+-- Днём игрок подходит к двери и держит F: хватает денег — покупает зал сразу, нет — все его деньги
+-- идут в полоску, остальное докладывают другие (Purchase.luau, у каждого свой кошелёк).
 -- Набрали цену — доски падают, зал открыт: его камеры работают, у него появляется вход для воров.
 -- Здесь же главная дверь для туристов: днём открыта, ночью закрыта.
 
@@ -13,8 +14,8 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Server = script.Parent
-local RoleService = require(Server:WaitForChild("RoleService"))
 local Audio = require(Server:WaitForChild("Audio"))
+local Purchase = require(Server:WaitForChild("Purchase"))
 
 local HallConfig = Config.Halls
 
@@ -48,10 +49,13 @@ local function updateSign(door: Door)
 	local gui = sign and sign:FindFirstChild("SignGui")
 	local label = gui and gui:FindFirstChild("Text")
 	if label and label:IsA("TextLabel") then
-		label.Text = ("%s\n$%d / $%d"):format(door.title, door.paid, door.price)
+		label.Text = if door.paid > 0
+			then ("%s\n$%d / $%d"):format(door.title, door.paid, door.price)
+			else ("%s\n$%d"):format(door.title, door.price)
 	end
 	if door.prompt then
-		door.prompt.ObjectText = ("%s — $%d / $%d"):format(door.title, door.paid, door.price)
+		door.prompt.ObjectText = Purchase.progressText(door.title, door.paid, door.price)
+		Purchase.setProgress(door.prompt, door.paid, door.price)
 	end
 end
 
@@ -89,29 +93,19 @@ local function openHall(door: Door)
 	end)
 end
 
+-- Удержание F у двери: остаток цены, если хватает денег, иначе всё, что есть (Purchase.take).
 local function contribute(door: Door, player: Player)
 	if not dayActive or GameState.isHallOpen(door.hall) then
 		return
 	end
-	if not RoleService.isParticipant(player) then
-		return
-	end
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local panel = door.model:FindFirstChild(MapSchema.HallDoorPanel)
-	if not (root and root:IsA("BasePart") and panel and panel:IsA("BasePart")) then
+	if not (panel and panel:IsA("BasePart")) then
 		return
 	end
-	if (root.Position - panel.Position).Magnitude > HallConfig.PromptDistance + Config.Catch.ServerDistanceSlack then
-		return
-	end
-	local money = tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0
-	local amount = math.min(HallConfig.ContributeStep, money, door.price - door.paid)
+	local amount = Purchase.take(player, panel, door.paid, door.price)
 	if amount <= 0 then
 		return
 	end
-	player:SetAttribute(GameState.PlayerAttr.Money, money - amount)
-	Audio.purchase(panel)
 	door.paid += amount
 	updateSign(door)
 	if door.paid >= door.price then
@@ -125,14 +119,7 @@ local function attachPrompt(door: Door)
 		warn("[HallService] У двери нет щита", door.model:GetFullName())
 		return
 	end
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "ContributePrompt"
-	prompt.ActionText = ("Add $%d"):format(HallConfig.ContributeStep)
-	prompt.HoldDuration = HallConfig.ContributeHoldSeconds
-	prompt.MaxActivationDistance = HallConfig.PromptDistance
-	prompt.RequiresLineOfSight = false
-	prompt.Enabled = false
-	prompt.Parent = panel
+	local prompt = Purchase.newPrompt(panel, "BuyPrompt", door.price)
 	prompt.Triggered:Connect(function(player)
 		contribute(door, player)
 	end)

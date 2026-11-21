@@ -61,6 +61,26 @@ GameState.TouristAnim = {
 	Photo = "Photo", -- фотографирует экспонат
 }
 
+-- Кнопки покупки (Purchase.luau на сервере, BuyPrompts.client на клиенте): тег и атрибуты ProximityPrompt.
+GameState.BuyPrompt = {
+	Tag = "BuyPrompt",
+	Price = "BuyPrice", -- number, полная цена
+	Paid = "BuyPaid", -- number, сколько уже вложили вскладчину
+}
+
+-- Что будет, если удержать кнопку покупки (решение 67): хватает денег на остаток — «Buy $остаток»,
+-- не хватает — «Put in $все деньги», денег нет совсем — «Need $остаток».
+function GameState.buyActionText(remaining: number, money: number): string
+	local left = math.max(0, math.floor(remaining))
+	local cash = math.max(0, math.floor(money))
+	if cash >= left then
+		return ("Buy $%d"):format(left)
+	elseif cash > 0 then
+		return ("Put in $%d"):format(cash)
+	end
+	return ("Need $%d"):format(left)
+end
+
 -- Атрибуты ReplicatedStorage.GameState
 GameState.Attr = {
 	Phase = "Phase", -- string, одна из GameState.Phase

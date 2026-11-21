@@ -1,6 +1,7 @@
 -- Экспонаты: Мона Лиза (главная — если её вынесли, игра окончена) и дешёвые экспонаты на постаментах.
--- Днём игроки покупают экспонаты вскладчину: у каждого постамента свой экспонат, держишь E —
--- вкладываешь деньги. Ночью вор выбирает цель (чаще Мону Лизу), снимает её, несёт над головой.
+-- Днём игроки покупают экспонаты: у каждого постамента свой экспонат, держишь F — хватает денег,
+-- покупаешь сразу, нет — все деньги идут в полоску (вскладчину, Purchase.luau).
+-- Ночью вор выбирает цель (чаще Мону Лизу), снимает её, несёт над головой.
 -- Поймали — экспонат возвращается на место. Унёс дешёвый — экспонат пропадает, его надо купить заново.
 -- Вор несёт копию экспоната, а настоящий прячется под картой: настоящий всегда закреплён и никогда
 -- не приваривается к вору, поэтому после ареста точно встаёт на место.
@@ -15,8 +16,7 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 
 local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
-local RoleService = require(Server:WaitForChild("RoleService"))
-local Audio = require(Server:WaitForChild("Audio"))
+local Purchase = require(Server:WaitForChild("Purchase"))
 
 local ExhibitConfig = Config.Exhibits
 
@@ -340,10 +340,13 @@ refreshSlot = function(slot: Slot)
 	local empty = slot.exhibit == nil
 	if slot.prompt then
 		slot.prompt.Enabled = dayActive and open and empty
-		slot.prompt.ObjectText = ("%s — $%d / $%d"):format(slot.title, slot.paid, slot.price)
+		slot.prompt.ObjectText = Purchase.progressText(slot.title, slot.paid, slot.price)
+		Purchase.setProgress(slot.prompt, slot.paid, slot.price)
 	end
 	if slot.label then
-		slot.label.Text = ("%s\n$%d / $%d"):format(slot.title, slot.paid, slot.price)
+		slot.label.Text = if slot.paid > 0
+			then ("%s\n$%d / $%d"):format(slot.title, slot.paid, slot.price)
+			else ("%s\n$%d"):format(slot.title, slot.price)
 	end
 	if slot.billboard then
 		slot.billboard.Enabled = dayActive and open and empty
@@ -361,31 +364,14 @@ local function placeExhibit(slot: Slot)
 	ExhibitService.Added:Fire(exhibit)
 end
 
-local function contribute(slot: Slot, player: Player)
+-- Удержание F у постамента: остаток цены, если хватает денег, иначе всё, что есть (Purchase.take).
+local function contribute(slot: Slot, player: Player, base: BasePart)
 	if not dayActive or slot.exhibit or not GameState.isHallOpen(slot.hall) then
 		return
 	end
-	if not RoleService.isParticipant(player) then
-		return
-	end
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not (root and root:IsA("BasePart")) then
-		return
-	end
-	local distance = (root.Position - slot.pedestal:GetPivot().Position).Magnitude
-	if distance > Config.Halls.PromptDistance + Config.Catch.ServerDistanceSlack then
-		return
-	end
-	local money = tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0
-	local amount = math.min(Config.Halls.ContributeStep, money, slot.price - slot.paid)
+	local amount = Purchase.take(player, base, slot.paid, slot.price)
 	if amount <= 0 then
 		return
-	end
-	player:SetAttribute(GameState.PlayerAttr.Money, money - amount)
-	local base = slot.prompt and slot.prompt.Parent
-	if base and base:IsA("BasePart") then
-		Audio.purchase(base)
 	end
 	slot.paid += amount
 	if slot.paid >= slot.price then
@@ -400,16 +386,9 @@ local function setupSlot(slot: Slot)
 	if not base then
 		return
 	end
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "BuyPrompt"
-	prompt.ActionText = ("Add $%d"):format(Config.Halls.ContributeStep)
-	prompt.HoldDuration = Config.Halls.ContributeHoldSeconds
-	prompt.MaxActivationDistance = Config.Halls.PromptDistance
-	prompt.RequiresLineOfSight = false
-	prompt.Enabled = false
-	prompt.Parent = base
+	local prompt = Purchase.newPrompt(base, "BuyPrompt", slot.price)
 	prompt.Triggered:Connect(function(player)
-		contribute(slot, player)
+		contribute(slot, player, base)
 	end)
 	slot.prompt = prompt
 

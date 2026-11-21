@@ -1,7 +1,8 @@
--- Защита из магазина (решения 43 и 49). Покупается днём вскладчину, держится до конца забега.
---  • Лазерная сетка вокруг выбранного экспоната (E у экспоната): вор подошёл — тревога,
+-- Защита из магазина (решения 43 и 49). Покупается днём удержанием F (целиком или вскладчину,
+-- Purchase.luau), держится до конца забега.
+--  • Лазерная сетка вокруг выбранного экспоната (F у экспоната): вор подошёл — тревога,
 --    вор замедляется и подсвечивается для всех сквозь стены, сетка гаснет на перезарядку.
---  • Сигнализация на Мону Лизу (F у картины): вор начал снимать картину — воет сирена.
+--  • Сигнализация на Мону Лизу (F у щитка ALARM справа от картины): вор начал снимать картину — воет сирена.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -15,8 +16,8 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Server = script.Parent
 local ExhibitService = require(Server:WaitForChild("ExhibitService"))
-local RoleService = require(Server:WaitForChild("RoleService"))
 local Audio = require(Server:WaitForChild("Audio"))
+local Purchase = require(Server:WaitForChild("Purchase"))
 
 local Laser = Config.Traps.LaserGrid
 local Alarm = Config.Traps.Alarm
@@ -37,6 +38,7 @@ local grids: { [ExhibitService.Exhibit]: Grid } = {}
 local alarmPaid = 0
 local alarmOwned = false
 local alarmPrompt: ProximityPrompt? = nil
+local alarmLamp: BasePart? = nil
 local dayActive = false
 local checkConnection: RBXScriptConnection? = nil
 local highlightTokens: { [Model]: number } = {}
@@ -60,39 +62,12 @@ local function anchorPart(exhibit: ExhibitService.Exhibit): BasePart?
 	return model:FindFirstChildWhichIsA("BasePart", true)
 end
 
--- Общая покупка вскладчину: сколько денег взяли у игрока (0 — ничего).
+-- Удержание F: остаток цены, если хватает денег, иначе всё, что есть (Purchase.take). Только днём.
 local function takeContribution(player: Player, part: BasePart, paid: number, price: number): number
-	if not dayActive or not RoleService.isParticipant(player) then
+	if not dayActive then
 		return 0
 	end
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not (root and root:IsA("BasePart")) then
-		return 0
-	end
-	if (root.Position - part.Position).Magnitude > Config.Halls.PromptDistance + Config.Catch.ServerDistanceSlack then
-		return 0
-	end
-	local money = tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0
-	local amount = math.min(Config.Halls.ContributeStep, money, price - paid)
-	if amount <= 0 then
-		return 0
-	end
-	player:SetAttribute(GameState.PlayerAttr.Money, money - amount)
-	Audio.purchase(part)
-	return amount
-end
-
-local function newPrompt(part: BasePart, action: string, key: Enum.KeyCode): ProximityPrompt
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = action
-	prompt.KeyboardKeyCode = key
-	prompt.HoldDuration = Config.Halls.ContributeHoldSeconds
-	prompt.MaxActivationDistance = Config.Halls.PromptDistance
-	prompt.RequiresLineOfSight = false
-	prompt.Enabled = false
-	prompt.Parent = part
-	return prompt
+	return Purchase.take(player, part, paid, price)
 end
 
 ---------------------------------------------------------------- лазерная сетка
@@ -251,7 +226,8 @@ end
 local function refreshGridPrompt(grid: Grid)
 	if grid.prompt then
 		grid.prompt.Enabled = dayActive and grid.model == nil and GameState.isHallOpen(grid.exhibit.hall)
-		grid.prompt.ObjectText = ("Laser grid — $%d / $%d"):format(grid.paid, Laser.Price)
+		grid.prompt.ObjectText = Purchase.progressText("Laser grid", grid.paid, Laser.Price)
+		Purchase.setProgress(grid.prompt, grid.paid, Laser.Price)
 	end
 end
 
@@ -265,8 +241,7 @@ local function ensureGrid(exhibit: ExhibitService.Exhibit): Grid?
 		return nil
 	end
 	local grid: Grid = { exhibit = exhibit, paid = 0, model = nil, beams = {}, center = part.Position, readyAt = 0, prompt = nil }
-	local prompt = newPrompt(part, ("Add $%d"):format(Config.Halls.ContributeStep), Enum.KeyCode.E)
-	prompt.Name = "LaserPrompt"
+	local prompt = Purchase.newPrompt(part, "LaserPrompt", Laser.Price)
 	prompt.Triggered:Connect(function(player)
 		if grid.model then
 			return
@@ -305,34 +280,83 @@ end
 local function refreshAlarmPrompt()
 	if alarmPrompt then
 		alarmPrompt.Enabled = dayActive and not alarmOwned
-		alarmPrompt.ObjectText = ("Mona Lisa alarm — $%d / $%d"):format(alarmPaid, Alarm.Price)
+		alarmPrompt.ObjectText = Purchase.progressText("Mona Lisa alarm", alarmPaid, Alarm.Price)
+		Purchase.setProgress(alarmPrompt, alarmPaid, Alarm.Price)
 	end
+	if alarmLamp then
+		alarmLamp.Color = if alarmOwned then Alarm.LampOnColor else Alarm.LampOffColor
+	end
+end
+
+-- Щиток ALARM на стене справа от картины: у него своя кнопка F. На самой картине — кнопка сетки,
+-- а Roblox на одну клавишу показывает только одну ближайшую кнопку: подошёл к щитку — видна его кнопка.
+local function buildAlarmPanel(exhibit: ExhibitService.Exhibit): BasePart
+	local panel = Instance.new("Part")
+	panel.Name = "AlarmPanel"
+	panel.Anchored = true
+	panel.CanCollide = false
+	panel.CanTouch = false
+	panel.CastShadow = false
+	panel.Size = Alarm.PanelSize
+	panel.Color = Alarm.PanelColor
+	panel.Material = Enum.Material.Metal
+	panel.CFrame = exhibit.home * CFrame.new(Alarm.PanelOffset)
+	panel.Parent = securityFolder
+
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.LightInfluence = 0
+	gui.PixelsPerStud = 60
+	gui.Parent = panel
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.AnchorPoint = Vector2.new(0.5, 1)
+	label.Position = UDim2.fromScale(0.5, 0.95)
+	label.Size = UDim2.fromScale(0.9, 0.3)
+	label.Text = "ALARM"
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = Color3.fromHex("FFFFFF")
+	label.Parent = gui
+
+	-- Лампа сверху: тёмная, пока сигнализация не куплена, ярко-красная — когда куплена
+	local lamp = Instance.new("Part")
+	lamp.Name = "AlarmLamp"
+	lamp.Shape = Enum.PartType.Ball
+	lamp.Anchored = true
+	lamp.CanCollide = false
+	lamp.CanTouch = false
+	lamp.CastShadow = false
+	lamp.Material = Enum.Material.Neon
+	lamp.Color = Alarm.LampOffColor
+	local lampSize = Alarm.PanelSize.X * 0.45
+	lamp.Size = Vector3.new(lampSize, lampSize, lampSize)
+	lamp.CFrame = panel.CFrame * CFrame.new(0, Alarm.PanelSize.Y * 0.2, -Alarm.PanelSize.Z / 2)
+	lamp.Parent = panel
+	alarmLamp = lamp
+	return panel
 end
 
 local function setupAlarm()
 	for _, exhibit in ExhibitService.list() do
 		if exhibit.isMain then
-			local part = anchorPart(exhibit)
-			if part then
-				local prompt = newPrompt(part, ("Add $%d"):format(Config.Halls.ContributeStep), Enum.KeyCode.F)
-				prompt.Name = "AlarmPrompt"
-				prompt.UIOffset = Vector2.new(0, 90) -- ниже кнопки сетки, чтобы не наезжали
-				prompt.Triggered:Connect(function(player)
-					if alarmOwned then
-						return
+			local part = buildAlarmPanel(exhibit)
+			local prompt = Purchase.newPrompt(part, "AlarmPrompt", Alarm.Price)
+			prompt.Triggered:Connect(function(player)
+				if alarmOwned then
+					return
+				end
+				local amount = takeContribution(player, part, alarmPaid, Alarm.Price)
+				if amount > 0 then
+					alarmPaid += amount
+					if alarmPaid >= Alarm.Price then
+						alarmOwned = true
+						bannerRemote:FireAllClients("MONA LISA ALARM INSTALLED", "info")
 					end
-					local amount = takeContribution(player, part, alarmPaid, Alarm.Price)
-					if amount > 0 then
-						alarmPaid += amount
-						if alarmPaid >= Alarm.Price then
-							alarmOwned = true
-							bannerRemote:FireAllClients("MONA LISA ALARM INSTALLED", "info")
-						end
-						refreshAlarmPrompt()
-					end
-				end)
-				alarmPrompt = prompt
-			end
+					refreshAlarmPrompt()
+				end
+			end)
+			alarmPrompt = prompt
 		end
 	end
 	refreshAlarmPrompt()

@@ -3,6 +3,15 @@
 -- Числа баланса пока поставил Claude (помечены «баланс»). Друг предложит свои — см. TEAM_PLAN.md.
 
 local Config = {
+	Keys = { -- клавиши (решение 67); Q / E / C пока свободны — под наклоны и присед (блок 4)
+		Action = Enum.KeyCode.F, -- все кнопки у предметов (ProximityPrompt): покупка, арест, пульт
+	},
+
+	Purchase = { -- покупка одним удержанием F (решение 67): хватает денег — покупаешь сразу, нет — всё в полоску
+		HoldSeconds = 1, -- сколько держать F
+		PromptDistance = 10, -- с какого расстояния видно кнопку покупки
+	},
+
 	Players = {
 		Max = 5, -- больше игроков в одной игре не бывает (решение 52)
 		VoteSeconds = 15, -- сколько длится голосование за опоздавшего
@@ -73,9 +82,6 @@ local Config = {
 	Halls = {
 		Jewelry = { Price = 400, Title = "JEWELRY HALL" }, -- баланс: цена зала
 		Sculptures = { Price = 600, Title = "SCULPTURE HALL" },
-		ContributeStep = 50, -- сколько вкладывает одно удержание E (или сколько осталось денег)
-		ContributeHoldSeconds = 0.5,
-		PromptDistance = 10,
 		BoardsFallSeconds = 1.2, -- доски падают, когда зал оплачен
 	},
 
@@ -168,6 +174,14 @@ local Config = {
 		},
 		Alarm = { -- сигнализация на Мону Лизу
 			Price = 200, -- баланс
+			-- Щиток ALARM на стене справа от картины (смотреть на картину), со своей кнопкой F:
+			-- на самой картине кнопка лазерной сетки, а на одну клавишу Roblox показывает одну кнопку.
+			-- Смещение — от низа рамы в системе картины: −X — вправо для зрителя, +Y — вверх.
+			PanelOffset = Vector3.new(-5.5, 1, 0),
+			PanelSize = Vector3.new(1.6, 2.2, 0.3),
+			PanelColor = Color3.fromHex("3A3F4B"),
+			LampOffColor = Color3.fromHex("4A1C1E"), -- сигнализация не куплена
+			LampOnColor = Color3.fromHex("FF3B3B"), -- куплена
 		},
 	},
 
