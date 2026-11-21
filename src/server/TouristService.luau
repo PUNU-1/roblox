@@ -80,7 +80,7 @@ local function setAnim(tourist: Tourist, anim: string)
 	end
 end
 
--- «+$5» всплывает над туристом и тает.
+-- «+$10» (цена билета) всплывает над туристом и тает.
 local function showTicket(tourist: Tourist)
 	local head = tourist.model:FindFirstChild("Head")
 	if not (head and head:IsA("BasePart")) then

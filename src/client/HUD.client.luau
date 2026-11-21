@@ -248,6 +248,7 @@ local function showResults(results: { [string]: any })
 
 	local earnings = if typeof(results.earnings) == "table" then results.earnings else {}
 	local catches = if typeof(results.catches) == "table" then results.catches else {}
+	local wallets = if typeof(results.wallets) == "table" then results.wallets else {}
 	local best = tonumber(results.bestUserId) or 0
 	local order = 0
 	for userIdText, amount in earnings do
@@ -264,10 +265,12 @@ local function showResults(results: { [string]: any })
 			TextXAlignment = Enum.TextXAlignment.Left,
 			MaxTextSize = 22,
 			ZIndex = 5,
-			Text = ('%s   <font color="#D4A93A">+$%d</font>   caught: %d%s'):format(
+			-- Имя, поймал (и сколько заработал арестами), сколько денег у него сейчас
+			Text = ('%s   caught: %d <font color="#3FB56B">(+$%d)</font>   money: <font color="#D4A93A">$%d</font>%s'):format(
 				name,
-				tonumber(amount) or 0,
 				tonumber(catches[userIdText]) or 0,
+				tonumber(amount) or 0,
+				tonumber(wallets[userIdText]) or 0,
 				star
 			),
 			Parent = resultsList,

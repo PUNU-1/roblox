@@ -66,7 +66,7 @@ local function attachHandcuffs(model: Model)
 	cuffs.Parent = model
 end
 
--- «+$50» всплывает над головой пойманного вора и тает к моменту «пуф».
+-- «+$5» всплывает над головой пойманного вора и тает к моменту «пуф» (деньги — тому, кто арестовал).
 local function showReward(model: Model)
 	local head = model:FindFirstChild("Head")
 	if not (head and head:IsA("BasePart")) then
@@ -82,7 +82,7 @@ local function showReward(model: Model)
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.fromScale(1, 1)
-	label.Text = "+$" .. tostring(Config.Money.PerThief)
+	label.Text = "+$" .. tostring(Config.Money.PerArrest)
 	label.TextScaled = true
 	label.Font = Enum.Font.FredokaOne
 	label.TextColor3 = reward.Color
