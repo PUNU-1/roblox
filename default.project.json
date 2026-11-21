@@ -11,7 +11,8 @@
     "Lighting": {
       "$className": "Lighting",
       "$properties": {
-        "Technology": "Future",
+        "LightingStyle": "Realistic",
+        "PrioritizeLightingQuality": true,
         "GlobalShadows": true
       }
     },
