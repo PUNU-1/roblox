@@ -67,6 +67,7 @@ local MapSchema = {
 		Fountain = "prop_fountain_01",
 		Statue = "prop_statue_01",
 		Palm = "prop_palm_01",
+		Astronaut = "prop_astronaut_01",
 	},
 }
 

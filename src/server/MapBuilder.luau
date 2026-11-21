@@ -87,7 +87,7 @@ local STYLES: { [string]: WallStyle } = {
 	Corridor = { wall = hex("2E4A5A"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("4A2E1F"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
 	Lobby = { wall = hex("E6D9BE"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("6B4A2B"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
 	Sculptures = { wall = hex("D9D2C3"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("A89F8C"), trim = hex("F7F3EA"), trimMaterial = Enum.Material.Marble },
-	Dinosaurs = { wall = hex("D9B98A"), wallMaterial = Enum.Material.Sandstone, wainscot = hex("6B4A2B"), trim = hex("8A6A45"), trimMaterial = Enum.Material.Wood },
+	Dinosaurs = { wall = hex("D9B98A"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("6B4A2B"), trim = hex("8A6A45"), trimMaterial = Enum.Material.Wood },
 	Jewelry = { wall = hex("3B2559"), wallMaterial = Enum.Material.Fabric, wainscot = hex("2A1A12"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
 	Space = { wall = hex("1B2340"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("0F1428"), trim = hex("3BC6C1"), trimMaterial = Enum.Material.Neon },
 	Staff = { wall = hex("4A5266"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("2B2F3A"), trim = hex("8A93A6"), trimMaterial = Enum.Material.Metal },
@@ -800,6 +800,7 @@ local function makeKit(): MapDecor.Kit
 		place = placeModel,
 		sign = wallSign,
 		displayCase = DISPLAY_CASE_STUB,
+		bench = BENCH_STUB,
 	}
 end
 
@@ -962,7 +963,9 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 	}
 	placeModel(MapSchema.Models.Barrier, CFrame.new(-5, 0, 7.5), barrier)
 	placeModel(MapSchema.Models.Barrier, CFrame.new(5, 0, 7.5), barrier)
-	placeModel(MapSchema.Models.Bench, CFrame.new(0, 0, 23), BENCH_STUB)
+	for _, x in { -11, 11 } do -- по бокам от ковровой дорожки, лицом к картине
+		placeModel(MapSchema.Models.Bench, CFrame.new(x, 0, 24), BENCH_STUB)
+	end
 	placeModel(MapSchema.Models.Bench, CFrame.new(0, 0, -16), BENCH_STUB)
 	-- Ковровая дорожка от южной арки к Моне Лизе
 	decorPart("Carpet", Vector3.new(4, 0.05, 34), CFrame.new(0, 0.03, 27), COLORS.Red, Enum.Material.Fabric)
