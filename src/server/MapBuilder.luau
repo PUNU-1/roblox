@@ -462,7 +462,7 @@ end
 ---------------------------------------------------------------- потолки, полы, колонны
 
 -- Потолок на высоте y. skylight — стеклянный проём (свет днём сверху). Возвращает плиты потолка.
-local function ceiling(area: Rect, y: number, skylight: Rect?, color: Color3?): { Part }
+local function ceiling(area: Rect, y: number, skylight: Rect?, color: Color3?, glassName: string?): { Part }
 	local slabs: { Part } = {}
 	local function slab(x0: number, x1: number, z0: number, z1: number)
 		if x1 - x0 <= 0 or z1 - z0 <= 0 then
@@ -481,7 +481,7 @@ local function ceiling(area: Rect, y: number, skylight: Rect?, color: Color3?): 
 	slab(s.maxX, area.maxX, s.minZ, s.maxZ)
 	local width, depth = s.maxX - s.minX, s.maxZ - s.minZ
 	local centerX, centerZ = (s.minX + s.maxX) / 2, (s.minZ + s.maxZ) / 2
-	local glass = solidPart(MapSchema.Skylight, Vector3.new(width, 0.3, depth), CFrame.new(centerX, y + 0.85, centerZ), COLORS.Glass, Enum.Material.Glass)
+	local glass = solidPart(glassName or "HallSkylight", Vector3.new(width, 0.3, depth), CFrame.new(centerX, y + 0.85, centerZ), COLORS.Glass, Enum.Material.Glass)
 	glass.Transparency = 0.6
 	glass.CastShadow = false
 	-- Золотая рама и переплёт
@@ -608,6 +608,7 @@ type RoomSpec = {
 	hall: string?, -- атрибут Hall у пола: схема, туристы, открыт ли зал (nil — не часть музея)
 	wander: boolean?, -- false — туристы сюда не ходят (служебные помещения)
 	skylight: Rect?,
+	skylightName: string?, -- имя стекла (MapSchema.Skylight — только у центра)
 	ceilingColor: Color3?,
 	lampSpacing: number?, -- шаг дежурных ламп по длинным стенам; 0 — без ламп
 }
@@ -668,7 +669,7 @@ local function buildRoom(spec: RoomSpec, kind: string?): (Part, { Part })
 			end
 		end
 	end
-	local slabs = ceiling(rect(r.minX - 1, r.maxX + 1, r.minZ - 1, r.maxZ + 1), h, spec.skylight, spec.ceilingColor)
+	local slabs = ceiling(rect(r.minX - 1, r.maxX + 1, r.minZ - 1, r.maxZ + 1), h, spec.skylight, spec.ceilingColor, spec.skylightName)
 	return floor, slabs
 end
 
@@ -866,6 +867,7 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 		floorMaterial = Enum.Material.Marble,
 		hall = GameState.Hall.Main,
 		skylight = SKYLIGHT,
+		skylightName = MapSchema.Skylight, -- стекольщики режут его в блоке 3
 		lampSpacing = 22,
 	}, "Center")
 	checkerTiles(CENTER, 11, COLORS.MarbleDark)

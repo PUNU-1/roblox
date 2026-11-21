@@ -25,13 +25,16 @@
 - Этап 2 готов и проверен владельцем.
 - **B1 готов:** в лобби круг START SHIFT вместо READY (коммит da13431, что решил Claude — пункт 23 в `CLAUDE.md`).
 - **Блок 1 готов (код):** время, покупка одним удержанием F (`server/Purchase.luau`, `client/BuyPrompts.client.luau`), клавиши F / T, деньги, число воров. Что решил Claude — пункт 24 в `CLAUDE.md`.
+- **Блок 2 готов (код):** новый большой музей 260 × 260 (`server/MapBuilder.luau`, украшения залов — `server/MapDecor.luau`), двери сами открываются (`server/DoorService.luau`, `client/Doors.client.luau`), покупка камер (`server/CameraService.luau`), 18 экспонатов. Что решил Claude — пункт 25 в `CLAUDE.md`.
+  - Для блока 3: стеклянный потолок центра — `Map.Geometry.Skylight`; щиток POWER — `Map.Props.FuseBox`; точки у 4 дверей — `Map.Entrances` (South, West, North, East); работает ли камера — `CameraService.isWorking`.
+  - Для блока 4: оружейная (`Map.Props.ArmoryRack`) в конце служебного коридора; укрытия в коридорах — витрины, колонны, банкетки, валуны в зале Динозавров.
 - Владелец поиграл и попросил переделать многое. Claude задал ~70 вопросов. Ответы разложены по блокам ниже, короткие решения — 65–72 в `CLAUDE.md`.
 - Свет: Roblox убрал `Lighting.Technology`, вместо него `LightingStyle` + `PrioritizeLightingQuality`. В `NightMuseum.rbxl` и `default.project.json` уже стоят `Realistic` + `true`.
 
 ## Порядок (владелец, решение 65)
 
 1. [x] Блок 1 — основа: время, покупка, клавиши, деньги, число воров
-2. [ ] Блок 2 — новый большой музей
+2. [x] Блок 2 — новый большой музей
 3. [ ] Блок 3 — волны и умные воры
 4. [ ] Блок 4 — оружие, перестрелки, налёты
 5. [ ] Блок 5 — классы
