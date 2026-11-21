@@ -2,6 +2,8 @@
 -- Днём игроки покупают экспонаты вскладчину: у каждого постамента свой экспонат, держишь E —
 -- вкладываешь деньги. Ночью вор выбирает цель (чаще Мону Лизу), снимает её, несёт над головой.
 -- Поймали — экспонат возвращается на место. Унёс дешёвый — экспонат пропадает, его надо купить заново.
+-- Вор несёт копию экспоната, а настоящий прячется под картой: настоящий всегда закреплён и никогда
+-- не приваривается к вору, поэтому после ареста точно встаёт на место.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -38,7 +40,7 @@ export type Exhibit = {
 	hall: string,
 	carrier: Model?,
 	stealer: Model?,
-	originalCollide: { [BasePart]: boolean },
+	carryCopy: PVInstance?, -- копия, которую несёт вор
 }
 
 type Slot = {
@@ -144,11 +146,8 @@ local function newExhibit(title: string, model: PVInstance, home: CFrame, appeal
 		hall = hall,
 		carrier = nil,
 		stealer = nil,
-		originalCollide = {},
+		carryCopy = nil,
 	}
-	ModelLibrary.forEachPart(model, function(part)
-		exhibit.originalCollide[part] = part.CanCollide
-	end)
 	return exhibit
 end
 
@@ -225,7 +224,15 @@ function ExhibitService.cancelSteal(thief: Model)
 	end
 end
 
--- Вор снял экспонат: он прилипает над его головой.
+local function destroyCopy(exhibit: Exhibit)
+	local copy = exhibit.carryCopy
+	if copy then
+		copy:Destroy()
+		exhibit.carryCopy = nil
+	end
+end
+
+-- Вор снял экспонат: над его головой появляется копия, настоящий прячется под картой.
 function ExhibitService.take(exhibit: Exhibit, thief: Model): boolean
 	local head = thief:FindFirstChild("Head")
 	if not (head and head:IsA("BasePart")) or exhibit.carrier then
@@ -233,9 +240,20 @@ function ExhibitService.take(exhibit: Exhibit, thief: Model): boolean
 	end
 	setStealer(exhibit, nil)
 	exhibit.carrier = thief
+	destroyCopy(exhibit)
+	local copy = exhibit.model:Clone()
+	for _, descendant in copy:GetDescendants() do
+		-- Кнопки покупки и таблички с ценой у копии не нужны
+		if descendant:IsA("ProximityPrompt") or descendant:IsA("BillboardGui") then
+			descendant:Destroy()
+		end
+	end
+	copy.Name = exhibit.model.Name .. "_Carried"
 	local offset = Config.Painting.CarryOffset
-	-- Экспонат остаётся в своей папке (чтобы не пропал вместе с вором), но приварен к голове
-	ModelLibrary.weldTo(exhibit.model, head, head.CFrame * CFrame.new(offset.X, offset.Y, offset.Z))
+	ModelLibrary.weldTo(copy, head, head.CFrame * CFrame.new(offset.X, offset.Y, offset.Z))
+	copy.Parent = thief -- пропадёт вместе с вором
+	exhibit.carryCopy = copy
+	exhibit.model:PivotTo(exhibit.home - Vector3.new(0, ExhibitConfig.HideDepth, 0))
 	if exhibit.isMain then
 		GameState.set(GameState.Attr.PaintingStolen, true)
 	end
@@ -246,18 +264,7 @@ end
 function ExhibitService.returnHome(exhibit: Exhibit)
 	setStealer(exhibit, nil)
 	exhibit.carrier = nil
-	ModelLibrary.forEachPart(exhibit.model, function(part)
-		for _, child in part:GetChildren() do
-			if child:IsA("WeldConstraint") and child.Name == "CarryWeld" then
-				child:Destroy()
-			end
-		end
-		part.Anchored = true
-		part.Massless = false
-		part.CanCollide = if exhibit.originalCollide[part] ~= nil then exhibit.originalCollide[part] else true
-		part.CanQuery = true
-		part.CanTouch = true
-	end)
+	destroyCopy(exhibit)
 	exhibit.model:PivotTo(exhibit.home)
 	if exhibit.isMain then
 		GameState.set(GameState.Attr.PaintingStolen, false)
@@ -278,6 +285,7 @@ function ExhibitService.lose(exhibit: Exhibit)
 	if index then
 		table.remove(exhibits, index)
 	end
+	destroyCopy(exhibit)
 	exhibit.model:Destroy()
 	ExhibitService.Lost:Fire(exhibit)
 	for _, slot in slots do
@@ -442,6 +450,7 @@ function ExhibitService.reset()
 			if index then
 				table.remove(exhibits, index)
 			end
+			destroyCopy(exhibit)
 			exhibit.model:Destroy()
 			slot.exhibit = nil
 		end
