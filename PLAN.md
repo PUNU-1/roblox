@@ -34,6 +34,8 @@
   - Для блока 5: Штурмовик — `HealthService.resetPlayer` ставит `MaxHealth = Config.Health.Max`, классу нужно после него поставить `MaxHealth` / `Health` 125 (атрибуты игрока); отдача — `Weapons.client` (`cameraKick += RecoilPitch`) — умножить на `AssaultRecoil` по атрибуту `Role`.
   - Клавиши заняты: F, T, Tab, 1–4, R, Q, E, C (Shift и G свободны). Кнопки на телефоне (ContextActionService, позиции от правого нижнего угла): FIRE (−100, −250), Reload (−180, −250), Lean ▶ (−260, −250), ◀ Lean (−340, −250), Crouch (−250, −170), Phone (−170, −170).
   - `Config.Raid.TestForce = true` — налёт каждую ночь с 1-й (для проверки).
+- **Блок 5 готов (код):** классы — `Config.Classes`, умения на сервере (`server/AbilityService.luau`, Remote `UseAbility`), кнопка умения, датчики и рывок на экране (`client/Abilities.client.luau`), собаки (`client/DogAnimator.luau`), карточки в лобби (`client/UI/ClassCards.luau`), модели собаки, датчика и картинок (`shared/ClassModels.luau`). Что решил Claude — пункт 28 в `CLAUDE.md`.
+  - Для блока 6: класс — атрибут `Role` у игрока (выбор — `RoleService.canChooseClass`, Remote `SetRole`); в хабе карточки — тот же `ClassCards.new(gui, touchOnly, onChoose)`, класс передавать в `TeleportData` и ставить в музее до `startRound`. Здоровье по классу считает `GameState.maxHealthFor`.
 - Владелец поиграл и попросил переделать многое. Claude задал ~70 вопросов. Ответы разложены по блокам ниже, короткие решения — 65–72 в `CLAUDE.md`.
 - Свет: Roblox убрал `Lighting.Technology`, вместо него `LightingStyle` + `PrioritizeLightingQuality`. В `NightMuseum.rbxl` и `default.project.json` уже стоят `Realistic` + `true`.
 
@@ -43,7 +45,7 @@
 2. [x] Блок 2 — новый большой музей
 3. [x] Блок 3 — волны и умные воры
 4. [x] Блок 4 — оружие, перестрелки, налёты
-5. [ ] Блок 5 — классы
+5. [x] Блок 5 — классы
 6. [ ] Блок 6 — общее лобби с телепортом (после публикации)
 7. Блок 7 — по желанию
 
