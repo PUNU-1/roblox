@@ -34,6 +34,7 @@ local equipRemote = Remotes.get(Remotes.Names.Equip)
 local fireRemote = Remotes.get(Remotes.Names.Fire)
 local reloadRemote = Remotes.get(Remotes.Names.Reload)
 local medkitRemote = Remotes.get(Remotes.Names.UseMedkit)
+local stanceRemote = Remotes.get(Remotes.Names.SetStance)
 
 local FIREARMS = { Pistol = true, Rifle = true, Shotgun = true }
 local SLOT_TITLES = { "PRIMARY", "PISTOL", "TASER", "MEDKIT" }
@@ -614,6 +615,75 @@ end
 local SLOT_ACTION = "WeaponSlot"
 local RELOAD_ACTION = "WeaponReload"
 local FIRE_ACTION = "WeaponFire"
+local CROUCH_ACTION = "StanceCrouch"
+local LEAN_LEFT_ACTION = "StanceLeanLeft"
+local LEAN_RIGHT_ACTION = "StanceLeanRight"
+
+---------------------------------------------------------------- присед и наклон (блок 4.4)
+
+-- Присед (C) — переключатель; наклон (Q / E) — пока держишь (на телефоне — нажал / нажал ещё раз).
+-- Решает сервер (скорость, позу видят все); здесь — только намерение.
+local wantCrouch = false
+local leanLeftHeld, leanRightHeld = false, false
+local sentCrouch, sentLean = false, 0
+
+local function sendStance()
+	local lean = if leanLeftHeld and not leanRightHeld then -1 elseif leanRightHeld and not leanLeftHeld then 1 else 0
+	if downed() then
+		wantCrouch, leanLeftHeld, leanRightHeld, lean = false, false, false, 0
+	end
+	if wantCrouch ~= sentCrouch or lean ~= sentLean then
+		sentCrouch, sentLean = wantCrouch, lean
+		stanceRemote:FireServer(wantCrouch, lean)
+	end
+end
+
+-- Сервер сам снял стойку (упал без сил, конец забега) — забываем и у себя
+localPlayer:GetAttributeChangedSignal(PlayerAttr.Crouch):Connect(function()
+	local crouch = localPlayer:GetAttribute(PlayerAttr.Crouch) == true
+	if not crouch and sentCrouch then
+		wantCrouch, sentCrouch = false, false
+	end
+end)
+localPlayer:GetAttributeChangedSignal(PlayerAttr.Lean):Connect(function()
+	if number(PlayerAttr.Lean) == 0 and sentLean ~= 0 then
+		leanLeftHeld, leanRightHeld, sentLean = false, false, 0
+	end
+end)
+
+local function onCrouchAction(_name: string, state: Enum.UserInputState)
+	if state == Enum.UserInputState.Begin and not viewing() then
+		wantCrouch = not wantCrouch
+		sendStance()
+	end
+	return Enum.ContextActionResult.Sink
+end
+
+local function onLeanAction(name: string, state: Enum.UserInputState)
+	local left = name == LEAN_LEFT_ACTION
+	if state == Enum.UserInputState.Begin and not viewing() then
+		if touchOnly then
+			-- На телефоне кнопка — переключатель
+			if left then
+				leanLeftHeld, leanRightHeld = not leanLeftHeld, false
+			else
+				leanRightHeld, leanLeftHeld = not leanRightHeld, false
+			end
+		elseif left then
+			leanLeftHeld = true
+		else
+			leanRightHeld = true
+		end
+	elseif (state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel) and not touchOnly then
+		if left then
+			leanLeftHeld = false
+		else
+			leanRightHeld = false
+		end
+	end
+	sendStance()
+	return Enum.ContextActionResult.Sink
+end
 
 local function onSlotAction(_name: string, state: Enum.UserInputState, input: InputObject)
 	if state ~= Enum.UserInputState.Begin or viewing() then
@@ -653,13 +723,27 @@ local function setBound(shift: boolean, holding: boolean)
 		if shift then
 			ContextActionService:BindAction(SLOT_ACTION, onSlotAction, false, table.unpack(Keys.Slots))
 			ContextActionService:BindAction(RELOAD_ACTION, onReloadAction, touchOnly, Keys.Reload)
+			ContextActionService:BindAction(CROUCH_ACTION, onCrouchAction, touchOnly, Keys.Crouch, Enum.KeyCode.ButtonB)
+			ContextActionService:BindAction(LEAN_LEFT_ACTION, onLeanAction, touchOnly, Keys.LeanLeft, Enum.KeyCode.ButtonL1)
+			ContextActionService:BindAction(LEAN_RIGHT_ACTION, onLeanAction, touchOnly, Keys.LeanRight, Enum.KeyCode.ButtonR1)
 			if touchOnly then
 				ContextActionService:SetTitle(RELOAD_ACTION, "Reload")
 				ContextActionService:SetPosition(RELOAD_ACTION, UDim2.new(1, -180, 1, -250))
+				ContextActionService:SetTitle(CROUCH_ACTION, "Crouch")
+				ContextActionService:SetPosition(CROUCH_ACTION, UDim2.new(1, -250, 1, -170))
+				ContextActionService:SetTitle(LEAN_LEFT_ACTION, "◀ Lean")
+				ContextActionService:SetPosition(LEAN_LEFT_ACTION, UDim2.new(1, -340, 1, -250))
+				ContextActionService:SetTitle(LEAN_RIGHT_ACTION, "Lean ▶")
+				ContextActionService:SetPosition(LEAN_RIGHT_ACTION, UDim2.new(1, -260, 1, -250))
 			end
 		else
 			ContextActionService:UnbindAction(SLOT_ACTION)
 			ContextActionService:UnbindAction(RELOAD_ACTION)
+			ContextActionService:UnbindAction(CROUCH_ACTION)
+			ContextActionService:UnbindAction(LEAN_LEFT_ACTION)
+			ContextActionService:UnbindAction(LEAN_RIGHT_ACTION)
+			wantCrouch, leanLeftHeld, leanRightHeld = false, false, false
+			sentCrouch, sentLean = false, 0
 		end
 	end
 	-- На телефоне — большая кнопка «огонь», пока в руках оружие или аптечка (на геймпаде — правый курок)

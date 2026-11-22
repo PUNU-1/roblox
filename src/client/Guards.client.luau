@@ -389,7 +389,21 @@ local function ownCamera(dt: number)
 		crouch, lean = 0, 0
 	end
 	local drop = math.max(Knock.CameraDrop * knocked, HealthSettings.CameraDrop * down, Stance.CrouchDrop * crouch)
-	local target = Vector3.new(lean * Stance.LeanOffset, -drop, 0)
+	-- Наклон не заглядывает сквозь стену: вбок — не дальше, чем свободно от головы
+	local leanOffset = lean * Stance.LeanOffset
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local head = character and character:FindFirstChild("Head")
+	if lean ~= 0 and root and root:IsA("BasePart") and head and head:IsA("BasePart") then
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { character :: Instance, Workspace.CurrentCamera :: Instance }
+		local side = root.CFrame.RightVector * leanOffset
+		local hit = Workspace:Raycast(head.Position - Vector3.new(0, drop, 0), side + side.Unit * 0.4, params)
+		if hit then
+			leanOffset = lean * math.max(0, (hit.Position - (head.Position - Vector3.new(0, drop, 0))).Magnitude - 0.5)
+		end
+	end
+	local target = Vector3.new(leanOffset, -drop, 0)
 	cameraOffset = cameraOffset:Lerp(target, 1 - math.exp(-dt * Stance.BlendSpeed))
 	if (humanoid.CameraOffset - cameraOffset).Magnitude > 0.001 then
 		humanoid.CameraOffset = cameraOffset

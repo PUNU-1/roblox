@@ -574,6 +574,27 @@ local function setupRemotes()
 		end
 		fire(player, weapon, origin, direction)
 	end)
+	-- Присед и наклон (блок 4.4): только на смене и не лёжа; чаще 15 раз в секунду не принимаем
+	local stanceAt: { [Player]: number } = {}
+	Remotes.get(Remotes.Names.SetStance).OnServerEvent:Connect(function(player, crouch, lean)
+		if typeof(crouch) ~= "boolean" or typeof(lean) ~= "number" or (lean ~= -1 and lean ~= 0 and lean ~= 1) then
+			return
+		end
+		local time = os.clock()
+		if time - (stanceAt[player] or 0) < 1 / 15 then
+			return
+		end
+		stanceAt[player] = time
+		if not RoleService.isParticipant(player) or RoleService.isDowned(player) or not roundPhase() then
+			crouch, lean = false, 0
+		end
+		player:SetAttribute(PlayerAttr.Crouch, crouch)
+		player:SetAttribute(PlayerAttr.Lean, lean)
+		RoleService.refreshMovement(player)
+	end)
+	Players.PlayerRemoving:Connect(function(player)
+		stanceAt[player] = nil
+	end)
 	Remotes.get(Remotes.Names.Reload).OnServerEvent:Connect(reload)
 	Remotes.get(Remotes.Names.UseMedkit).OnServerEvent:Connect(useMedkit)
 end
