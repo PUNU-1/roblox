@@ -30,6 +30,10 @@
   - Для блока 4: оружейная (`Map.Props.ArmoryRack`) в конце служебного коридора; укрытия в коридорах — витрины, колонны, банкетки, валуны в зале Динозавров.
 - **Блок 3 готов (код):** волны (`server/WaveService.luau`), 7 планов (`server/Tactics/*`), виды воров (`server/ThiefKinds.luau`, поведение — `server/ThiefService.luau`), эффекты (`server/HeistFx.luau`), блэкаут (`server/BlackoutService.luau`), падение охранника (`client/Guards.client.luau`), Check ID (`server/CatchService.luau`). Что решил Claude — пункт 26 в `CLAUDE.md`.
   - Для блока 4: охранник уже умеет «лежать» (`RoleService.knockDown`, атрибуты `KnockedAt` / `KnockedUntil`, поза — `Guards.client`) — пригодится для «без здоровья лежит и ползёт». Налёт — это ещё один план в `Tactics/` (интерфейс как у `Tactics/Basic`), грабителей ставить через `ThiefService.spawnSpecial` или свой сервис.
+- **Блок 4 готов (код):** оружейная (`server/ArmoryService.luau`), оружие (`server/WeaponService.luau`, модели — `shared/WeaponModels.luau`, руки у камеры — `client/Weapons.client.luau`, эффекты — `client/Fx.luau`), здоровье и подъём (`server/HealthService.luau`, экран — `client/Combat.client.luau`), налёты (`server/RobberService.luau`), позы охранников для других — `client/Guards.client.luau`. Что решил Claude — пункт 27 в `CLAUDE.md`.
+  - Для блока 5: Штурмовик — `HealthService.resetPlayer` ставит `MaxHealth = Config.Health.Max`, классу нужно после него поставить `MaxHealth` / `Health` 125 (атрибуты игрока); отдача — `Weapons.client` (`cameraKick += RecoilPitch`) — умножить на `AssaultRecoil` по атрибуту `Role`.
+  - Клавиши заняты: F, T, Tab, 1–4, R, Q, E, C (Shift и G свободны). Кнопки на телефоне (ContextActionService, позиции от правого нижнего угла): FIRE (−100, −250), Reload (−180, −250), Lean ▶ (−260, −250), ◀ Lean (−340, −250), Crouch (−250, −170), Phone (−170, −170).
+  - `Config.Raid.TestForce = true` — налёт каждую ночь с 1-й (для проверки).
 - Владелец поиграл и попросил переделать многое. Claude задал ~70 вопросов. Ответы разложены по блокам ниже, короткие решения — 65–72 в `CLAUDE.md`.
 - Свет: Roblox убрал `Lighting.Technology`, вместо него `LightingStyle` + `PrioritizeLightingQuality`. В `NightMuseum.rbxl` и `default.project.json` уже стоят `Realistic` + `true`.
 
@@ -38,7 +42,7 @@
 1. [x] Блок 1 — основа: время, покупка, клавиши, деньги, число воров
 2. [x] Блок 2 — новый большой музей
 3. [x] Блок 3 — волны и умные воры
-4. [ ] Блок 4 — оружие, перестрелки, налёты
+4. [x] Блок 4 — оружие, перестрелки, налёты
 5. [ ] Блок 5 — классы
 6. [ ] Блок 6 — общее лобби с телепортом (после публикации)
 7. Блок 7 — по желанию

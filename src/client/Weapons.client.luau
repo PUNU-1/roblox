@@ -1013,7 +1013,11 @@ local function step(dt: number)
 	-- Прицел вместо стрелки мыши, пока в руках оружие
 	local aiming = visible and shownKind ~= "" and shownKind ~= "Medkit"
 	crosshair.Visible = aiming
-	UserInputService.MouseIconEnabled = not aiming
+	-- Стрелку мыши прячем, только пока она заперта в центре (список фраз и экран камер её освобождают)
+	local hideMouse = aiming and UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter
+	if UserInputService.MouseIconEnabled == hideMouse then
+		UserInputService.MouseIconEnabled = not hideMouse
+	end
 	if aiming then
 		local gap = 6 + spread * 16 + (if shownKind == "Shotgun" then 10 else 0)
 		ticks[1].Position = UDim2.new(0.5, -gap - 5, 0.5, 0)
