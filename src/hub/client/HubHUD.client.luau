@@ -16,6 +16,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local ClassCards = require(UI:WaitForChild("ClassCards"))
+local ClassShop = require(script.Parent:WaitForChild("ClassShop"))
 
 local PadAttr = GameState.PadAttr
 local PadState = GameState.PadState
@@ -78,10 +79,22 @@ local diamondFrame = Theme.new("Frame", {
 }, { Theme.corner(12), Theme.stroke(Colors.Diamond, 2) })
 local diamondLabel = Theme.label({ Size = UDim2.fromScale(1, 1), TextColor3 = Colors.Diamond, Text = "💎 0", MaxTextSize = 30, Parent = diamondFrame })
 Theme.padding(6).Parent = diamondFrame
+-- Кнопка SHOP (клавиша B): окно магазина классов (ClassShop)
+local shopButton = Theme.button({
+	Name = "Shop",
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -12, 0, 64),
+	Size = UDim2.fromOffset(150, 40),
+	BackgroundColor3 = Colors.Gold,
+	TextColor3 = Colors.Navy,
+	Text = if touchOnly then "SHOP" else "SHOP  [B]",
+	MaxTextSize = 22,
+	Parent = gui,
+})
 local diamondNote = Theme.label({
 	Name = "DiamondNote",
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -12, 0, 62),
+	Position = UDim2.new(1, -12, 0, 110),
 	Size = UDim2.fromOffset(240, 18),
 	Font = Theme.BodyFont,
 	TextColor3 = Colors.Marble,
@@ -159,8 +172,7 @@ local function chooseClass(role: string)
 		return
 	end
 	if not GameState.ownsClass(localPlayer, role) then
-		local info = GameState.classInfo(role)
-		showBanner(("%s — %d 💎. Buy it in the CLASS SHOP"):format(if info then string.upper(tostring(info.Title)) else role, GameState.classPrice(role)), "info")
+		ClassShop.open(role) -- некупленный класс — сразу в магазин на нём
 		return
 	end
 	Remotes.get(Remotes.Names.SetRole):FireServer(role)
@@ -265,9 +277,24 @@ local overlayHint = Theme.label({
 
 ---------------------------------------------------------------- клавиши
 
+shopButton.Activated:Connect(function()
+	if not launching() then
+		ClassShop.toggle()
+	end
+end)
+
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
+	end
+	if input.KeyCode == Enum.KeyCode.B then
+		if not launching() then
+			ClassShop.toggle()
+		end
+		return
+	end
+	if ClassShop.isOpen() then
+		return -- пока окно магазина открыто, клавиши хаба не работают
 	end
 	if input.KeyCode == Config.Keys.Action then
 		pressStart()
@@ -328,6 +355,10 @@ RunService.Heartbeat:Connect(function(dt)
 		overlayHint.Text = ("Your class: %s"):format(if info then tostring(info.Title) else "Patrol")
 	end
 
+	if flying and ClassShop.isOpen() then
+		ClassShop.close() -- команда улетает — окно магазина закрываем
+	end
+	shopButton.Visible = not flying
 	classCards.setVisible(not flying)
 	if not flying then
 		classCards.refresh(GameState.roleOf(localPlayer))

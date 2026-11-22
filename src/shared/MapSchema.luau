@@ -35,6 +35,8 @@ local MapSchema = {
 	HubSpawn = "HubSpawn", -- SpawnLocation в хабе
 	LeaderboardAllTime = "LeaderboardAllTime", -- доска рекордов за всё время (SurfaceGui рисует LeaderboardService)
 	LeaderboardWeekly = "LeaderboardWeekly", -- доска рекордов за неделю
+	ClassShop = "ClassShop", -- витрина CLASS SHOP в хабе (этап 4, блок 1): подставки ClassStand_<класс>
+	ClassStandPrefix = "ClassStand_", -- подставка: модель с деталями Top (сюда клиент ставит модель класса) и Label (табличка)
 	MonitorScreens = "MonitorScreens", -- экраны стены мониторов (оживляет MonitorWall.client)
 
 	-- Папки, которые появляются во время игры (прямо в Workspace)
@@ -104,6 +106,8 @@ local MapSchema = {
 		CoffeeMachine = "prop_coffeemachine_01",
 		NoticeBoard = "prop_noticeboard_01",
 		Trophy = "prop_trophy_01",
+		-- этап 4, блок 1: витрина CLASS SHOP в хабе
+		ClassStand = "prop_classstand_01",
 	},
 }
 

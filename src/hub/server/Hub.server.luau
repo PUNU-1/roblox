@@ -95,6 +95,25 @@ Players.PlayerRemoving:Connect(function(player)
 	end
 end)
 
+-- Магазин классов (этап 4, блок 1): покупка за алмазы. Всё проверяет ProfileStore (класс, цена, хватает ли
+-- алмазов, не куплен ли уже) по сохранённым данным; один запрос игрока за раз. Ответ — ShopResult.
+local shopResultRemote = Remotes.get(Remotes.Names.ShopResult)
+local buying: { [Player]: boolean } = {}
+Remotes.get(Remotes.Names.BuyClass).OnServerEvent:Connect(function(player, role)
+	if typeof(role) ~= "string" or not GameState.classInfo(role) or buying[player] then
+		return
+	end
+	buying[player] = true
+	local ok, message = ProfileStore.buyClass(player, role)
+	buying[player] = nil
+	if player.Parent then
+		shopResultRemote:FireClient(player, ok, role, message)
+	end
+end)
+Players.PlayerRemoving:Connect(function(player)
+	buying[player] = nil
+end)
+
 -- Класс (карточки, клавиши 1–5): любой купленный из Config.Classes.Order, пока команда игрока не улетает
 Remotes.get(Remotes.Names.SetRole).OnServerEvent:Connect(function(player, role)
 	if not GameState.classInfo(role) or PadService.isLaunching(player) or not ProfileStore.owns(player, role) then

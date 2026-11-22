@@ -8,9 +8,9 @@
 --   | шкафчики   (1)        (2)        (3)        (4)        (5)     доска    |
 --   | банкетки                    5 светящихся кругов                рекордов |
 --   |                                  ковёр                         кубок    |
---   | картина   доска HOW TO PLAY   [ дверь ]   кулер, кофе            картина |
+--   | картина   доска HOW TO PLAY   [ дверь ]   кулер, кофе   CLASS SHOP (5 подставок) |
 --   +--------------------------------- вход ------------------------------------+
---   Игроки появляются у южной двери лицом к кругам.
+--   Игроки появляются у южной двери лицом к кругам. Витрина CLASS SHOP (этап 4, блок 1) — у южной стены справа.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -103,6 +103,21 @@ local LOCKER_STUB: { ModelLibrary.StubPart } = {
 	{ name = "HingeTop", size = Vector3.new(0.1, 0.4, 0.1), offset = CFrame.new(-1.02, 6.2, -1.08), color = CHROME, material = Enum.Material.Metal },
 	{ name = "HingeBottom", size = Vector3.new(0.1, 0.4, 0.1), offset = CFrame.new(-1.02, 1.4, -1.08), color = CHROME, material = Enum.Material.Metal },
 }
+
+-- Подставка витрины CLASS SHOP (этап 4, блок 1): тёмный мрамор, тёмно-синяя тумба с золотыми кантами,
+-- светящееся кольцо (цвет класса ставит код — деталь Glow), мраморный верх. Модель класса на неё ставит клиент.
+-- Верх подставки — на высоте 2.4. Перед — в −Z.
+local CLASS_STAND_STUB: { ModelLibrary.StubPart } = {
+	{ name = "Base", size = Vector3.new(3, 0.3, 3), offset = CFrame.new(0, 0.15, 0), color = hex("2B2F3A"), material = Enum.Material.Marble },
+	{ name = "BaseTrim", size = Vector3.new(2.7, 0.12, 2.7), offset = CFrame.new(0, 0.36, 0), color = hex("D4A93A"), material = Enum.Material.Metal },
+	{ name = "Body", size = Vector3.new(2.3, 1.6, 2.3), offset = CFrame.new(0, 1.22, 0), color = hex("1E2A44") },
+	{ name = "BodyBand", size = Vector3.new(2.36, 0.14, 2.36), offset = CFrame.new(0, 1.7, 0), color = hex("D4A93A"), material = Enum.Material.Metal },
+	{ name = "Glow", size = Vector3.new(0.12, 2.5, 2.5), offset = CFrame.new(0, 2.08, 0) * CFrame.Angles(0, 0, math.rad(90)), color = hex("3BC6C1"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder },
+	{ name = "TopTrim", size = Vector3.new(2.7, 0.14, 2.7), offset = CFrame.new(0, 2.2, 0), color = hex("D4A93A"), material = Enum.Material.Metal },
+	{ name = "TopPlate", size = Vector3.new(2.5, 0.12, 2.5), offset = CFrame.new(0, 2.33, 0), color = hex("E8DCC4"), material = Enum.Material.Marble },
+	{ name = "Plaque", size = Vector3.new(1.5, 0.5, 0.06), offset = CFrame.new(0, 1.12, -1.17), color = hex("D4A93A"), material = Enum.Material.Metal },
+}
+local STAND_TOP = 2.4 -- высота верха подставки
 
 -- Пульт охраны под стеной мониторов: столешница, тумбы, клавиатуры, панели с кнопками. Перед (к сидящему) — в −Z.
 local DESK_STUB: { ModelLibrary.StubPart } = {
@@ -496,6 +511,121 @@ local function buildEntrance(kit: Kit)
 	k.plant(-HALF_X + 2.5, wallZ - 3)
 end
 
+-- Витрина CLASS SHOP (этап 4, блок 1) у южной стены справа от двери: помост с ковром, тёмная стена-фон
+-- с золотой рамой, вывеска CLASS SHOP с двумя алмазами, 5 подставок с подсветкой. Над каждой — табличка
+-- (название и цена или OWNED — пишет клиент, у каждого своё). F у подставки открывает окно магазина
+-- (ProximityPrompt, его ловит клиент: окно — только картинка, покупку проверяет сервер).
+local function buildClassShop(kit: Kit, map: Folder)
+	local k = kit.kit
+	local colors = k.colors
+	local wallZ = HALF_Z
+	local left, right = 19.5, 45.5
+	local centerX = (left + right) / 2
+	local width = right - left
+	local front = 27.2 -- передний край помоста
+	local depth = wallZ - front
+	local folder = Instance.new("Folder")
+	folder.Name = MapSchema.ClassShop
+	folder.Parent = map
+
+	-- Помост: ступенька 0.4, тёмно-синий ковёр, золотой кант спереди и по бокам
+	local dais = kit.part(folder, "Dais", Vector3.new(width, 0.4, depth), CFrame.new(centerX, 0.2, front + depth / 2), hex("1E2A44"), Enum.Material.Fabric)
+	dais:SetAttribute("MapObstacle", true)
+	k.decor("DaisEdge", Vector3.new(width, 0.42, 0.3), CFrame.new(centerX, 0.21, front + 0.15), colors.Gold, Enum.Material.Metal)
+	for _, x in { left + 0.15, right - 0.15 } do
+		k.decor("DaisSide", Vector3.new(0.3, 0.42, depth), CFrame.new(x, 0.21, front + depth / 2), colors.Gold, Enum.Material.Metal)
+	end
+
+	-- Стена-фон: тёмная панель с золотой рамой и тонкими полосами
+	local backZ = wallZ - 0.12
+	local backHeight = 9.6
+	k.decor("ShopBackFrame", Vector3.new(width + 0.6, backHeight + 0.6, 0.12), CFrame.new(centerX, 0.4 + backHeight / 2, backZ + 0.04), colors.Gold, Enum.Material.Metal)
+	k.decor("ShopBack", Vector3.new(width, backHeight, 0.14), CFrame.new(centerX, 0.4 + backHeight / 2, backZ - 0.04), hex("141B2E"))
+	for i = 1, 4 do
+		local x = left + i * width / 5
+		k.decor("ShopBackStripe", Vector3.new(0.12, backHeight - 0.4, 0.16), CFrame.new(x, 0.4 + backHeight / 2, backZ - 0.06), hex("2E4170"), Enum.Material.Metal)
+	end
+
+	-- Вывеска CLASS SHOP и строка под ней, по бокам — светящиеся алмазы
+	k.sign(Vector3.new(centerX, 12.6, wallZ), Vector3.new(0, 0, -1), 15, 2.6, "CLASS SHOP")
+	k.sign(Vector3.new(centerX, 10.7, wallZ), Vector3.new(0, 0, -1), 22, 0.9, "EARN 💎 BY SURVIVING NIGHTS  •  CLASSES ARE YOURS FOREVER", colors.Marble)
+	for _, side in { -1, 1 } do
+		local point = Vector3.new(centerX + side * 9.3, 12.6, wallZ - 0.3)
+		local gem = k.decor("ShopGem", Vector3.new(1.5, 1.5, 0.35), CFrame.new(point) * CFrame.Angles(0, 0, math.rad(45)), Config.Diamonds.Color, Enum.Material.Neon)
+		local light = Instance.new("PointLight")
+		light.Range = 8
+		light.Brightness = 1.2
+		light.Color = Config.Diamonds.Color
+		light.Parent = gem
+		k.decor("ShopGemRim", Vector3.new(1.8, 1.8, 0.2), CFrame.new(point + Vector3.new(0, 0, 0.12)) * CFrame.Angles(0, 0, math.rad(45)), colors.Gold, Enum.Material.Metal)
+	end
+
+	-- Подсветка: рельс вдоль стены-фона и по фонарю над каждой подставкой
+	k.decor("TrackRail", Vector3.new(width - 1, 0.25, 0.25), CFrame.new(centerX, 9.7, wallZ - 1.4), hex("2B2F3A"), Enum.Material.Metal)
+	for _, x in { left + 1, right - 1 } do
+		k.decor("TrackArm", Vector3.new(0.2, 0.2, 1.4), CFrame.new(x, 9.7, wallZ - 0.75), hex("2B2F3A"), Enum.Material.Metal)
+	end
+
+	local order = Config.Classes.Order
+	local step = width / #order
+	for index, role in order do
+		local info = (Config.Classes :: any)[role]
+		local x = left + (index - 0.5) * step
+		local z = front + 4.2
+		local standCFrame = CFrame.lookAt(Vector3.new(x, 0.4, z), Vector3.new(x, 0.4, z - 1))
+		local stand = k.place(Models.ClassStand, standCFrame, CLASS_STAND_STUB)
+		stand.Name = MapSchema.ClassStandPrefix .. role
+		stand.Parent = folder
+		stand:SetAttribute("Class", role)
+		local glow = stand:FindFirstChild("Glow", true)
+		if glow and glow:IsA("BasePart") then
+			glow.Color = info.Color
+			local light = Instance.new("PointLight")
+			light.Range = 7
+			light.Brightness = 1
+			light.Color = info.Color
+			light.Parent = glow
+		end
+		-- Невидимая точка на верху подставки: сюда клиент ставит модель класса, на ней кнопка F
+		local top = kit.part(stand, "Top", Vector3.new(1.6, 0.2, 1.6), standCFrame * CFrame.new(0, STAND_TOP + 0.1, 0), colors.Gold)
+		top.Transparency = 1
+		top.CanCollide = false
+		top.CanQuery = false
+		top.CanTouch = false
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "ShopPrompt"
+		prompt.ActionText = "Open shop"
+		prompt.ObjectText = tostring(info.Title)
+		prompt.KeyboardKeyCode = Config.Keys.Action
+		prompt.HoldDuration = 0.25
+		prompt.MaxActivationDistance = 9
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = top
+
+		-- Фонарь на рельсе светит на подставку
+		local lampPoint = Vector3.new(x, 9.35, wallZ - 1.4)
+		local can = k.decor("ShopSpot", Vector3.new(0.7, 0.9, 0.7), CFrame.lookAt(lampPoint, Vector3.new(x, STAND_TOP + 1, z)), hex("2B2F3A"), Enum.Material.Metal)
+		local spot = Instance.new("SpotLight")
+		spot.Face = Enum.NormalId.Front
+		spot.Angle = 50
+		spot.Range = 14
+		spot.Brightness = 2.2
+		spot.Color = Color3.fromRGB(255, 240, 220)
+		spot.Shadows = true
+		spot.Parent = can
+
+		-- Табличка над подставкой: золотая рама и тёмная доска (надпись у каждого игрока своя — ставит клиент)
+		local labelPoint = Vector3.new(x, 7.7, backZ - 0.2)
+		local look = CFrame.lookAt(labelPoint, labelPoint + Vector3.new(0, 0, -1))
+		k.decor("ShopLabelFrame", Vector3.new(4.5, 2.1, 0.08), look * CFrame.new(0, 0, 0.04), colors.Gold, Enum.Material.Metal)
+		local label = kit.part(stand, "Label", Vector3.new(4.3, 1.9, 0.1), look * CFrame.new(0, 0, -0.03), hex("1E2A44"))
+		label.CanCollide = false
+		label.CanQuery = false
+		label.CanTouch = false
+		label.CastShadow = false
+	end
+end
+
 -- 5 светящихся кругов: диск (по нему сервер считает команду), золотой ободок, заклёпки, номер на полу.
 local function buildPads(kit: Kit, map: Folder): { BasePart }
 	local k = kit.kit
@@ -584,8 +714,7 @@ local function buildFloorAndCeiling(kit: Kit)
 	end
 	-- Картины по краям северной и южной стен
 	local r = kit.rect(-HALF_X, HALF_X, -HALF_Z, HALF_Z)
-	kit.paintingOn(r, "S", -38, 8.5, 6, 4)
-	kit.paintingOn(r, "S", 38, 8.5, 6, 4)
+	kit.paintingOn(r, "S", -38, 8.5, 6, 4) -- справа на южной стене — витрина CLASS SHOP
 end
 
 ---------------------------------------------------------------- сборка
@@ -642,6 +771,7 @@ function HubBuilder.build(): (Instance, { BasePart })
 	buildLockerRoom(kit)
 	buildHallOfFame(kit, map)
 	buildEntrance(kit)
+	buildClassShop(kit, map) -- этап 4, блок 1
 	local northWall = -HALF_Z
 	wantedPoster(kit, Vector3.new(-40, 9, northWall), Vector3.new(0, 0, 1), "THE BRUTE", hex("3A3F4B"), -4)
 	wantedPoster(kit, Vector3.new(-33, 9.4, northWall), Vector3.new(0, 0, 1), "THE SHADOW", hex("1C1C24"), 3)

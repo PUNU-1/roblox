@@ -419,8 +419,10 @@ function ClassCards.new(gui: ScreenGui, touchOnly: boolean, onChoose: (role: str
 	}
 end
 
--- 3D-картинка класса и камера к ней — для кнопки умения (Abilities.client).
+-- 3D-картинка класса и камера к ней — для кнопки умения (Abilities.client), витрины и окна магазина хаба.
 ClassCards.picture = buildPicture
 ClassCards.frameCamera = frameCamera
+ClassCards.infoText = infoText
+ClassCards.abilityLine = abilityLine
 
 return ClassCards
