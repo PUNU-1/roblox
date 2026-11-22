@@ -92,7 +92,8 @@ local Config = {
 		AimDot = 0, -- направление выстрела не дальше 90° от того, куда смотрит персонаж (по полу)
 		-- Бронежилет и аптечка
 		Vest = { Armor = 50 },
-		Medkit = { Heal = 50, UseSeconds = 2, MaxCarry = 2 },
+		Medkit = { Heal = 50, UseSeconds = 2, MaxCarry = 2, Color = Color3.fromHex("3FD17A") },
+		ArmorSparkColor = Color3.fromHex("8FC8FF"), -- пуля попала в бронежилет
 		TracerSeconds = 0.07, -- трассер пули виден столько
 		TracerWidth = 0.08,
 		TracerColor = Color3.fromHex("FFE7A0"),
@@ -718,6 +719,9 @@ local Config = {
 		RobberDown = "rbxasset://sounds/oof.ogg", -- ВРЕМЕННЫЙ: грабитель упал (ниже тоном)
 		RobberDownSpeed = 0.75,
 		PoliceSpeed = 0.75, -- сирена полиции — та же Alarm ниже тоном (ВРЕМЕННАЯ)
+		Heal = "rbxasset://sounds/action_get_up.mp3", -- ВРЕМЕННЫЙ: аптечка подействовала
+		HealVolume = 0.7,
+		HealSpeed = 1.4,
 		StepVolume = 0.6,
 		StepRollOff = 30, -- шаги слышно только рядом
 		EffectRollOff = 60, -- звуки у деталей (касса, доски, камера) слышно в этом радиусе

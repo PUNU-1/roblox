@@ -248,6 +248,32 @@ Remotes.get(Remotes.Names.Hurt).OnClientEvent:Connect(function(from, amount)
 	end
 end)
 
+-- Аптечка подействовала — весь край экрана мягко зеленеет; броню пробили — полоска брони мигает
+local lastHealth = number(localPlayer, PlayerAttr.Health)
+localPlayer:GetAttributeChangedSignal(PlayerAttr.Health):Connect(function()
+	local health = number(localPlayer, PlayerAttr.Health)
+	if health > lastHealth and onShift() and localPlayer:GetAttribute(PlayerAttr.Downed) ~= true and lastHealth > 0 then
+		for _, frame in edges do
+			frame.BackgroundColor3 = Config.Weapons.Medkit.Color
+			flash(frame, 0.45)
+			task.delay(Settings.HurtFlashSeconds, function()
+				frame.BackgroundColor3 = EDGE_COLOR
+			end)
+		end
+	end
+	lastHealth = health
+end)
+
+local lastArmor = number(localPlayer, PlayerAttr.Armor)
+localPlayer:GetAttributeChangedSignal(PlayerAttr.Armor):Connect(function()
+	local armor = number(localPlayer, PlayerAttr.Armor)
+	if armor < lastArmor then
+		armorFill.BackgroundColor3 = Colors.White
+		TweenService:Create(armorFill, TweenInfo.new(0.3), { BackgroundColor3 = Color3.fromHex("4A90E2") }):Play()
+	end
+	lastArmor = armor
+end)
+
 ---------------------------------------------------------------- чужие выстрелы
 
 -- Конец ствола у оружия в руках стрелка (охранника или грабителя): модель Gear.Held, деталь Root, точка Muzzle.

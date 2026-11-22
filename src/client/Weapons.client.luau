@@ -93,7 +93,7 @@ local HOLD: { [string]: CFrame } = {
 	Taser = CFrame.new(0.44, -0.6, -1.5) * CFrame.Angles(0, 0.05, 0),
 	Rifle = CFrame.new(0.55, -0.78, -1.45) * CFrame.Angles(0, 0.06, 0),
 	Shotgun = CFrame.new(0.55, -0.8, -1.4) * CFrame.Angles(0, 0.06, 0),
-	Medkit = CFrame.new(0, -0.55, -1.75) * CFrame.Angles(0.25, 0, 0),
+	Medkit = CFrame.new(0, -0.32, -1.7) * CFrame.Angles(0.25, 0, 0),
 }
 -- Куда от кисти уходит предплечье (к нижним углам экрана), в системе камеры
 local RIGHT_ARM_DIR = Vector3.new(0.38, -0.55, 1).Unit

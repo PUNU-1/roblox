@@ -446,7 +446,8 @@ local function useMedkit(player: Player)
 		if left < 0 then
 			return
 		end
-		HealthService.heal(player, settings.Heal)
+		local healed = HealthService.heal(player, settings.Heal)
+		HealthService.healEffect(player, healed)
 		player:SetAttribute(PlayerAttr.Medkits, left)
 		if left == 0 then
 			setEquipped(player, "")

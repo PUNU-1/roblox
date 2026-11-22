@@ -160,6 +160,73 @@ end
 
 ---------------------------------------------------------------- урон и лечение
 
+local function burst(part: BasePart, color: Color3, count: number, speed: number)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	emitter.Color = ColorSequence.new(color)
+	emitter.LightEmission = 0.8
+	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
+	emitter.Lifetime = NumberRange.new(0.3, 0.7)
+	emitter.Speed = NumberRange.new(speed * 0.5, speed)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Rate = 0
+	emitter.Parent = part
+	emitter:Emit(count)
+	task.delay(1, function()
+		emitter:Destroy()
+	end)
+end
+
+-- Пуля попала в бронежилет: голубые искры на груди (броня держит удар).
+local function armorSpark(player: Player)
+	local torso = player.Character and player.Character:FindFirstChild("UpperTorso")
+	if torso and torso:IsA("BasePart") then
+		burst(torso, Config.Weapons.ArmorSparkColor, 10, 10)
+	end
+end
+
+-- Аптечка подействовала: зелёные искорки вокруг охранника и «+50», всплывает и тает (видят все).
+function HealthService.healEffect(player: Player, amount: number)
+	local character = player.Character
+	local torso = character and character:FindFirstChild("UpperTorso")
+	local head = character and character:FindFirstChild("Head")
+	local color = Config.Weapons.Medkit.Color
+	if torso and torso:IsA("BasePart") then
+		burst(torso, color, 24, 6)
+		Audio.playOnce(Config.Sounds.Heal, torso, Config.Sounds.HealVolume, nil, Config.Sounds.HealSpeed)
+	end
+	if head and head:IsA("BasePart") and amount > 0 then
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = "HealText"
+		billboard.Size = UDim2.fromScale(3, 1.2)
+		billboard.StudsOffset = Vector3.new(0, 1.6, 0)
+		billboard.MaxDistance = 80
+		billboard.LightInfluence = 0
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency = 1
+		label.Size = UDim2.fromScale(1, 1)
+		label.Text = ("+%d"):format(math.floor(amount))
+		label.TextScaled = true
+		label.Font = Enum.Font.FredokaOne
+		label.TextColor3 = color
+		label.TextStrokeTransparency = 0
+		label.Parent = billboard
+		billboard.Parent = head
+		task.spawn(function()
+			for step = 1, 20 do
+				task.wait(0.05)
+				if not billboard.Parent then
+					return
+				end
+				billboard.StudsOffset = Vector3.new(0, 1.6 + step * 0.06, 0)
+				label.TextTransparency = math.max(0, (step - 10) / 10)
+				label.TextStrokeTransparency = label.TextTransparency
+			end
+			billboard:Destroy()
+		end)
+	end
+end
+
 local function goDown(player: Player)
 	player:SetAttribute(PlayerAttr.Health, 0)
 	player:SetAttribute(PlayerAttr.Downed, true)
@@ -191,6 +258,7 @@ function HealthService.damage(player: Player, amount: number, from: Vector3?): b
 	local absorbed = math.min(armor, amount)
 	if absorbed > 0 then
 		player:SetAttribute(PlayerAttr.Armor, armor - absorbed)
+		armorSpark(player)
 	end
 	local left = amount - absorbed
 	local health = math.max(0, HealthService.health(player) - left)
