@@ -18,6 +18,7 @@ local Server = script.Parent
 local ExhibitService = require(Server:WaitForChild("ExhibitService"))
 local Audio = require(Server:WaitForChild("Audio"))
 local Purchase = require(Server:WaitForChild("Purchase"))
+local ShopService = require(Server:WaitForChild("ShopService"))
 
 local Laser = Config.Traps.LaserGrid
 local Alarm = Config.Traps.Alarm
@@ -362,6 +363,116 @@ local function setupAlarm()
 	refreshAlarmPrompt()
 end
 
+---------------------------------------------------------------- окно магазина (этап 4, блок 1b)
+
+local PREVIEW_POST = Color3.fromHex("2A2F3A")
+
+local function previewPart(model: Model, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?): Part
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.CFrame = cframe
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.Anchored = true
+	part.Parent = model
+	return part
+end
+
+-- 3D-картинка лазерной сетки: стойки и лучи вокруг экспоната (у Моны Лизы — перед картиной).
+-- Лучи — тонкие неоновые детали: Beam в ViewportFrame не видно.
+local function laserPreview(exhibitId: string, isMain: boolean): Model
+	local model = Instance.new("Model")
+	model.Name = "LaserPreview"
+	local halfX, halfZ = Laser.FenceHalf, Laser.FenceHalf
+	local centerZ = 0
+	local exhibit = ExhibitService.preview(exhibitId)
+	if isMain then
+		halfX, halfZ = Laser.MainFenceWidth / 2, Laser.MainFenceDepth / 2
+		centerZ = -halfZ -- картина на стене, сетка перед ней (перед — в −Z)
+		exhibit:PivotTo(CFrame.new(0, 1.2, 0))
+	end
+	exhibit.Parent = model
+	local corners = {
+		Vector3.new(-halfX, 0, centerZ - halfZ),
+		Vector3.new(halfX, 0, centerZ - halfZ),
+		Vector3.new(halfX, 0, centerZ + halfZ),
+		Vector3.new(-halfX, 0, centerZ + halfZ),
+	}
+	for index, corner in corners do
+		previewPart(model, "Post", Vector3.new(0.4, Laser.PostHeight, 0.4), CFrame.new(corner + Vector3.new(0, Laser.PostHeight / 2, 0)), PREVIEW_POST, Enum.Material.Metal)
+		local nextCorner = corners[index % #corners + 1]
+		for _, height in Laser.BeamHeights do
+			local a = corner + Vector3.new(0, height, 0)
+			local b = nextCorner + Vector3.new(0, height, 0)
+			previewPart(model, "Beam", Vector3.new(0.12, 0.12, (b - a).Magnitude), CFrame.lookAt((a + b) / 2, b), Laser.BeamColor, Enum.Material.Neon)
+		end
+	end
+	return model
+end
+
+-- 3D-картинка сигнализации: щиток ALARM с красной лампой и сиреной на бархатной стенке.
+local function alarmPreview(): Model
+	local model = Instance.new("Model")
+	model.Name = "AlarmPreview"
+	local size = Alarm.PanelSize
+	previewPart(model, "Wall", Vector3.new(size.X + 1.2, size.Y + 2.2, 0.2), CFrame.new(0, (size.Y + 2.2) / 2, 0.25), Color3.fromHex("5E1622"), Enum.Material.Fabric)
+	previewPart(model, "Panel", size, CFrame.new(0, size.Y / 2 + 0.3, 0), Alarm.PanelColor, Enum.Material.Metal)
+	local lampSize = size.X * 0.45
+	local lamp = previewPart(model, "Lamp", Vector3.new(lampSize, lampSize, lampSize), CFrame.new(0, size.Y * 0.7 + 0.3, -size.Z / 2), Alarm.LampOnColor, Enum.Material.Neon)
+	lamp.Shape = Enum.PartType.Ball
+	local siren = previewPart(model, "Siren", Vector3.new(0.5, 1.1, 1.1), CFrame.new(0, size.Y + 1.2, -0.2) * CFrame.Angles(0, math.pi / 2, 0), Alarm.LampOnColor, Enum.Material.Glass)
+	siren.Shape = Enum.PartType.Cylinder
+	siren.Transparency = 0.15
+	previewPart(model, "SirenBase", Vector3.new(1.3, 0.25, 0.6), CFrame.new(0, size.Y + 0.75, -0.1), PREVIEW_POST, Enum.Material.Metal)
+	return model
+end
+
+local function gridOf(exhibitId: string): Grid?
+	for exhibit, grid in grids do
+		if exhibit.id == exhibitId then
+			return grid
+		end
+	end
+	return nil
+end
+
+-- Сигнализация и лазерные сетки (у каждого экспоната своя) во вкладке Security. Камеры добавляет CameraService.
+local function registerInShop()
+	ShopService.register({
+		category = "Security",
+		id = "Alarm",
+		title = "Mona Lisa Alarm",
+		info = "Siren when a thief touches the painting",
+		order = 1,
+		price = Alarm.Price,
+		preview = alarmPreview(),
+		state = function(): ShopService.State
+			return { paid = alarmPaid, owned = alarmOwned }
+		end,
+	})
+	for index, entry in ExhibitService.catalog() do
+		local id = entry.id
+		ShopService.register({
+			category = "Security",
+			id = "Laser_" .. id,
+			title = "Laser Grid",
+			info = ("%s • slows thieves %d s"):format(entry.title, Laser.SlowSeconds),
+			order = 1 + index,
+			price = Laser.Price,
+			hall = entry.hall,
+			preview = laserPreview(id, id == ExhibitService.MainId),
+			state = function(): ShopService.State
+				local grid = gridOf(id)
+				if not grid then
+					return { paid = 0, owned = false, missing = "NO EXHIBIT" } -- экспонат ещё не куплен
+				end
+				return { paid = grid.paid, owned = grid.model ~= nil }
+			end,
+		})
+	end
+end
+
 ---------------------------------------------------------------- фазы
 
 -- День: можно покупать защиту для всех экспонатов, что есть сейчас.
@@ -432,6 +543,7 @@ function TrapService.init(_map: Instance)
 		securityFolder = created
 	end
 	setupAlarm()
+	registerInShop()
 	-- Сигнализация: вор начал снимать Мону Лизу
 	ExhibitService.StealStarted.Event:Connect(function(exhibit: ExhibitService.Exhibit)
 		if exhibit.isMain and alarmOwned then

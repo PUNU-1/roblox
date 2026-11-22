@@ -19,6 +19,7 @@ local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local Purchase = require(Server:WaitForChild("Purchase"))
 local WeaponService = require(Server:WaitForChild("WeaponService"))
 local HealthService = require(Server:WaitForChild("HealthService"))
+local ShopService = require(Server:WaitForChild("ShopService"))
 
 local Goods = Config.Armory.Goods
 
@@ -203,7 +204,7 @@ local AMMO_LOOK = {
 	ShotgunAmmo = { name = "prop_ammo_shotgun_01", color = hex("8A2A22"), label = "12 GA", round = hex("C8343A"), tip = hex("D9A441"), shell = true },
 }
 
-local function ammoBox(item: string, cframe: CFrame)
+local function ammoBoxModel(item: string): PVInstance
 	local look = AMMO_LOOK[item]
 	local stub: { ModelLibrary.StubPart } = {
 		{ name = "Box", size = Vector3.new(1.5, 0.7, 0.95), offset = CFrame.new(0, 0.35, 0), color = look.color, material = M.Metal },
@@ -221,11 +222,21 @@ local function ammoBox(item: string, cframe: CFrame)
 			table.insert(stub, { name = "Tip", size = Vector3.new(0.11, 0.11, 0.11), offset = CFrame.new(x, 1.15, 0.15), color = look.tip, material = M.Metal, shape = Enum.PartType.Ball })
 		end
 	end
-	local box = ModelLibrary.place(look.name, cframe, stub, folder)
+	local box = ModelLibrary.build(look.name, stub)
 	local label = box:FindFirstChild("Label")
 	if label and label:IsA("BasePart") then
 		textCard(label, Enum.NormalId.Front, { { text = look.label, color = hex("1E2A44") } })
 	end
+	return box
+end
+
+local function ammoBox(item: string, cframe: CFrame)
+	local box = ammoBoxModel(item)
+	ModelLibrary.forEachPart(box, function(part)
+		part.Anchored = true
+	end)
+	box:PivotTo(cframe)
+	box.Parent = folder
 end
 
 local TABLE_ITEMS = {
@@ -290,6 +301,51 @@ local function buildWall(rack: CFrame)
 	display("Taser", rack * CFrame.new(2.4, 1.77, -0.6) * CFrame.Angles(0, math.pi / 2, 0) * CFrame.Angles(0, 0, math.pi / 2))
 end
 
+---------------------------------------------------------------- окно магазина (этап 4, блок 1b)
+
+local Weapons = Config.Weapons
+
+-- Товары оружейной во вкладках Weapons и Gear: категория, товар, одна строка описания (числа — из Config).
+local SHOP_GOODS: { { category: string, item: string, info: string } } = {
+	{ category = "Weapons", item = "Taser", info = ("Stuns a thief for %d s • works every night"):format(Weapons.Taser.StunThief) },
+	{ category = "Weapons", item = "Pistol", info = ("%d damage • %d-round mag • raids only"):format(Weapons.Pistol.Damage, Weapons.Pistol.MagSize) },
+	{ category = "Weapons", item = "Rifle", info = ("%d damage, full auto • %d-round mag • raids only"):format(Weapons.Rifle.Damage, Weapons.Rifle.MagSize) },
+	{ category = "Weapons", item = "Shotgun", info = ("%d × %d damage up close • raids only"):format(Weapons.Shotgun.Pellets, Weapons.Shotgun.Damage) },
+	{ category = "Weapons", item = "PistolAmmo", info = ("+%d rounds for your pistol"):format(Weapons.Pistol.MagSize) },
+	{ category = "Weapons", item = "RifleAmmo", info = ("+%d rounds for your rifle"):format(Weapons.Rifle.MagSize) },
+	{ category = "Weapons", item = "ShotgunAmmo", info = ("+%d shells for your shotgun"):format(Weapons.Shotgun.MagSize) },
+	{ category = "Gear", item = "Vest", info = ("+%d armor • lost before health"):format(Weapons.Vest.Armor) },
+	{ category = "Gear", item = "Medkit", info = ("+%d health in %d s • carry up to %d"):format(Weapons.Medkit.Heal, Weapons.Medkit.UseSeconds, Weapons.Medkit.MaxCarry) },
+}
+
+local function goodPreview(item: string): PVInstance
+	local good = (Goods :: any)[item]
+	if good.Kind == "Ammo" then
+		return ammoBoxModel(item)
+	elseif good.Kind == "Vest" then
+		local vest = WeaponModels.fromSpecs("guard_vest_01", WeaponModels.vestSpecs(Vector3.new(2, 1.6, 1)))
+		WeaponModels.labelVest(vest.model)
+		return vest.model
+	end
+	return WeaponModels.build(item).model
+end
+
+local function registerInShop()
+	for order, entry in SHOP_GOODS do
+		local good = (Goods :: any)[entry.item]
+		ShopService.register({
+			category = entry.category,
+			id = entry.item,
+			title = good.Title,
+			info = entry.info,
+			order = order,
+			price = good.Price,
+			personal = entry.item,
+			preview = goodPreview(entry.item),
+		})
+	end
+end
+
 ---------------------------------------------------------------- снаружи
 
 -- Покупать можно днём (вечером оружейная закрыта, как и всё остальное).
@@ -314,6 +370,7 @@ function ArmoryService.init(map: Instance)
 	buildTable(pivot)
 	buildMannequin(pivot)
 	buildWall(pivot)
+	registerInShop()
 end
 
 return ArmoryService

@@ -90,8 +90,8 @@ local SIZE = if touchOnly then 70 else 88
 local widget = Theme.new("Frame", {
 	Name = "Ability",
 	AnchorPoint = if touchOnly then Vector2.new(1, 0) else Vector2.new(1, 1),
-	-- компьютер: справа внизу над патронами; телефон: справа под деньгами (внизу справа — кнопки на экране)
-	Position = if touchOnly then UDim2.new(1, -12, 0, 66) else UDim2.new(1, -20, 1, -96),
+	-- компьютер: справа внизу над патронами; телефон: справа под деньгами и кнопкой SHOP (внизу справа — кнопки на экране)
+	Position = if touchOnly then UDim2.new(1, -12, 0, 110) else UDim2.new(1, -20, 1, -96),
 	Size = UDim2.fromOffset(SIZE + 40, SIZE + 30),
 	BackgroundTransparency = 1,
 	Visible = false,

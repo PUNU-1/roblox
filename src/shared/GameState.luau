@@ -207,6 +207,28 @@ GameState.BuyPrompt = {
 	Open = "BuyOpen", -- boolean, покупать сейчас можно (днём); видна ли кнопка игроку, решает его клиент по своим вещам
 }
 
+-- Окно магазина в музее (этап 4, блок 1b): товары лежат в ReplicatedStorage.Shop.<вкладка>.<id> (Configuration,
+-- внутри — модель Preview для 3D-картинки). Пишет только сервер (ShopService), окно (Shop.client) читает.
+GameState.ShopFolder = "Shop"
+GameState.ShopAttr = {
+	Title = "Title", -- string, название товара
+	Info = "Info", -- string, одна строка описания
+	Order = "Order", -- number, место во вкладке
+	Price = "Price", -- number, полная цена
+	Hall = "Hall", -- string, зал товара ("" — не привязан к залу): закрыт — HALL CLOSED
+	Item = "Item", -- string, товар оружейной (Config.Armory.Goods): у каждого свой, что можно купить — GameState.armoryOffer
+	Paid = "Paid", -- number, сколько уже вложили вскладчину (общие товары)
+	Owned = "Owned", -- boolean, куплено (зал — открыт)
+	Missing = "Missing", -- string, почему сейчас нельзя купить, кроме денег и зала («NO EXHIBIT»); "" — можно
+}
+
+-- Ответ сервера на покупку из окна (Remote ShopReply)
+GameState.ShopReply = {
+	Bought = "Bought", -- куплено: «Bought: Golden Vase»
+	PutIn = "PutIn", -- деньги ушли в полоску складчины
+	Fail = "Fail", -- не вышло (денег нет, зал закрыт, ночь…)
+}
+
 -- Что будет, если удержать кнопку покупки (решение 67): хватает денег на остаток — «Buy $остаток»,
 -- не хватает — «Put in $все деньги», денег нет совсем — «Need $остаток».
 function GameState.buyActionText(remaining: number, money: number): string

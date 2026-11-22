@@ -10,6 +10,7 @@ local Config = {
 		LeanLeft = Enum.KeyCode.Q, -- наклон влево (держать)
 		LeanRight = Enum.KeyCode.E, -- наклон вправо (держать)
 		Crouch = Enum.KeyCode.C, -- присесть / встать
+		Shop = Enum.KeyCode.B, -- окно магазина днём (этап 4, блок 1b)
 		-- места с собой: 1 — основное (автомат или дробовик), 2 — пистолет, 3 — шокер, 4 — аптечка
 		Slots = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four },
 	},
@@ -299,6 +300,23 @@ local Config = {
 	Purchase = { -- покупка одним удержанием F (решение 67): хватает денег — покупаешь сразу, нет — всё в полоску
 		HoldSeconds = 1, -- сколько держать F
 		PromptDistance = 10, -- с какого расстояния видно кнопку покупки
+	},
+
+	-- Окно магазина в музее (этап 4, блок 1b): днём B, кнопка SHOP или касса SHOP у Моны Лизы. Покупает по тем же
+	-- правилам, что кнопки F (Purchase), но без проверки расстояния. Цены — у самих товаров (Exhibits, Halls, Traps,
+	-- Cameras, Armory).
+	Shop = {
+		Tabs = { "Exhibits", "Halls", "Security", "Weapons", "Gear" }, -- вкладки по порядку
+		RefreshSeconds = 0.25, -- как часто сервер обновляет для окна «сколько вложено / куплено»
+		BuyCooldown = 0.3, -- покупка из окна не чаще раза за столько секунд (защита от спама Remote)
+		PopupSeconds = 2.5, -- надпись «Bought: Golden Vase»
+		PreviewSpin = 0.45, -- 3D-картинки товаров крутятся (радиан в секунду)
+		HintNights = 1, -- подсказка «Press B to open the shop» — в первые N дней забега
+		-- Касса SHOP у Моны Лизы (MapBuilder): где стоит и куда смотрит (по полу центра)
+		CounterPosition = Vector3.new(27, 0, 30),
+		CounterFacing = Vector3.new(8, 0, 40), -- смотрит на эту точку (к ковровой дорожке и южному входу)
+		CounterPromptDistance = 9,
+		CounterHoldSeconds = 0.25,
 	},
 
 	Players = {

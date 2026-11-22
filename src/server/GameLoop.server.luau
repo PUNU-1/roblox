@@ -39,6 +39,7 @@ local HubLink = require(Server:WaitForChild("HubLink"))
 local RecordStore = require(Server:WaitForChild("RecordStore"))
 local Audio = require(Server:WaitForChild("Audio"))
 local ProfileStore = require(Server:WaitForChild("ProfileStore"))
+local ShopService = require(Server:WaitForChild("ShopService"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -48,6 +49,7 @@ ModelLibrary.setupCollisionGroups()
 -- Тени: без них свет ламп и фонариков проходит сквозь стены, и ночью не темно
 Lighting.GlobalShadows = true
 local map = MapBuilder.build()
+ShopService.init() -- окно магазина (этап 4, блок 1b): товары регистрируют сервисы ниже
 RoleService.init(map)
 LobbyService.init(map)
 ExhibitService.init(map)

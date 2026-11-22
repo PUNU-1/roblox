@@ -17,10 +17,13 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local Purchase = require(Server:WaitForChild("Purchase"))
+local ShopService = require(Server:WaitForChild("ShopService"))
 
 local ExhibitConfig = Config.Exhibits
 
 local ExhibitService = {}
+
+ExhibitService.MainId = "MonaLisa" -- id Моны Лизы (у остальных — вид экспоната из Config.Exhibits.Kinds)
 
 -- Вор начал снимать экспонат (exhibit). Сигнализация на Мону Лизу слушает его.
 ExhibitService.StealStarted = Instance.new("BindableEvent")
@@ -30,6 +33,7 @@ ExhibitService.Added = Instance.new("BindableEvent")
 ExhibitService.Lost = Instance.new("BindableEvent")
 
 export type Exhibit = {
+	id: string, -- вид экспоната (Config.Exhibits.Kinds) или "MonaLisa"
 	title: string,
 	model: PVInstance,
 	home: CFrame,
@@ -258,9 +262,10 @@ local function now(): number
 	return Workspace:GetServerTimeNow()
 end
 
-local function newExhibit(title: string, model: PVInstance, home: CFrame, appeal: number, isMain: boolean, hall: string): Exhibit
+local function newExhibit(id: string, title: string, model: PVInstance, home: CFrame, appeal: number, isMain: boolean, hall: string): Exhibit
 	local front = home.Position + home.LookVector * Config.Thief.StandOffset
 	local exhibit: Exhibit = {
+		id = id,
 		title = title,
 		model = model,
 		home = home,
@@ -544,11 +549,15 @@ refreshSlot = function(slot: Slot)
 	end
 end
 
+local function modelName(kind: string): string
+	return "exhibit_" .. string.lower(kind) .. "_01"
+end
+
 local function placeExhibit(slot: Slot)
 	local folder = exhibitsFolder or Workspace
 	local stub = STUBS[slot.kind] or STUBS.GoldVase
-	local model = ModelLibrary.place("exhibit_" .. string.lower(slot.kind) .. "_01", slotTop(slot), stub, folder)
-	local exhibit = newExhibit(slot.title, model, slotTop(slot), slot.appeal, false, slot.hall)
+	local model = ModelLibrary.place(modelName(slot.kind), slotTop(slot), stub, folder)
+	local exhibit = newExhibit(slot.kind, slot.title, model, slotTop(slot), slot.appeal, false, slot.hall)
 	slot.exhibit = exhibit
 	table.insert(exhibits, exhibit)
 	refreshSlot(slot)
@@ -603,6 +612,71 @@ local function setupSlot(slot: Slot)
 	refreshSlot(slot)
 end
 
+---------------------------------------------------------------- окно магазина (этап 4, блок 1b)
+
+-- 3D-картинка экспоната для окна магазина (модель друга или заглушка). Мона Лиза — копия картины.
+function ExhibitService.preview(kind: string): PVInstance
+	local main = mainExhibit
+	if kind == ExhibitService.MainId and main then
+		local copy = main.model:Clone()
+		copy:PivotTo(CFrame.identity)
+		return copy
+	end
+	return ModelLibrary.build(modelName(kind), STUBS[kind] or STUBS.GoldVase)
+end
+
+-- Все экспонаты музея для окна магазина: Мона Лиза, потом постаменты по порядку.
+function ExhibitService.catalog(): { { id: string, title: string, hall: string } }
+	local list = { { id = ExhibitService.MainId, title = "Mona Lisa", hall = GameState.Hall.Main } }
+	for _, slot in slots do
+		table.insert(list, { id = slot.kind, title = slot.title, hall = slot.hall })
+	end
+	return list
+end
+
+-- 3D-картинка зала для окна магазина: постамент зала с самым дорогим его экспонатом.
+function ExhibitService.hallPreview(hall: string): PVInstance?
+	local best: Slot? = nil
+	for _, slot in slots do
+		if slot.hall == hall and (best == nil or slot.price > best.price) then
+			best = slot
+		end
+	end
+	if not best then
+		return nil
+	end
+	local container = Instance.new("Model")
+	container.Name = "HallPreview"
+	local pedestal = best.pedestal:Clone()
+	pedestal:PivotTo(CFrame.identity)
+	pedestal.Parent = container
+	local exhibit = ExhibitService.preview(best.kind)
+	exhibit:PivotTo(CFrame.new(0, ExhibitConfig.PedestalHeight, 0))
+	exhibit.Parent = container
+	return container
+end
+
+local function hallTitle(hall: string): string
+	local settings = (Config.Halls :: any)[hall]
+	return if typeof(settings) == "table" then tostring(settings.Title) else "CENTER HALL"
+end
+
+local function registerInShop(slot: Slot, order: number)
+	ShopService.register({
+		category = "Exhibits",
+		id = slot.kind,
+		title = slot.title,
+		info = ("+%d tourist%s a day • %s"):format(slot.appeal, if slot.appeal == 1 then "" else "s", hallTitle(slot.hall)),
+		order = order,
+		price = slot.price,
+		hall = slot.hall,
+		preview = ExhibitService.preview(slot.kind),
+		state = function(): ShopService.State
+			return { paid = slot.paid, owned = slot.exhibit ~= nil }
+		end,
+	})
+end
+
 -- Днём можно покупать экспонаты.
 function ExhibitService.setDayActive(active: boolean)
 	dayActive = active
@@ -638,7 +712,7 @@ function ExhibitService.init(map: Instance)
 	local painting = exhibitsFolder and exhibitsFolder:FindFirstChild(MapSchema.Models.MonaLisa)
 	if painting and painting:IsA("PVInstance") then
 		local home = if spot and spot:IsA("BasePart") then spot.CFrame else painting:GetPivot()
-		mainExhibit = newExhibit("Mona Lisa", painting, home, 0, true, GameState.Hall.Main)
+		mainExhibit = newExhibit(ExhibitService.MainId, "Mona Lisa", painting, home, 0, true, GameState.Hall.Main)
 		table.insert(exhibits, mainExhibit :: Exhibit)
 	else
 		warn("[ExhibitService] На карте нет Моны Лизы")
@@ -680,6 +754,12 @@ function ExhibitService.init(map: Instance)
 				setupSlot(slot)
 			end
 		end
+	end
+	table.sort(slots, function(a, b)
+		return (tonumber(a.pedestal:GetAttribute("Slot")) or 0) < (tonumber(b.pedestal:GetAttribute("Slot")) or 0)
+	end)
+	for order, slot in slots do
+		registerInShop(slot, order)
 	end
 end
 

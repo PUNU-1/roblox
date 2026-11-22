@@ -20,6 +20,7 @@ local RoleService = require(Server:WaitForChild("RoleService"))
 local Audio = require(Server:WaitForChild("Audio"))
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local Purchase = require(Server:WaitForChild("Purchase"))
+local ShopService = require(Server:WaitForChild("ShopService"))
 
 local Attr = GameState.CameraAttr
 local Cameras = Config.Cameras
@@ -393,6 +394,24 @@ function CameraService.init(map: Instance)
 
 	setupRepair(map)
 	CameraService.reset()
+
+	-- Камеры во вкладке Security окна магазина (этап 4, блок 1b), после сигнализации и сеток
+	for _, camera in cameras do
+		local hall = camera.point:GetAttribute(Attr.Hall)
+		ShopService.register({
+			category = "Security",
+			id = "Camera" .. camera.index,
+			title = ("CAM %d"):format(camera.index),
+			info = ("Camera — %s"):format(Cameras.Names[camera.index] or "Museum"),
+			order = 100 + camera.index,
+			price = Cameras.Price,
+			hall = if typeof(hall) == "string" then hall else nil,
+			preview = ModelLibrary.build(MapSchema.Models.Camera, CAMERA_STUB),
+			state = function(): ShopService.State
+				return { paid = camera.paid, owned = isOwned(camera.point) }
+			end,
+		})
+	end
 end
 
 return CameraService

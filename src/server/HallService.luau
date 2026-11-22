@@ -16,6 +16,8 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Server = script.Parent
 local Audio = require(Server:WaitForChild("Audio"))
 local Purchase = require(Server:WaitForChild("Purchase"))
+local ExhibitService = require(Server:WaitForChild("ExhibitService"))
+local ShopService = require(Server:WaitForChild("ShopService"))
 
 local HallConfig = Config.Halls
 
@@ -150,6 +152,22 @@ function HallService.reset()
 	end
 end
 
+-- Зал в окне магазина (этап 4, блок 1b): сколько вложено и открыт ли. spots — сколько в нём постаментов.
+local function registerInShop(door: Door, spots: number)
+	ShopService.register({
+		category = "Halls",
+		id = door.hall,
+		title = door.title,
+		info = ("%d exhibit spots • more tourists"):format(spots),
+		order = table.find(GameState.PaidHalls, door.hall) or #GameState.PaidHalls + 1,
+		price = door.price,
+		preview = ExhibitService.hallPreview(door.hall),
+		state = function(): ShopService.State
+			return { paid = door.paid, owned = GameState.isHallOpen(door.hall) }
+		end,
+	})
+end
+
 function HallService.init(map: Instance)
 	GameState.set(GameState.hallOpenAttr(GameState.Hall.Main), true)
 	doorsFolder = map:FindFirstChild(MapSchema.HallDoors)
@@ -172,6 +190,19 @@ function HallService.init(map: Instance)
 				GameState.set(GameState.hallOpenAttr(hall), false)
 				updateSign(door)
 			end
+		end
+	end
+	local pedestals = map:FindFirstChild(MapSchema.Pedestals)
+	for _, hall in GameState.PaidHalls do
+		local door = doors[hall]
+		if door then
+			local spots = 0
+			for _, pedestal in (if pedestals then pedestals:GetChildren() else {}) do
+				if pedestal:GetAttribute("Hall") == hall then
+					spots += 1
+				end
+			end
+			registerInShop(door, spots)
 		end
 	end
 end

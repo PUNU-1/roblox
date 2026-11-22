@@ -30,6 +30,8 @@ local NAMES: { [string]: string } = {
 	GameOverChoice = "GameOverChoice", -- (choice: string) музей, конец забега: "PlayAgain" | "Lobby"
 	-- этап 4, блок 1: магазин классов в хабе
 	BuyClass = "BuyClass", -- (role: string) купить класс за алмазы; сервер проверяет класс, цену и алмазы
+	-- этап 4, блок 1b: окно магазина в музее
+	ShopBuy = "ShopBuy", -- (category: string, id: string) купить товар из окна; сервер проверяет товар, фазу, деньги, зал
 
 	-- сервер -> клиенты
 	PhraseShown = "PhraseShown", -- (userId: number, index: number)
@@ -39,6 +41,7 @@ local NAMES: { [string]: string } = {
 	Hurt = "Hurt", -- (from: Vector3?, amount: number) охранника ранили: с какой стороны вспыхнуть краю экрана
 	ShotFx = "ShotFx", -- (shooter: Instance, weapon: string, origin: Vector3, ends: { Vector3 }, hits: { boolean }) выстрел для картинки
 	ShopResult = "ShopResult", -- (ok: boolean, role: string, message: string) ответ на BuyClass
+	ShopReply = "ShopReply", -- (kind: string, category: string, id: string, text: string) ответ на ShopBuy, kind — GameState.ShopReply
 	HitConfirm = "HitConfirm", -- (kind: string) стрелку: попал ("hit"), в голову ("head"), грабитель упал ("ko"), шокер ("stun")
 }
 Remotes.Names = NAMES
