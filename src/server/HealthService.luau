@@ -53,7 +53,7 @@ function HealthService.health(player: Player): number
 end
 
 function HealthService.maxHealth(player: Player): number
-	return tonumber(player:GetAttribute(PlayerAttr.MaxHealth)) or Settings.Max
+	return tonumber(player:GetAttribute(PlayerAttr.MaxHealth)) or GameState.maxHealthFor(player)
 end
 
 function HealthService.armor(player: Player): number
@@ -323,13 +323,15 @@ function HealthService.endNight()
 end
 
 -- Полное здоровье, без брони и без «лежит» (новый забег или вошёл опоздавший).
+-- Сколько здоровья — по классу (блок 5): у Штурмовика больше. На смене класс не меняется.
 local function resetPlayer(player: Player)
 	if holdStarted[player] then
 		clearReviver(player)
 	end
 	removePrompt(player)
-	player:SetAttribute(PlayerAttr.MaxHealth, Settings.Max)
-	player:SetAttribute(PlayerAttr.Health, Settings.Max)
+	local max = GameState.maxHealthFor(player)
+	player:SetAttribute(PlayerAttr.MaxHealth, max)
+	player:SetAttribute(PlayerAttr.Health, max)
 	player:SetAttribute(PlayerAttr.Armor, 0)
 	player:SetAttribute(PlayerAttr.Downed, false)
 	player:SetAttribute(PlayerAttr.DownedAt, 0)
@@ -349,6 +351,12 @@ local function onPlayerAdded(player: Player)
 		-- Вошёл в забег (с начала или опоздавшим) или вышел из него — всё с нуля
 		player:GetAttributeChangedSignal(PlayerAttr.InRound):Connect(function()
 			resetPlayer(player)
+		end),
+		-- Выбрал класс в лобби — сразу видно, сколько у него будет здоровья (Штурмовик — 125)
+		player:GetAttributeChangedSignal(PlayerAttr.Role):Connect(function()
+			if not RoleService.isParticipant(player) then
+				resetPlayer(player)
+			end
 		end),
 		-- Новый персонаж, а охранник всё ещё лежит — кнопка Revive на новом персонаже
 		player.CharacterAdded:Connect(function(character)

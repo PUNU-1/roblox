@@ -312,11 +312,13 @@ local function shoot(kind: string)
 	else
 		Fx.muzzleFlash(muzzle, if kind == "Shotgun" then 1.4 elseif kind == "Rifle" then 1.1 else 0.9)
 		localAmmo[kind] = predictedAmmo(kind) - 1
-		recoilKick = math.min(1.5, recoilKick + (if kind == "Shotgun" then 1 elseif kind == "Rifle" then 0.45 else 0.7))
+		-- Штурмовик (блок 5) держит оружие крепче: отдача ×AssaultRecoil
+		local recoil = GameState.recoilFor(localPlayer)
+		recoilKick = math.min(1.5, recoilKick + recoil * (if kind == "Shotgun" then 1 elseif kind == "Rifle" then 0.45 else 0.7))
 		-- Отдача: прицел уходит вверх и чуть вбок (камера запоминает это сама)
-		cameraKick += math.rad(info.RecoilPitch)
-		cameraKickYaw += math.rad(info.RecoilYaw) * (math.random() * 2 - 1)
-		spread = math.min(1, spread + 0.25)
+		cameraKick += math.rad(info.RecoilPitch) * recoil
+		cameraKickYaw += math.rad(info.RecoilYaw) * recoil * (math.random() * 2 - 1)
+		spread = math.min(1, spread + 0.25 * recoil)
 	end
 	Fx.shotSound(kind, nil)
 	lastShotAt = now()
