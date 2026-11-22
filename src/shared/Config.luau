@@ -321,6 +321,73 @@ local Config = {
 		LabelMaxDistance = 90,
 	},
 
+	-- Блок 6: два места одной игры. Номера мест владелец вписывает после публикации (0 — ещё не опубликовано:
+	-- телепорта нет, музей работает сам по себе со своим кругом START SHIFT).
+	Places = {
+		HubPlaceId = 0, -- место Hub (общее лобби, стартовое)
+		MuseumPlaceId = 0, -- место Museum (забег одной команды)
+		TicketSource = "NightGuardHub", -- метка в данных телепорта из хаба (музей принимает только такие)
+		ReturnSource = "NightGuardMuseum", -- метка в данных телепорта из музея обратно в хаб
+		TeleportRetries = 3, -- сколько раз пробовать ReserveServer и TeleportAsync
+		RetryDelay = 2, -- секунд между попытками
+	},
+
+	Hub = { -- общее лобби (блок 6): 5 кругов на полу, на каждом своя команда
+		Pads = 5, -- сколько кругов
+		PadRadius = 6, -- стадов от центра круга до края (по HumanoidRootPart)
+		PadHeight = 12, -- выше этого над кругом не считается (прыжок из команды не выкидывает)
+		CountdownSeconds = 30, -- отсчёт от первого игрока в круге; создатель может нажать START раньше
+		CheckSeconds = 0.2, -- как часто сервер проверяет, кто в кругах
+		BlockedSeconds = 6, -- в Studio (телепорта нет) надпись висит столько, потом отсчёт сначала
+		FailedSeconds = 5, -- телепорт не удался — надпись столько, потом отсчёт сначала
+		LaunchTimeout = 20, -- команда не улетела за столько секунд — круг снова открыт
+		Color = Color3.fromHex("3BC6C1"), -- круг ждёт игроков
+		MineColor = Color3.fromHex("3FB56B"), -- твой круг
+		FullColor = Color3.fromHex("C8343A"), -- команда полная, а ты не в ней
+		FriendsColor = Color3.fromHex("8E5BC2"), -- Friends only, а ты не в команде
+		LaunchColor = Color3.fromHex("FFD23F"), -- команда улетает
+		BlockedColor = Color3.fromHex("4A5266"), -- телепорт не удался или не работает в Studio
+		PulseSeconds = 1.2,
+		PulseTransparency = 0.45,
+		LightRange = 14,
+		LightBrightness = 1.5,
+		LabelHeight = 7.5, -- табличка над кругом
+		LabelMaxDistance = 110,
+		Lighting = { -- в комнате хаба всегда вечер, тёплый свет
+			ClockTime = 18,
+			Brightness = 1.5,
+			Ambient = Color3.fromRGB(125, 122, 120),
+			OutdoorAmbient = Color3.fromRGB(140, 135, 130),
+		},
+		CeilingLight = { -- светильники на потолке хаба
+			Range = 26,
+			Brightness = 1.1,
+			Color = Color3.fromRGB(255, 232, 196),
+		},
+		MonitorLight = { -- голубой отсвет стены мониторов
+			Range = 16,
+			Brightness = 0.8,
+			Color = Color3.fromRGB(120, 190, 255),
+		},
+		RecStepSeconds = 0.8, -- мигание REC на мониторах
+	},
+
+	Leaderboard = { -- доска рекордов в хабе (блок 6): топ команд по числу ночей
+		Top = 10, -- сколько строк на доске
+		MinNights = 1, -- записываем рекорд, если продержались хотя бы столько ночей
+		AllTimeStore = "TeamNightsAllTime_v1", -- OrderedDataStore за всё время
+		WeeklyStorePrefix = "TeamNightsWeek_v1_", -- + номер недели: своё хранилище на каждую неделю
+		WeekOffsetSeconds = 345600, -- неделя начинается в понедельник 00:00 UTC (1.1.1970 был четверг)
+		RefreshSeconds = 60, -- как часто хаб перечитывает доску
+		Retries = 3, -- попыток каждого запроса к DataStore
+		RetryDelay = 1.5,
+	},
+
+	GameOver = { -- конец забега в музее (блок 6): Play again / Lobby
+		ChoiceSeconds = 20, -- ничего не нажал за столько — в лобби
+		WaitTeamSeconds = 20, -- музей ждёт команду из хаба не дольше стольких секунд после первого игрока
+	},
+
 	Phases = { -- дни и ночи растут с каждым днём забега (решение 66)
 		DayFirstSeconds = 30, -- 1-й день: туристы, покупки
 		DayGrowSeconds = 10, -- каждый следующий день длиннее на столько

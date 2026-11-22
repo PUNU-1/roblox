@@ -124,7 +124,7 @@ local DOOR_H = 10
 local BALCONY_Y = 12 -- пол балкона
 local STAIR_STEPS = 20
 
-type Rect = { minX: number, maxX: number, minZ: number, maxZ: number }
+export type Rect = { minX: number, maxX: number, minZ: number, maxZ: number }
 
 local function rect(minX: number, maxX: number, minZ: number, maxZ: number): Rect
 	return { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }
@@ -359,7 +359,7 @@ end
 
 type Opening = { number } -- { от, до, верх проёма? }
 
-type WallOptions = {
+export type WallOptions = {
 	openings: { Opening }?,
 	neg: WallStyle?, -- отделка со стороны меньших координат (nil — без отделки)
 	pos: WallStyle?, -- со стороны больших координат
@@ -601,7 +601,7 @@ end
 
 ---------------------------------------------------------------- комнаты
 
-type RoomSpec = {
+export type RoomSpec = {
 	name: string,
 	rect: Rect, -- пол внутри стен
 	height: number,
@@ -809,6 +809,42 @@ local function makeKit(): MapDecor.Kit
 		sign = wallSign,
 		displayCase = DISPLAY_CASE_STUB,
 		bench = BENCH_STUB,
+	}
+end
+
+-- Помощники для комнаты другого места (хаб, блок 6): те же стены с отделкой, потолки, лампы, растения,
+-- таблички, банкетки и модели, что в музее, — чтобы хаб был того же качества и ничего не дублировалось.
+export type RoomKit = {
+	kit: MapDecor.Kit,
+	props: Folder,
+	part: (parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?) -> Part,
+	marker: (parent: Instance, name: string, cframe: CFrame) -> Part,
+	room: (spec: RoomSpec, kind: string?) -> (Part, { Part }),
+	wall: (axis: string, fixed: number, from: number, to: number, height: number, options: WallOptions?) -> (),
+	checker: (area: Rect, tile: number, color: Color3) -> (),
+	rect: (minX: number, maxX: number, minZ: number, maxZ: number) -> Rect,
+	onWall: (r: Rect, side: string, along: number, y: number) -> (Vector3, Vector3),
+	paintingOn: (r: Rect, side: string, along: number, y: number, width: number, height: number) -> (),
+	wallThickness: number,
+}
+
+-- root — папка карты (Workspace.Map): в ней появятся папки Geometry, Decor и Props.
+function MapBuilder.newKit(root: Folder): RoomKit
+	geometryFolder = newFolder(root, MapSchema.Geometry)
+	decorFolder = newFolder(root, "Decor")
+	propsFolder = newFolder(root, MapSchema.Props)
+	return {
+		kit = makeKit(),
+		props = propsFolder,
+		part = newPart,
+		marker = newMarker,
+		room = buildRoom,
+		wall = newWall,
+		checker = checkerTiles,
+		rect = rect,
+		onWall = onWall,
+		paintingOn = paintingOn,
+		wallThickness = WALL_T,
 	}
 end
 

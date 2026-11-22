@@ -77,6 +77,34 @@ GameState.SensorAttr = {
 	Radius = "Radius", -- number, докуда видит
 }
 
+-- Атрибуты круга-команды в хабе (Map.TeamPads.TeamPadN, блок 6). Пишет сервер (PadService), клиенты показывают.
+GameState.PadAttr = {
+	Index = "Index", -- number, номер круга 1..5
+	Team = "Team", -- string, UserId команды через запятую, по порядку входа (первый — создатель)
+	FriendsOnly = "FriendsOnly", -- boolean, создатель пускает только друзей
+	EndsAt = "EndsAt", -- number, когда кончится отсчёт (workspace:GetServerTimeNow()); 0 — отсчёта нет
+	State = "State", -- string, GameState.PadState
+	Message = "Message", -- string, надпись на табличке («Teleport works only in the published game»)
+}
+
+GameState.PadState = {
+	Open = "Open", -- ждёт игроков, идёт отсчёт
+	Launching = "Launching", -- команда телепортируется
+	Blocked = "Blocked", -- телепорт не работает (Studio) или не удался: надпись, потом снова Open
+}
+
+-- Команда круга хаба из атрибута Team: список UserId.
+function GameState.padTeam(pad: Instance): { number }
+	local ids = {}
+	local text = pad:GetAttribute(GameState.PadAttr.Team)
+	if typeof(text) == "string" then
+		for piece in string.gmatch(text, "%d+") do
+			table.insert(ids, tonumber(piece) :: number)
+		end
+	end
+	return ids
+end
+
 -- Атрибуты модели NPC (вор, турист): сервер пишет, что он сейчас делает, клиенты по этому двигают руки и ноги.
 GameState.NpcAttr = {
 	AnimState = "AnimState", -- string, одна из GameState.ThiefAnim или GameState.TouristAnim
@@ -248,6 +276,9 @@ GameState.PlayerAttr = {
 	AbilityReadyAt = "AbilityReadyAt", -- number, когда умение снова можно использовать (0 — готово)
 	AbilityUntil = "AbilityUntil", -- number, умение действует до этого времени (рывок)
 	AbilityCharges = "AbilityCharges", -- number, сколько раз ещё можно этой ночью (датчики техника)
+	-- блок 6
+	Pad = "Pad", -- number, в каком круге хаба стоит игрок и попал в команду (0 — ни в каком)
+	EndChoice = "EndChoice", -- string, выбор в конце забега: "" | "PlayAgain" | "Lobby"
 }
 
 -- Патронов в магазине и в запасе у оружия (Pistol, Rifle, Shotgun).

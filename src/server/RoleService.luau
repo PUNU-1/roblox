@@ -13,6 +13,7 @@ local GameState = require(Shared:WaitForChild("GameState"))
 local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local ModelLibrary = require(script.Parent:WaitForChild("ModelLibrary"))
+local Uniform = require(script.Parent:WaitForChild("Uniform"))
 
 local PlayerAttr = GameState.PlayerAttr
 local Role = GameState.Role
@@ -24,10 +25,6 @@ local map: Instance
 local consolePrompt: ProximityPrompt? = nil
 local phoneProps: { [Player]: Instance } = {}
 local connections: { [Player]: { RBXScriptConnection } } = {}
-
-local BADGE_STUB: { ModelLibrary.StubPart } = {
-	{ size = Vector3.new(0.45, 0.45, 0.08), offset = CFrame.identity, color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal },
-}
 
 local PHONE_STUB: { ModelLibrary.StubPart } = {
 	{ name = "Handle", size = Vector3.new(0.6, 1.1, 0.1), offset = CFrame.identity, color = Color3.fromHex("111111") },
@@ -93,60 +90,6 @@ local function addPhoneProp(player: Player)
 	ModelLibrary.weldTo(phone, hand, hand.CFrame * CFrame.new(0, -0.3, -0.3))
 	phone.Parent = character
 	phoneProps[player] = phone
-end
-
--- Всё, что носят на голове, остаётся (решение 55): шапки, волосы, очки, брови.
-local HEAD_ACCESSORY_TYPES: { [Enum.AccessoryType]: boolean } = {
-	[Enum.AccessoryType.Hat] = true,
-	[Enum.AccessoryType.Hair] = true,
-	[Enum.AccessoryType.Face] = true,
-	[Enum.AccessoryType.Eyebrow] = true,
-	[Enum.AccessoryType.Eyelash] = true,
-}
--- У старых аксессуаров тип бывает Unknown — тогда смотрим, к чему он крепится
-local HEAD_ATTACHMENTS: { [string]: boolean } = {
-	HatAttachment = true,
-	HairAttachment = true,
-	FaceFrontAttachment = true,
-	FaceCenterAttachment = true,
-}
-
-local function isHeadAccessory(accessory: Accessory): boolean
-	if HEAD_ACCESSORY_TYPES[accessory.AccessoryType] then
-		return true
-	end
-	local handle = accessory:FindFirstChild("Handle")
-	if handle then
-		for _, child in handle:GetChildren() do
-			if child:IsA("Attachment") and HEAD_ATTACHMENTS[child.Name] then
-				return true
-			end
-		end
-	end
-	return false
-end
-
--- Форма охраны: убираем свою одежду и аксессуары на теле, красим тело, надеваем значок.
--- Шапки и волосы игрока остаются.
-local function applyUniform(player: Player, character: Model)
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid then
-		return
-	end
-	for _, child in character:GetChildren() do
-		if (child:IsA("Accessory") and not isHeadAccessory(child)) or child:IsA("Clothing") or child:IsA("ShirtGraphic") then
-			child:Destroy()
-		end
-	end
-	local bodyColors = character:FindFirstChildOfClass("BodyColors")
-	if bodyColors then
-		bodyColors.TorsoColor3 = Config.Uniform.Torso
-		bodyColors.LeftArmColor3 = Config.Uniform.Arms
-		bodyColors.RightArmColor3 = Config.Uniform.Arms
-		bodyColors.LeftLegColor3 = Config.Uniform.Legs
-		bodyColors.RightLegColor3 = Config.Uniform.Legs
-	end
-	humanoid:AddAccessory(ModelLibrary.accessory(MapSchema.Models.GuardBadge, BADGE_STUB, "BodyFrontAttachment"))
 end
 
 local function markerCFrame(name: string): CFrame?
@@ -393,7 +336,7 @@ local function onPlayerAdded(player: Player)
 			onCharacterAdded(player, character)
 		end),
 		player.CharacterAppearanceLoaded:Connect(function(character)
-			applyUniform(player, character)
+			Uniform.apply(character) -- форма охраны, шапки и волосы остаются (решение 55)
 		end),
 	}
 	GameState.set(GameState.Attr.Solo, RoleService.isSolo())

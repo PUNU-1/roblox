@@ -25,6 +25,9 @@ local NAMES: { [string]: string } = {
 	SetStance = "SetStance", -- (crouch: boolean, lean: number) присед и наклон
 	-- блок 5: умения классов (всё проверяет AbilityService)
 	UseAbility = "UseAbility", -- (name: string) "Dash" — рывок патруля, "Sensor" — датчик техника
+	-- блок 6: хаб и конец забега
+	PadAction = "PadAction", -- (action: string, value: any) хаб, создатель круга: "Start" — старт сейчас, "FriendsOnly" (value: boolean)
+	GameOverChoice = "GameOverChoice", -- (choice: string) музей, конец забега: "PlayAgain" | "Lobby"
 
 	-- сервер -> клиенты
 	PhraseShown = "PhraseShown", -- (userId: number, index: number)

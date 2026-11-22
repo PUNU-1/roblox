@@ -29,6 +29,14 @@ local MapSchema = {
 	CameraPlaque = "CameraPlaque", -- табличка под местом камеры: на ней кнопка покупки
 	AreaAttribute = "Area", -- атрибут пола: название места для надписей («CENTER HALL», «SOUTH CORRIDOR»)
 
+	-- Хаб (блок 6, место Hub): карта тоже в Workspace.Map
+	TeamPads = "TeamPads", -- папка с 5 кругами TeamPad1..TeamPad5 (атрибуты — GameState.PadAttr)
+	TeamPadPrefix = "TeamPad", -- круг N — TeamPad .. N
+	HubSpawn = "HubSpawn", -- SpawnLocation в хабе
+	LeaderboardAllTime = "LeaderboardAllTime", -- доска рекордов за всё время (SurfaceGui рисует LeaderboardService)
+	LeaderboardWeekly = "LeaderboardWeekly", -- доска рекордов за неделю
+	MonitorScreens = "MonitorScreens", -- экраны стены мониторов (оживляет MonitorWall.client)
+
 	-- Папки, которые появляются во время игры (прямо в Workspace)
 	Thieves = "Thieves", -- воры
 	Tourists = "Tourists", -- туристы днём
@@ -89,6 +97,13 @@ local MapSchema = {
 		CutterStripes = "thief_cutter_stripes_01",
 		Tripod = "prop_tripod_01",
 		FloorHole = "prop_floorhole_01",
+		-- блок 6: хаб (GEMINI.md, «Новые модели блока 6»)
+		Desk = "prop_desk_01",
+		Monitor = "prop_monitor_01",
+		WaterCooler = "prop_watercooler_01",
+		CoffeeMachine = "prop_coffeemachine_01",
+		NoticeBoard = "prop_noticeboard_01",
+		Trophy = "prop_trophy_01",
 	},
 }
 

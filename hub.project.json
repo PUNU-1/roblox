@@ -1,0 +1,54 @@
+{
+  "name": "NightMuseumHub",
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$className": "Workspace",
+      "$properties": {
+        "StreamingEnabled": false
+      }
+    },
+    "Lighting": {
+      "$className": "Lighting",
+      "$properties": {
+        "LightingStyle": "Realistic",
+        "PrioritizeLightingQuality": true,
+        "GlobalShadows": true
+      }
+    },
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Shared": {
+        "$path": "src/shared"
+      },
+      "Models": {
+        "$path": "assets/models",
+        "$ignoreUnknownInstances": true
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "Server": {
+        "$path": "src/hub/server",
+        "ModelLibrary": { "$path": "src/server/ModelLibrary.luau" },
+        "MapBuilder": { "$path": "src/server/MapBuilder.luau" },
+        "MapDecor": { "$path": "src/server/MapDecor.luau" },
+        "Uniform": { "$path": "src/server/Uniform.luau" }
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "$properties": {
+        "CameraMode": "LockFirstPerson"
+      },
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "Client": {
+          "$path": "src/hub/client",
+          "UI": { "$path": "src/client/UI" },
+          "DogAnimator": { "$path": "src/client/DogAnimator.luau" }
+        }
+      }
+    }
+  }
+}
