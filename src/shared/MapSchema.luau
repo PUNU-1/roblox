@@ -26,6 +26,8 @@ local MapSchema = {
 	Balcony = "Balcony", -- пол балкона над центром
 	FuseBox = "FuseBox", -- щиток POWER в служебном коридоре (вор, который выключает свет, блок 3)
 	ArmoryRack = "ArmoryRack", -- оружейная стойка: от неё ArmoryService ставит прилавок, стол и манекен (блок 4)
+	ShopCounter = "ShopCounter", -- касса SHOP у Моны Лизы (этап 4, блок 1b): внутри кнопка ShopPrompt (F — окно магазина)
+	ShopPrompt = "ShopPrompt",
 	CameraPlaque = "CameraPlaque", -- табличка под местом камеры: на ней кнопка покупки
 	AreaAttribute = "Area", -- атрибут пола: название места для надписей («CENTER HALL», «SOUTH CORRIDOR»)
 
@@ -72,6 +74,7 @@ local MapSchema = {
 		Chair = "prop_chair_01", -- кресло у пульта
 		FuseBox = "prop_fusebox_01",
 		WeaponRack = "prop_weaponrack_01",
+		ShopCounter = "prop_shopcounter_01", -- касса SHOP (этап 4, блок 1b)
 		TRexSkeleton = "prop_skeleton_trex_01",
 		LongneckSkeleton = "prop_skeleton_longneck_01",
 		Planet = "prop_planet_01",

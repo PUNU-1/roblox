@@ -18,6 +18,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local ClassCards = require(UI:WaitForChild("ClassCards"))
@@ -712,6 +713,27 @@ end
 
 closeButton.Activated:Connect(close)
 shopButton.Activated:Connect(toggle)
+
+-- Касса SHOP у Моны Лизы: F «Open shop» (днём кнопку включает сервер)
+task.spawn(function()
+	local map = Workspace:WaitForChild(MapSchema.Root)
+	local props = map:WaitForChild(MapSchema.Props)
+	local counter = props:WaitForChild(MapSchema.ShopCounter, 60)
+	if not counter then
+		return
+	end
+	local function hook(item: Instance)
+		if item:IsA("ProximityPrompt") and item.Name == MapSchema.ShopPrompt then
+			item.Triggered:Connect(function()
+				open()
+			end)
+		end
+	end
+	counter.DescendantAdded:Connect(hook)
+	for _, item in counter:GetDescendants() do
+		hook(item)
+	end
+end)
 -- Esc открывает меню Roblox (его не перехватить) — окно магазина при этом закрывается
 GuiService.MenuOpened:Connect(close)
 

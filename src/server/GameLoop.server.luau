@@ -49,7 +49,7 @@ ModelLibrary.setupCollisionGroups()
 -- Тени: без них свет ламп и фонариков проходит сквозь стены, и ночью не темно
 Lighting.GlobalShadows = true
 local map = MapBuilder.build()
-ShopService.init() -- окно магазина (этап 4, блок 1b): товары регистрируют сервисы ниже
+ShopService.init(map) -- окно магазина (этап 4, блок 1b): товары регистрируют сервисы ниже
 RoleService.init(map)
 LobbyService.init(map)
 ExhibitService.init(map)
@@ -172,6 +172,7 @@ local function runDay(night: number): boolean
 	ExhibitService.setDayActive(true)
 	CameraService.setDayActive(true)
 	ArmoryService.setDayActive(true)
+	ShopService.setDayActive(true)
 	bannerRemote:FireAllClients(("DAY %d"):format(night), "info")
 	Audio.startMusic(Config.Sounds.DayMusic)
 	local closing = false
@@ -197,6 +198,7 @@ local function runNight(night: number): (boolean, boolean)
 	ExhibitService.setDayActive(false)
 	CameraService.setDayActive(false)
 	ArmoryService.setDayActive(false)
+	ShopService.setDayActive(false)
 	setLighting(Config.Lighting.Night)
 	MapBuilder.setDayLights(map, false) -- ночью только дежурные лампы и фонарики
 	local length = nightSeconds(night)
@@ -295,6 +297,7 @@ local function finishRun()
 	CameraService.setDayActive(false)
 	CameraService.reset() -- остаётся только бесплатная камера на Мону Лизу
 	ArmoryService.setDayActive(false)
+	ShopService.setDayActive(false)
 	WaveService.endNight()
 	RobberService.endNight()
 	RobberService.resetRun()

@@ -784,6 +784,82 @@ local WEAPON_RACK_STUB: { ModelLibrary.StubPart } = {
 	{ name = "Hook", size = Vector3.new(0.2, 0.2, 0.7), offset = CFrame.new(2.7, 3.4, -0.5), color = COLORS.Metal, material = Enum.Material.Metal },
 }
 
+-- Касса SHOP у Моны Лизы (этап 4, блок 1b): стойка из тёмного дерева с золотыми кантами и мраморной столешницей,
+-- кассовый аппарат, пакеты с покупками, звонок; сзади на двух золотых стойках — вывеска SHOP с лампочками.
+-- Низ по центру, перед — к покупателю (−Z). PromptPoint — невидимая точка для кнопки F «Open shop».
+local SHOP_BULB = hex("F2C230")
+local SHOP_COUNTER_STUB: { ModelLibrary.StubPart } = {
+	{ name = "Kick", size = Vector3.new(7.2, 0.3, 2.8), offset = CFrame.new(0, 0.15, 0), color = hex("1C1F26") },
+	{ name = "TrimBottom", size = Vector3.new(7.3, 0.15, 2.9), offset = CFrame.new(0, 0.37, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Body", size = Vector3.new(7, 2.9, 2.6), offset = CFrame.new(0, 1.9, 0), color = COLORS.DarkWood, material = Enum.Material.Wood },
+	{ name = "Front", size = Vector3.new(6.4, 2.1, 0.08), offset = CFrame.new(0, 1.9, -1.33), color = COLORS.Velvet, material = Enum.Material.Fabric },
+	{ name = "FrontTrim", size = Vector3.new(6.6, 0.1, 0.1), offset = CFrame.new(0, 2.98, -1.36), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "FrontTrim", size = Vector3.new(6.6, 0.1, 0.1), offset = CFrame.new(0, 0.82, -1.36), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "FrontTrim", size = Vector3.new(0.1, 2.26, 0.1), offset = CFrame.new(-3.25, 1.9, -1.36), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "FrontTrim", size = Vector3.new(0.1, 2.26, 0.1), offset = CFrame.new(3.25, 1.9, -1.36), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Top", size = Vector3.new(7.4, 0.25, 3), offset = CFrame.new(0, 3.47, -0.1), color = COLORS.Marble, material = Enum.Material.Marble },
+	{ name = "TopTrim", size = Vector3.new(7.45, 0.08, 3.05), offset = CFrame.new(0, 3.32, -0.1), color = COLORS.Gold, material = Enum.Material.Metal },
+	-- Кассовый аппарат: корпус, ящик, клавиатура скосом, экран на ножке
+	{ name = "Register", size = Vector3.new(1.6, 0.5, 1.2), offset = CFrame.new(2, 3.85, 0.3), color = COLORS.Dark, material = Enum.Material.Metal },
+	{ name = "Drawer", size = Vector3.new(1.4, 0.22, 0.05), offset = CFrame.new(2, 3.74, -0.32), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Keypad", size = Vector3.new(1.4, 0.35, 0.6), offset = CFrame.new(2, 4.27, 0.1), color = hex("2B2F3A"), wedge = true },
+	{ name = "RegisterNeck", size = Vector3.new(0.2, 0.5, 0.2), offset = CFrame.new(2, 4.35, 0.75), color = COLORS.Dark, material = Enum.Material.Metal },
+	{ name = "RegisterScreen", size = Vector3.new(1, 0.6, 0.1), offset = CFrame.new(2, 4.75, 0.72) * CFrame.Angles(math.rad(-12), 0, 0), color = COLORS.Turquoise, material = Enum.Material.Neon },
+	-- Пакеты с покупками и звонок
+	{ name = "Bag", size = Vector3.new(0.8, 1, 0.5), offset = CFrame.new(-2.5, 4.1, 0.3), color = COLORS.Red, material = Enum.Material.Fabric },
+	{ name = "BagHandle", size = Vector3.new(0.5, 0.3, 0.06), offset = CFrame.new(-2.5, 4.72, 0.3), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Bag", size = Vector3.new(0.7, 0.8, 0.45), offset = CFrame.new(-1.7, 4, 0.45), color = COLORS.Navy, material = Enum.Material.Fabric },
+	{ name = "BagHandle", size = Vector3.new(0.45, 0.25, 0.06), offset = CFrame.new(-1.7, 4.5, 0.45), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Bell", size = Vector3.new(0.45, 0.45, 0.45), offset = CFrame.new(0, 3.8, -0.8), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+	{ name = "BellBase", size = Vector3.new(0.6, 0.08, 0.6), offset = CFrame.new(0, 3.63, -0.8), color = COLORS.Dark, material = Enum.Material.Metal },
+	-- Вывеска на двух стойках сзади, лампочки сверху
+	{ name = "Post", size = Vector3.new(3.8, 0.22, 0.22), offset = CFrame.new(-3.3, 5.5, 1.2) * CFrame.Angles(0, 0, math.pi / 2), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "Post", size = Vector3.new(3.8, 0.22, 0.22), offset = CFrame.new(3.3, 5.5, 1.2) * CFrame.Angles(0, 0, math.pi / 2), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "SignFrame", size = Vector3.new(7, 1.9, 0.15), offset = CFrame.new(0, 6.7, 1.27), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Sign", size = Vector3.new(6.7, 1.6, 0.2), offset = CFrame.new(0, 6.7, 1.15), color = COLORS.Navy },
+	{ name = "Bulb", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(-2.8, 7.78, 1.2), color = SHOP_BULB, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+	{ name = "Bulb", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(-1.4, 7.78, 1.2), color = SHOP_BULB, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+	{ name = "Bulb", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(0, 7.78, 1.2), color = SHOP_BULB, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+	{ name = "Bulb", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(1.4, 7.78, 1.2), color = SHOP_BULB, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+	{ name = "Bulb", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(2.8, 7.78, 1.2), color = SHOP_BULB, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+	{ name = "PromptPoint", size = Vector3.new(1, 1, 1), offset = CFrame.new(0, 3.9, -1.2), color = COLORS.Gold, transparency = 1, collide = false },
+}
+
+-- Касса SHOP: модель у Моны Лизы, надписи и кнопка F «Open shop» (окно открывает клиент, кнопку включает днём ShopService).
+local function buildShopCounter()
+	local settings = Config.Shop
+	local cframe = CFrame.lookAt(settings.CounterPosition, settings.CounterFacing)
+	local counter = placeModel(MapSchema.Models.ShopCounter, cframe, SHOP_COUNTER_STUB)
+	counter.Name = MapSchema.ShopCounter
+	counter:SetAttribute("MapObstacle", true)
+	local sign = counter:FindFirstChild("Sign")
+	if sign and sign:IsA("BasePart") then
+		local label = textOn(sign, Enum.NormalId.Front, "SHOP", COLORS.Gold, 0)
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = COLORS.Dark
+		stroke.Thickness = 3
+		stroke.Parent = label
+	end
+	local front = counter:FindFirstChild("Front")
+	if front and front:IsA("BasePart") then
+		textOn(front, Enum.NormalId.Front, "HALLS • EXHIBITS\nCAMERAS • WEAPONS", COLORS.Gold, 0.3)
+	end
+	local point = counter:FindFirstChild("PromptPoint")
+	local anchor = if point and point:IsA("BasePart") then point else counter:FindFirstChildWhichIsA("BasePart", true)
+	if anchor then
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = MapSchema.ShopPrompt
+		prompt.ActionText = "Open shop"
+		prompt.ObjectText = "SHOP"
+		prompt.KeyboardKeyCode = Config.Keys.Action
+		prompt.HoldDuration = settings.CounterHoldSeconds
+		prompt.MaxActivationDistance = settings.CounterPromptDistance
+		prompt.RequiresLineOfSight = false
+		prompt.Enabled = false
+		prompt.Parent = anchor
+	end
+end
+
 ---------------------------------------------------------------- набор помощников для украшений залов (MapDecor)
 
 local function makeKit(): MapDecor.Kit
@@ -939,6 +1015,7 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 	end
 
 	buildMonaLisaPainting(map, exhibits, markers)
+	buildShopCounter()
 
 	-- Балкон вдоль северной стены: пол на высоте 12, золотой край, колонны снизу
 	solidPart(MapSchema.Balcony, Vector3.new(88, 1, 14), CFrame.new(0, BALCONY_Y - 0.5, -37), COLORS.Parquet, Enum.Material.WoodPlanks)

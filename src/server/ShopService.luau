@@ -13,6 +13,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local MapSchema = require(Shared:WaitForChild("MapSchema"))
 
 local Server = script.Parent
 local RoleService = require(Server:WaitForChild("RoleService"))
@@ -54,6 +55,7 @@ local entries: { [string]: Entry } = {}
 local root: Folder? = nil
 local refreshConnection: RBXScriptConnection? = nil
 local lastBuy: { [Player]: number } = {}
+local counterPrompt: ProximityPrompt? = nil -- кнопка F «Open shop» у кассы SHOP (MapBuilder)
 
 local function key(category: string, id: string): string
 	return category .. "/" .. id
@@ -212,8 +214,22 @@ function ShopService.refresh()
 	end
 end
 
-function ShopService.init()
+-- Днём у кассы SHOP горит кнопка F «Open shop» (окно открывает клиент), ночью — нет.
+function ShopService.setDayActive(active: boolean)
+	if counterPrompt then
+		counterPrompt.Enabled = active
+	end
+end
+
+function ShopService.init(map: Instance)
 	shopRoot()
+	local counter = map:FindFirstChild(MapSchema.ShopCounter, true)
+	local prompt = counter and counter:FindFirstChild(MapSchema.ShopPrompt, true)
+	if prompt and prompt:IsA("ProximityPrompt") then
+		counterPrompt = prompt
+	else
+		warn("[ShopService] Нет кассы SHOP на карте")
+	end
 	if refreshConnection then
 		return
 	end
