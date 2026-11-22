@@ -5,14 +5,20 @@
 -- Для окна товары лежат в ReplicatedStorage.Shop.<вкладка>.<id> (атрибуты GameState.ShopAttr, модель Preview) —
 -- окно (Shop.client) только читает их. Сколько вложено и куплено ли, сервер обновляет раз в Config.Shop.RefreshSeconds.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+
+local Server = script.Parent
+local RoleService = require(Server:WaitForChild("RoleService"))
 
 local ShopAttr = GameState.ShopAttr
+local Reply = GameState.ShopReply
 
 local ShopService = {}
 
@@ -34,6 +40,9 @@ export type Item = {
 	personal: string?, -- товар оружейной (Config.Armory.Goods): у каждого свой, что можно купить — GameState.armoryOffer
 	preview: PVInstance?, -- модель для 3D-картинки (её забирает магазин)
 	state: (() -> State)?, -- для общих товаров
+	-- Покупка из окна (те же правила, что у кнопки F, без проверки расстояния): ответ — GameState.ShopReply и надпись.
+	-- Фазу (день), «на смене» и «не лежит» ShopService уже проверил.
+	buy: (player: Player) -> (string, string),
 }
 
 type Entry = {
@@ -44,6 +53,7 @@ type Entry = {
 local entries: { [string]: Entry } = {}
 local root: Folder? = nil
 local refreshConnection: RBXScriptConnection? = nil
+local lastBuy: { [Player]: number } = {}
 
 local function key(category: string, id: string): string
 	return category .. "/" .. id
@@ -146,6 +156,55 @@ function ShopService.register(item: Item)
 	folder.Parent = shopRoot():FindFirstChild(item.category)
 end
 
+-- Ответ «не вышло» с причиной.
+function ShopService.fail(text: string): (string, string)
+	return Reply.Fail, text
+end
+
+-- Ответ на покупку общего товара вскладчину: amount — сколько взяли у игрока, paid — сколько теперь вложено всего.
+function ShopService.sharedResult(title: string, amount: number, paid: number, price: number): (string, string)
+	if amount <= 0 then
+		return Reply.Fail, "You have no money — tourists bring more every day"
+	elseif paid >= price then
+		return Reply.Bought, "Bought: " .. title
+	end
+	return Reply.PutIn, ("Put in $%d — %s $%d / $%d"):format(amount, title, paid, price)
+end
+
+-- Remote ShopBuy(category, id): проверяем аргументы, частоту, фазу и игрока, покупает сервис товара.
+local function onBuy(player: Player, category: any, id: any)
+	if typeof(category) ~= "string" or typeof(id) ~= "string" or #category > 32 or #id > 64 then
+		return
+	end
+	local entry = entries[key(category, id)]
+	if not entry then
+		return
+	end
+	local replyRemote = Remotes.get(Remotes.Names.ShopReply)
+	local function reply(kind: string, text: string)
+		replyRemote:FireClient(player, kind, category, id, text)
+	end
+	local now = os.clock()
+	if now - (lastBuy[player] or -math.huge) < Config.Shop.BuyCooldown then
+		reply(Reply.Fail, "Slow down a little")
+		return
+	end
+	lastBuy[player] = now
+	if GameState.phase() ~= GameState.Phase.Day then
+		reply(Reply.Fail, "Shop opens in the morning")
+		return
+	elseif not RoleService.isParticipant(player) then
+		reply(Reply.Fail, "Only guards on shift can shop")
+		return
+	elseif RoleService.isDowned(player) then
+		reply(Reply.Fail, "You can't shop while you're down")
+		return
+	end
+	local kind, text = entry.item.buy(player)
+	refreshEntry(entry)
+	reply(kind, text)
+end
+
 -- Обновить для окна «сколько вложено / куплено» у всех общих товаров.
 function ShopService.refresh()
 	for _, entry in entries do
@@ -158,6 +217,10 @@ function ShopService.init()
 	if refreshConnection then
 		return
 	end
+	Remotes.get(Remotes.Names.ShopBuy).OnServerEvent:Connect(onBuy)
+	Players.PlayerRemoving:Connect(function(player)
+		lastBuy[player] = nil
+	end)
 	local accumulator = 0
 	refreshConnection = RunService.Heartbeat:Connect(function(dt)
 		accumulator += dt

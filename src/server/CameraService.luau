@@ -114,15 +114,16 @@ local function own(camera: Camera, animate: boolean)
 	refreshCamera(camera)
 end
 
--- Удержание F у таблички: остаток цены, если хватает денег, иначе всё, что есть (Purchase.take).
-local function contribute(camera: Camera, player: Player)
+-- Удержание F у таблички (или покупка из окна магазина — fromShop, без проверки расстояния): остаток цены,
+-- если хватает денег, иначе всё, что есть (Purchase.take). Возвращает, сколько взяли.
+local function contribute(camera: Camera, player: Player, fromShop: boolean?): number
 	local plaque = camera.plaque
 	if not dayActive or not plaque or isOwned(camera.point) or not GameState.isHallOpen(camera.point:GetAttribute(Attr.Hall)) then
-		return
+		return 0
 	end
-	local amount = Purchase.take(player, plaque, camera.paid, Cameras.Price)
+	local amount = Purchase.take(player, plaque, camera.paid, Cameras.Price, fromShop)
 	if amount <= 0 then
-		return
+		return 0
 	end
 	camera.paid += amount
 	if camera.paid >= Cameras.Price then
@@ -131,6 +132,7 @@ local function contribute(camera: Camera, player: Player)
 	else
 		refreshCamera(camera)
 	end
+	return amount
 end
 
 local function refreshAll()
@@ -409,6 +411,16 @@ function CameraService.init(map: Instance)
 			preview = ModelLibrary.build(MapSchema.Models.Camera, CAMERA_STUB),
 			state = function(): ShopService.State
 				return { paid = camera.paid, owned = isOwned(camera.point) }
+			end,
+			buy = function(player: Player): (string, string)
+				local title = ("CAM %d"):format(camera.index)
+				if isOwned(camera.point) then
+					return ShopService.fail(title .. " is already installed")
+				elseif not GameState.isHallOpen(camera.point:GetAttribute(Attr.Hall)) then
+					return ShopService.fail("Open the hall first — Halls tab")
+				end
+				local amount = contribute(camera, player, true)
+				return ShopService.sharedResult(title, amount, camera.paid, Cameras.Price)
 			end,
 		})
 	end

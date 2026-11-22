@@ -564,14 +564,15 @@ local function placeExhibit(slot: Slot)
 	ExhibitService.Added:Fire(exhibit)
 end
 
--- Удержание F у постамента: остаток цены, если хватает денег, иначе всё, что есть (Purchase.take).
-local function contribute(slot: Slot, player: Player, base: BasePart)
+-- Удержание F у постамента (или покупка из окна магазина — fromShop, без проверки расстояния): остаток цены,
+-- если хватает денег, иначе всё, что есть (Purchase.take). Возвращает, сколько взяли.
+local function contribute(slot: Slot, player: Player, base: BasePart, fromShop: boolean?): number
 	if not dayActive or slot.exhibit or not GameState.isHallOpen(slot.hall) then
-		return
+		return 0
 	end
-	local amount = Purchase.take(player, base, slot.paid, slot.price)
+	local amount = Purchase.take(player, base, slot.paid, slot.price, fromShop)
 	if amount <= 0 then
-		return
+		return 0
 	end
 	slot.paid += amount
 	if slot.paid >= slot.price then
@@ -579,10 +580,15 @@ local function contribute(slot: Slot, player: Player, base: BasePart)
 	else
 		refreshSlot(slot)
 	end
+	return amount
+end
+
+local function slotBase(slot: Slot): BasePart?
+	return slot.pedestal.PrimaryPart or slot.pedestal:FindFirstChildWhichIsA("BasePart", true)
 end
 
 local function setupSlot(slot: Slot)
-	local base = slot.pedestal.PrimaryPart or slot.pedestal:FindFirstChildWhichIsA("BasePart", true)
+	local base = slotBase(slot)
 	if not base then
 		return
 	end
@@ -673,6 +679,18 @@ local function registerInShop(slot: Slot, order: number)
 		preview = ExhibitService.preview(slot.kind),
 		state = function(): ShopService.State
 			return { paid = slot.paid, owned = slot.exhibit ~= nil }
+		end,
+		buy = function(player: Player): (string, string)
+			local base = slotBase(slot)
+			if slot.exhibit then
+				return ShopService.fail(slot.title .. " is already in the museum")
+			elseif not GameState.isHallOpen(slot.hall) then
+				return ShopService.fail(("Open the %s first — Halls tab"):format(hallTitle(slot.hall)))
+			elseif not base then
+				return ShopService.fail("This pedestal is missing")
+			end
+			local amount = contribute(slot, player, base, true)
+			return ShopService.sharedResult(slot.title, amount, slot.paid, slot.price)
 		end,
 	})
 end

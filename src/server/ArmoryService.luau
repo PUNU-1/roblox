@@ -26,6 +26,7 @@ local Goods = Config.Armory.Goods
 local ArmoryService = {}
 
 local prompts: { ProximityPrompt } = {}
+local buyParts: { [string]: BasePart } = {} -- товар → деталь с его кнопкой (звук кассы при покупке из окна)
 local folder: Model
 
 local function hex(value: string): Color3
@@ -89,6 +90,30 @@ local function priceTag(cframe: CFrame, title: string, price: number)
 	end
 end
 
+-- Личная покупка (кнопка F у товара или окно магазина — fromShop, без проверки расстояния): только днём, если
+-- товар игроку нужен (GameState.armoryOffer) и хватает денег. true — куплено.
+local function sell(player: Player, item: string, fromShop: boolean): boolean
+	local good = (Goods :: any)[item]
+	local part = buyParts[item]
+	if not good or not part or GameState.phase() ~= GameState.Phase.Day then
+		return false
+	end
+	local show = GameState.armoryOffer(player, item)
+	if not show or not Purchase.takeFull(player, part, good.Price, fromShop) then
+		return false
+	end
+	if good.Kind == "Weapon" then
+		WeaponService.grantWeapon(player, item)
+	elseif good.Kind == "Ammo" then
+		WeaponService.grantAmmo(player, good.Weapon)
+	elseif good.Kind == "Medkit" then
+		WeaponService.grantMedkit(player)
+	elseif good.Kind == "Vest" then
+		HealthService.setArmor(player, Config.Weapons.Vest.Armor)
+	end
+	return true
+end
+
 -- Невидимая деталь с кнопкой покупки над товаром.
 local function buyPoint(item: string, position: Vector3)
 	local good = (Goods :: any)[item]
@@ -105,24 +130,10 @@ local function buyPoint(item: string, position: Vector3)
 	local prompt = Purchase.newPersonalPrompt(part, "BuyPrompt_" .. item, good.Price, item)
 	prompt.ObjectText = good.Title
 	prompt.Triggered:Connect(function(player)
-		if GameState.phase() ~= GameState.Phase.Day then
-			return
-		end
-		local show = GameState.armoryOffer(player, item)
-		if not show or not Purchase.takeFull(player, part, good.Price) then
-			return
-		end
-		if good.Kind == "Weapon" then
-			WeaponService.grantWeapon(player, item)
-		elseif good.Kind == "Ammo" then
-			WeaponService.grantAmmo(player, good.Weapon)
-		elseif good.Kind == "Medkit" then
-			WeaponService.grantMedkit(player)
-		elseif good.Kind == "Vest" then
-			HealthService.setArmor(player, Config.Weapons.Vest.Armor)
-		end
+		sell(player, item, false)
 	end)
 	table.insert(prompts, prompt)
+	buyParts[item] = part
 end
 
 local function display(kind: string, cframe: CFrame)
@@ -330,6 +341,26 @@ local function goodPreview(item: string): PVInstance
 	return WeaponModels.build(item).model
 end
 
+-- Почему товар оружейной сейчас не купить (или nil — можно).
+local function refusal(player: Player, item: string): string?
+	local good = (Goods :: any)[item]
+	local show = GameState.armoryOffer(player, item)
+	if not show then
+		if good.Kind == "Weapon" then
+			return "You already have the " .. string.lower(good.Title)
+		elseif good.Kind == "Ammo" and not GameState.hasWeapon(player, good.Weapon) then
+			local weapon = (Config.Weapons :: any)[good.Weapon]
+			return ("Buy the %s first"):format(if weapon then string.lower(tostring(weapon.Title)) else "weapon")
+		end
+		return "You can't carry more"
+	end
+	local money = math.floor(tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0)
+	if money < good.Price then
+		return ("You need $%d more — tourists bring money every day"):format(good.Price - money)
+	end
+	return nil
+end
+
 local function registerInShop()
 	for order, entry in SHOP_GOODS do
 		local good = (Goods :: any)[entry.item]
@@ -342,6 +373,15 @@ local function registerInShop()
 			price = good.Price,
 			personal = entry.item,
 			preview = goodPreview(entry.item),
+			buy = function(player: Player): (string, string)
+				local reason = refusal(player, entry.item)
+				if reason then
+					return ShopService.fail(reason)
+				elseif not sell(player, entry.item, true) then
+					return ShopService.fail("Can't buy it right now")
+				end
+				return GameState.ShopReply.Bought, "Bought: " .. good.Title
+			end,
 		})
 	end
 end

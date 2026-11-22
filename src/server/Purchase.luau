@@ -1,6 +1,6 @@
 --!strict
--- Покупка одним удержанием F (решение 67): постаменты, двери залов, лазерная сетка, сигнализация
--- (потом — камеры и оружейная).
+-- Покупка одним удержанием F (решение 67): постаменты, двери залов, лазерная сетка, сигнализация, камеры,
+-- оружейная. Те же правила — у окна магазина (этап 4, блок 1b, ShopService), только без проверки расстояния.
 --  • Хватает денег на остаток цены — платишь остаток и покупаешь сразу сам.
 --  • Не хватает — все твои деньги идут в полоску, остальное докладывают другие (складчина).
 -- Сколько взять, считает сервер: клиент только держит кнопку.
@@ -61,8 +61,9 @@ function Purchase.setOpen(prompt: ProximityPrompt, open: boolean)
 	prompt.Enabled = open
 end
 
--- Берёт у игрока полную цену личной покупки. false — денег не хватает, далеко или игрок не на смене.
-function Purchase.takeFull(player: Player, part: BasePart, price: number): boolean
+-- Игрок может сейчас платить: на смене, не лежит, есть персонаж. maxDistance — проверка расстояния до part
+-- (кнопка F); nil — без проверки (окно магазина, этап 4, блок 1b).
+local function canPay(player: Player, part: BasePart, maxDistance: number?): boolean
 	if not RoleService.isParticipant(player) or RoleService.isDowned(player) then
 		return false
 	end
@@ -71,7 +72,17 @@ function Purchase.takeFull(player: Player, part: BasePart, price: number): boole
 	if not (root and root:IsA("BasePart")) then
 		return false
 	end
-	if (root.Position - part.Position).Magnitude > Config.Armory.PromptDistance + Config.Catch.ServerDistanceSlack then
+	if maxDistance and (root.Position - part.Position).Magnitude > maxDistance then
+		return false
+	end
+	return true
+end
+
+-- Берёт у игрока полную цену личной покупки. false — денег не хватает, далеко или игрок не на смене.
+-- fromShop — покупка из окна магазина: без проверки расстояния.
+function Purchase.takeFull(player: Player, part: BasePart, price: number, fromShop: boolean?): boolean
+	local maxDistance = if fromShop then nil else Config.Armory.PromptDistance + Config.Catch.ServerDistanceSlack
+	if not canPay(player, part, maxDistance) then
 		return false
 	end
 	local money = math.floor(tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0)
@@ -93,17 +104,10 @@ end
 
 -- Берёт у игрока деньги за покупку: остаток цены, если хватает, иначе всё, что есть.
 -- part — где стоит покупка (проверка расстояния и звук кассы). Возвращает, сколько взяли (0 — ничего).
--- Фазу (день) проверяет сам сервис до вызова.
-function Purchase.take(player: Player, part: BasePart, paid: number, price: number): number
-	if not RoleService.isParticipant(player) or RoleService.isDowned(player) then
-		return 0
-	end
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not (root and root:IsA("BasePart")) then
-		return 0
-	end
-	if (root.Position - part.Position).Magnitude > Config.Purchase.PromptDistance + Config.Catch.ServerDistanceSlack then
+-- Фазу (день) проверяет сам сервис до вызова. fromShop — покупка из окна магазина: без проверки расстояния.
+function Purchase.take(player: Player, part: BasePart, paid: number, price: number, fromShop: boolean?): number
+	local maxDistance = if fromShop then nil else Config.Purchase.PromptDistance + Config.Catch.ServerDistanceSlack
+	if not canPay(player, part, maxDistance) then
 		return 0
 	end
 	local money = math.floor(tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0)

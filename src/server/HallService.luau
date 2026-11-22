@@ -94,24 +94,26 @@ local function openHall(door: Door)
 	end)
 end
 
--- Удержание F у двери: остаток цены, если хватает денег, иначе всё, что есть (Purchase.take).
-local function contribute(door: Door, player: Player)
+-- Удержание F у двери (или покупка из окна магазина — fromShop, без проверки расстояния): остаток цены,
+-- если хватает денег, иначе всё, что есть (Purchase.take). Возвращает, сколько взяли.
+local function contribute(door: Door, player: Player, fromShop: boolean?): number
 	if not dayActive or GameState.isHallOpen(door.hall) then
-		return
+		return 0
 	end
 	local panel = door.model:FindFirstChild(MapSchema.HallDoorPanel)
 	if not (panel and panel:IsA("BasePart")) then
-		return
+		return 0
 	end
-	local amount = Purchase.take(player, panel, door.paid, door.price)
+	local amount = Purchase.take(player, panel, door.paid, door.price, fromShop)
 	if amount <= 0 then
-		return
+		return 0
 	end
 	door.paid += amount
 	updateSign(door)
 	if door.paid >= door.price then
 		openHall(door)
 	end
+	return amount
 end
 
 local function attachPrompt(door: Door)
@@ -164,6 +166,13 @@ local function registerInShop(door: Door, spots: number)
 		preview = ExhibitService.hallPreview(door.hall),
 		state = function(): ShopService.State
 			return { paid = door.paid, owned = GameState.isHallOpen(door.hall) }
+		end,
+		buy = function(player: Player): (string, string)
+			if GameState.isHallOpen(door.hall) then
+				return ShopService.fail(door.title .. " is already open")
+			end
+			local amount = contribute(door, player, true)
+			return ShopService.sharedResult(door.title, amount, door.paid, door.price)
 		end,
 	})
 end

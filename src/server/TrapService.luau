@@ -39,6 +39,7 @@ local grids: { [ExhibitService.Exhibit]: Grid } = {}
 local alarmPaid = 0
 local alarmOwned = false
 local alarmPrompt: ProximityPrompt? = nil
+local alarmPanel: BasePart? = nil
 local alarmLamp: BasePart? = nil
 local dayActive = false
 local checkConnection: RBXScriptConnection? = nil
@@ -63,12 +64,13 @@ local function anchorPart(exhibit: ExhibitService.Exhibit): BasePart?
 	return model:FindFirstChildWhichIsA("BasePart", true)
 end
 
--- Удержание F: остаток цены, если хватает денег, иначе всё, что есть (Purchase.take). Только днём.
-local function takeContribution(player: Player, part: BasePart, paid: number, price: number): number
+-- Удержание F (или покупка из окна магазина — fromShop, без проверки расстояния): остаток цены, если хватает
+-- денег, иначе всё, что есть (Purchase.take). Только днём.
+local function takeContribution(player: Player, part: BasePart, paid: number, price: number, fromShop: boolean?): number
 	if not dayActive then
 		return 0
 	end
-	return Purchase.take(player, part, paid, price)
+	return Purchase.take(player, part, paid, price, fromShop)
 end
 
 ---------------------------------------------------------------- лазерная сетка
@@ -232,6 +234,23 @@ local function refreshGridPrompt(grid: Grid)
 	end
 end
 
+-- Вклад в сетку: кнопка F у экспоната или окно магазина (fromShop). Возвращает, сколько взяли.
+local function contributeGrid(grid: Grid, player: Player, fromShop: boolean): number
+	local part = anchorPart(grid.exhibit)
+	if grid.model or not part or not GameState.isHallOpen(grid.exhibit.hall) then
+		return 0
+	end
+	local amount = takeContribution(player, part, grid.paid, Laser.Price, fromShop)
+	if amount > 0 then
+		grid.paid += amount
+		if grid.paid >= Laser.Price then
+			buildFence(grid)
+		end
+		refreshGridPrompt(grid)
+	end
+	return amount
+end
+
 local function ensureGrid(exhibit: ExhibitService.Exhibit): Grid?
 	local existing = grids[exhibit]
 	if existing then
@@ -244,17 +263,7 @@ local function ensureGrid(exhibit: ExhibitService.Exhibit): Grid?
 	local grid: Grid = { exhibit = exhibit, paid = 0, model = nil, beams = {}, center = part.Position, readyAt = 0, prompt = nil }
 	local prompt = Purchase.newPrompt(part, "LaserPrompt", Laser.Price)
 	prompt.Triggered:Connect(function(player)
-		if grid.model then
-			return
-		end
-		local amount = takeContribution(player, part, grid.paid, Laser.Price)
-		if amount > 0 then
-			grid.paid += amount
-			if grid.paid >= Laser.Price then
-				buildFence(grid)
-			end
-			refreshGridPrompt(grid)
-		end
+		contributeGrid(grid, player, false)
 	end)
 	grid.prompt = prompt
 	grids[exhibit] = grid
@@ -338,24 +347,32 @@ local function buildAlarmPanel(exhibit: ExhibitService.Exhibit): BasePart
 	return panel
 end
 
+-- Вклад в сигнализацию: кнопка F у щитка или окно магазина (fromShop). Возвращает, сколько взяли.
+local function contributeAlarm(player: Player, fromShop: boolean): number
+	local part = alarmPanel
+	if alarmOwned or not part then
+		return 0
+	end
+	local amount = takeContribution(player, part, alarmPaid, Alarm.Price, fromShop)
+	if amount > 0 then
+		alarmPaid += amount
+		if alarmPaid >= Alarm.Price then
+			alarmOwned = true
+			bannerRemote:FireAllClients("MONA LISA ALARM INSTALLED", "info")
+		end
+		refreshAlarmPrompt()
+	end
+	return amount
+end
+
 local function setupAlarm()
 	for _, exhibit in ExhibitService.list() do
 		if exhibit.isMain then
 			local part = buildAlarmPanel(exhibit)
+			alarmPanel = part
 			local prompt = Purchase.newPrompt(part, "AlarmPrompt", Alarm.Price)
 			prompt.Triggered:Connect(function(player)
-				if alarmOwned then
-					return
-				end
-				local amount = takeContribution(player, part, alarmPaid, Alarm.Price)
-				if amount > 0 then
-					alarmPaid += amount
-					if alarmPaid >= Alarm.Price then
-						alarmOwned = true
-						bannerRemote:FireAllClients("MONA LISA ALARM INSTALLED", "info")
-					end
-					refreshAlarmPrompt()
-				end
+				contributeAlarm(player, false)
 			end)
 			alarmPrompt = prompt
 		end
@@ -450,6 +467,13 @@ local function registerInShop()
 		state = function(): ShopService.State
 			return { paid = alarmPaid, owned = alarmOwned }
 		end,
+		buy = function(player: Player): (string, string)
+			if alarmOwned then
+				return ShopService.fail("The alarm is already installed")
+			end
+			local amount = contributeAlarm(player, true)
+			return ShopService.sharedResult("Mona Lisa Alarm", amount, alarmPaid, Alarm.Price)
+		end,
 	})
 	for index, entry in ExhibitService.catalog() do
 		local id = entry.id
@@ -468,6 +492,18 @@ local function registerInShop()
 					return { paid = 0, owned = false, missing = "NO EXHIBIT" } -- экспонат ещё не куплен
 				end
 				return { paid = grid.paid, owned = grid.model ~= nil }
+			end,
+			buy = function(player: Player): (string, string)
+				local grid = gridOf(id)
+				if not grid then
+					return ShopService.fail(("Buy the %s first — Exhibits tab"):format(entry.title))
+				elseif grid.model then
+					return ShopService.fail("This laser grid is already installed")
+				elseif not GameState.isHallOpen(grid.exhibit.hall) then
+					return ShopService.fail("Open the hall first — Halls tab")
+				end
+				local amount = contributeGrid(grid, player, true)
+				return ShopService.sharedResult("Laser Grid — " .. entry.title, amount, grid.paid, Laser.Price)
 			end,
 		})
 	end
