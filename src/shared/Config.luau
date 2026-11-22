@@ -14,6 +14,99 @@ local Config = {
 		Slots = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four },
 	},
 
+	-- Классы (блок 5): у каждого своё умение. Выбирается в лобби (карточки, клавиши 1–5), до конца забега не меняется.
+	-- Один класс могут взять сколько угодно игроков. Ability — какое умение (AbilityService), Keys — клавиши умения.
+	Classes = {
+		Order = { "Patrol", "Operator", "Technician", "DogHandler", "Assault" }, -- порядок карточек и клавиш 1–5
+		Default = "Patrol", -- с этим классом все начинают
+		AbilitySlack = 0.2, -- умение может прийти на столько секунд раньше конца перезарядки (часы клиента и сервера чуть расходятся)
+		Patrol = {
+			Title = "Patrol",
+			Ability = "Dash", -- рывок
+			AbilityTitle = "DASH",
+			KeyLabel = "Shift",
+			Keys = { Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift, Enum.KeyCode.ButtonL3 }, -- геймпад — нажать левый стик
+			Color = Color3.fromHex("3BC6C1"),
+			SprintSpeed = 24, -- баланс: скорость в рывке (обычная — Players.WalkSpeed 16)
+			SprintSeconds = 3, -- сколько длится рывок
+			SprintCooldown = 10, -- перезарядка, считается после конца рывка
+			FovKick = 12, -- свой вид в рывке шире на столько градусов
+		},
+		Operator = {
+			Title = "Operator",
+			Ability = "Phone", -- телефон с камерами (CameraController, RoleService)
+			AbilityTitle = "CAMERA PHONE",
+			KeyLabel = "Tab",
+			Color = Color3.fromHex("6FA8FF"),
+		},
+		Technician = {
+			Title = "Technician",
+			Ability = "Sensor", -- датчик движения
+			AbilityTitle = "MOTION SENSOR",
+			KeyLabel = "G",
+			Keys = { Enum.KeyCode.G, Enum.KeyCode.ButtonY },
+			Color = Color3.fromHex("F2C230"),
+			SensorRadius = 12, -- баланс: вор ближе этого к датчику — писк у всей охраны
+			SensorsPerNight = 1, -- сколько датчиков за ночь (ставить можно и днём; утром датчик убирается)
+			PingSeconds = 4, -- стрелка и метка MOTION! держатся столько; пока вор рядом, писк повторяется так часто
+			PlaceReach = 2, -- датчик встаёт на столько стадов перед ногами (если там нет стены)
+			PlaceMinGap = 3, -- не ближе этого к другому датчику
+			InstantCameraReset = true, -- рубильник CAMERA RESET срабатывает сразу, без удержания
+		},
+		DogHandler = {
+			Title = "Dog Handler",
+			Ability = "Dog", -- собака ходит рядом и лает на воров (умение без клавиши)
+			AbilityTitle = "K-9 DOG",
+			KeyLabel = "",
+			Color = Color3.fromHex("E8913A"),
+			DogSenseRadius = 25, -- баланс: вор ближе этого к хозяину — собака лает и смотрит на него
+			BarkCooldown = 3, -- лает не чаще
+		},
+		Assault = {
+			Title = "Assault",
+			Ability = "Tough", -- больше здоровья и меньше отдача (умение без клавиши)
+			AbilityTitle = "TOUGH",
+			KeyLabel = "",
+			Color = Color3.fromHex("E0575B"),
+			AssaultHealth = 125, -- баланс: здоровье Штурмовика (у остальных Health.Max)
+			AssaultRecoil = 0.6, -- баланс: отдача оружия ×0.6
+		},
+		CheckSeconds = 0.2, -- как часто сервер проверяет датчики и собак
+		-- Датчик движения (вид; поведение — AbilityService)
+		Sensor = {
+			RingColor = Color3.fromHex("3BC6C1"), -- круг на полу: докуда видит датчик
+			RingTransparency = 0.82,
+			RingSegments = 28, -- из скольких чёрточек круг
+			AlarmColor = Color3.fromHex("FF3B3B"), -- вор рядом
+			LampColor = Color3.fromHex("3FD17A"), -- лампочка мигает зелёным, пока всё тихо
+			BlinkSeconds = 1.2, -- лампочка мигает раз в столько секунд
+			DeploySeconds = 0.5, -- датчик раскладывается на полу
+			ArrowRadius = 150, -- стрелка к датчику: на столько пикселей от центра экрана
+			MarkerMaxDistance = 600, -- метка MOTION! над датчиком видна сквозь стены до стольки стадов
+			Beeps = 3, -- писк: столько коротких сигналов
+			BeepGap = 0.16,
+		},
+		-- Собака кинолога (вид и походка; что она чует, решает сервер)
+		Dog = {
+			FollowDistance = 4.5, -- идёт по следу хозяина на столько стадов позади
+			SideOffset = 1.2, -- и чуть левее его следа
+			TrailStep = 0.7, -- след хозяина запоминается каждые столько стадов
+			MaxSpeed = 30, -- быстрее рывка патруля, чтобы не отставала
+			Catchup = 3, -- чем дальше от своего места, тем быстрее бежит (скорость = расстояние × это)
+			SnapDistance = 35, -- хозяин дальше этого (перенос к Моне Лизе, в лобби) — собака появляется рядом
+			SitDelay = 1.5, -- хозяин стоит столько секунд — собака садится
+			RunSpeed = 13, -- быстрее этого — бежит галопом, а не рысью
+			TrotStride = 1.15, -- радиан шага на стад пути
+			GallopStride = 0.75,
+			BlendSpeed = 10, -- как быстро поза перетекает в новую
+			BarkSeconds = 0.55, -- «гав-гав»: два гавка за столько секунд
+			AlertHeight = 1.5, -- «!» над головой собаки
+			AlertSize = 1.4,
+			AlertMaxDistance = 140,
+			CullDistance = 220, -- дальше этого от камеры собаку не анимируем (только двигаем)
+		},
+	},
+
 	Health = { -- здоровье охраны (блок 4): само не лечится, только аптечкой
 		Max = 100,
 		ReviveSeconds = 10, -- сколько держать F у лежащего друга
@@ -746,6 +839,20 @@ local Config = {
 		DigSpeed = 0.45, -- низкий гул
 		SparksVolume = 0.8,
 		PowerOnVolume = 0.8,
+		-- блок 5: классы (ВРЕМЕННЫЕ, из тех же стандартных звуков Roblox)
+		Dash = "rbxasset://sounds/action_falling.ogg", -- ВРЕМЕННЫЙ: рывок — свист ветра (слышит сам игрок)
+		DashVolume = 0.5,
+		DashSpeed = 1.6,
+		Bark = "rbxasset://sounds/oof.ogg", -- ВРЕМЕННЫЙ: лай собаки — классическое «oof» высоко тоном звучит как «гав»
+		BarkVolume = 0.9,
+		BarkSpeed = 1.75,
+		BarkRollOff = 70,
+		SensorBeep = "rbxasset://sounds/volume_slider.ogg", -- ВРЕМЕННЫЙ: писк датчика — щелчок высоко тоном, 3 раза
+		SensorBeepVolume = 0.8,
+		SensorBeepSpeed = 2.6,
+		SensorPlace = "rbxasset://sounds/action_jump_land.mp3", -- ВРЕМЕННЫЙ: датчик поставили на пол
+		SensorPlaceVolume = 0.6,
+		SensorPlaceSpeed = 1.8,
 	},
 
 	-- Анимации воров и туристов делаются кодом на клиенте (NpcAnimator.client.luau), в Roblox ничего не загружается.

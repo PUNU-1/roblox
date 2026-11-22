@@ -38,6 +38,8 @@ local MapSchema = {
 	Pedestals = "Pedestals", -- постаменты для экспонатов (атрибуты Hall и Slot)
 	PlacedTraps = "PlacedTraps", -- поставленные лазерные сетки
 	InstalledCameras = "InstalledCameras", -- модели купленных камер
+	Dogs = "Dogs", -- собаки кинологов (блок 5)
+	Sensors = "Sensors", -- датчики движения техников (блок 5)
 
 	-- Имена моделей в ReplicatedStorage/Models (как в GEMINI.md)
 	Models = {

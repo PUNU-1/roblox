@@ -27,6 +27,7 @@ local HealthService = require(Server:WaitForChild("HealthService"))
 local WeaponService = require(Server:WaitForChild("WeaponService"))
 local ArmoryService = require(Server:WaitForChild("ArmoryService"))
 local RobberService = require(Server:WaitForChild("RobberService"))
+local AbilityService = require(Server:WaitForChild("AbilityService"))
 local TrapService = require(Server:WaitForChild("TrapService"))
 local CommsService = require(Server:WaitForChild("CommsService"))
 local TouristService = require(Server:WaitForChild("TouristService"))
@@ -54,6 +55,7 @@ HealthService.init()
 WeaponService.init()
 ArmoryService.init(map)
 RobberService.init(map)
+AbilityService.init(map) -- умения классов: рывок, датчик движения, собака (блок 5)
 -- Шокер берёт и обычных воров (пули — только грабителей, их добавляет RobberService)
 WeaponService.addTargets({
 	owns = ThiefService.isThief,
@@ -136,6 +138,7 @@ end
 -- День: светло, туристы, покупки. Возвращает false, если все ушли.
 local function runDay(night: number): boolean
 	VoteService.admitApproved() -- кого пустили голосованием, входят с утра
+	AbilityService.beginDay() -- умения готовы, у техника снова есть датчик
 	ExhibitService.returnAll()
 	HeistFx.resetForDay() -- следы воров убраны: витрины, дыры в полу, дыра в стеклянном потолке
 	BlackoutService.reset() -- утром свет снова есть
@@ -184,6 +187,7 @@ local function runNight(night: number): (boolean, boolean)
 	setPhase(Phase.Night, length)
 	TrapService.beginNight()
 	RoleService.gatherAtPainting() -- ночь начинается: все охранники у Моны Лизы
+	AbilityService.beginNight()
 	local participants = RoleService.participants()
 	ScoreService.beginNight(participants)
 	Audio.startMusic(Config.Sounds.NightMusic)
@@ -224,6 +228,7 @@ local function runNight(night: number): (boolean, boolean)
 	ThiefService.endNight()
 	BlackoutService.reset()
 	HealthService.endNight() -- кто пролежал до утра, встаёт
+	AbilityService.endNight() -- датчики убираются, собаки успокаиваются
 	WeaponService.endNight() -- оружие из рук
 	Audio.stopMusic()
 	return survived, aborted
@@ -262,6 +267,7 @@ local function finishRun()
 	WaveService.endNight()
 	RobberService.endNight()
 	RobberService.resetRun()
+	AbilityService.resetRun()
 	ThiefService.endNight()
 	HeistFx.resetForDay()
 	BlackoutService.reset()

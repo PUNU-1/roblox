@@ -12,7 +12,7 @@ local Remotes = {}
 
 local NAMES: { [string]: string } = {
 	-- клиент -> сервер
-	SetRole = "SetRole", -- (role: string) выбор роли в лобби (кнопки PATROL / OPERATOR или клавиши 1 / 2)
+	SetRole = "SetRole", -- (role: string) выбор класса в лобби (карточки или клавиши 1–5), блок 5
 	RequestCameras = "RequestCameras", -- (open: boolean) открыть/закрыть телефон или пульт
 	MarkThief = "MarkThief", -- (thief: Model) метка оператора на вора
 	QuickPhrase = "QuickPhrase", -- (index: number) готовая фраза
@@ -23,6 +23,8 @@ local NAMES: { [string]: string } = {
 	Reload = "Reload", -- () перезарядить оружие в руках
 	UseMedkit = "UseMedkit", -- () аптечка в руках — лечиться
 	SetStance = "SetStance", -- (crouch: boolean, lean: number) присед и наклон
+	-- блок 5: умения классов (всё проверяет AbilityService)
+	UseAbility = "UseAbility", -- (name: string) "Dash" — рывок патруля, "Sensor" — датчик техника
 
 	-- сервер -> клиенты
 	PhraseShown = "PhraseShown", -- (userId: number, index: number)

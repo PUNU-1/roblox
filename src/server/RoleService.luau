@@ -1,5 +1,6 @@
--- Игроки: роли, форма охраны, старт смены команды из круга START SHIFT, перенос между лобби и залом,
--- телефон оператора и пульт в диспетчерской (кто сейчас смотрит камеры).
+-- Игроки: классы (атрибут Role, блок 5), форма охраны, старт смены команды из круга START SHIFT,
+-- перенос между лобби и залом, телефон оператора и пульт в диспетчерской (кто сейчас смотрит камеры),
+-- скорость охранника (смотрит камеры, лежит, присел, рывок патруля).
 
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
@@ -44,8 +45,14 @@ local function knockedNow(player: Player): boolean
 	return typeof(untilTime) == "number" and untilTime > Workspace:GetServerTimeNow()
 end
 
+-- Патруль в рывке (блок 5, AbilityService): атрибут AbilityUntil ещё не прошёл.
+local function sprintingNow(player: Player): boolean
+	local untilTime = player:GetAttribute(PlayerAttr.AbilityUntil)
+	return GameState.roleOf(player) == Role.Patrol and typeof(untilTime) == "number" and untilTime > Workspace:GetServerTimeNow()
+end
+
 -- Скорость охранника по его состоянию (одно место на всё): смотрит камеры или сбит Громилой — стоит,
--- лежит без сил — ползёт, присел — идёт медленнее, иначе — обычный шаг и прыжок.
+-- лежит без сил — ползёт, присел — идёт медленнее, в рывке — быстрее, иначе — обычный шаг и прыжок.
 local function refreshMovement(player: Player)
 	local humanoid = getHumanoid(player)
 	if not humanoid then
@@ -58,6 +65,8 @@ local function refreshMovement(player: Player)
 		speed, jump = Config.Health.CrawlSpeed, 0
 	elseif player:GetAttribute(PlayerAttr.Crouch) == true then
 		speed, jump = Config.Stance.CrouchSpeed, 0
+	elseif sprintingNow(player) then
+		speed = Config.Classes.Patrol.SprintSpeed
 	end
 	humanoid.WalkSpeed = speed
 	humanoid.JumpHeight = jump
@@ -290,7 +299,13 @@ end
 
 function RoleService.canUsePhone(player: Player): boolean
 	-- Телефон с камерами — умение только оператора, даже в одиночной игре (решение 59)
-	return player:GetAttribute(PlayerAttr.Role) == Role.Operator
+	return GameState.roleOf(player) == Role.Operator
+end
+
+-- Класс можно выбрать в лобби или пока игрок ждёт в комнате охраны (опоздавший). На смене класс не меняется
+-- до конца забега (блок 5).
+function RoleService.canChooseClass(player: Player): boolean
+	return GameState.phase() == Phase.Lobby or not RoleService.isParticipant(player)
 end
 
 -- На смену идёт команда из круга START SHIFT (LobbyService.takeTeam). Остальные ждут в комнате охраны,
@@ -366,7 +381,8 @@ end
 
 local function onPlayerAdded(player: Player)
 	player.CameraMode = Enum.CameraMode.LockFirstPerson -- вид от первого лица (решение 56)
-	player:SetAttribute(PlayerAttr.Role, Role.Patrol)
+	player.DevEnableMouseLock = false -- Shift — рывок патруля (блок 5), а не переключатель мыши Roblox
+	player:SetAttribute(PlayerAttr.Role, Config.Classes.Default)
 	player:SetAttribute(PlayerAttr.InRound, false)
 	player:SetAttribute(PlayerAttr.ViewingCameras, false)
 	player:SetAttribute(PlayerAttr.ViewSource, "")
@@ -422,11 +438,9 @@ local function setupConsole()
 end
 
 local function setupRemotes()
+	-- Класс (блок 5): любой из Config.Classes.Order, только пока игрок не на смене
 	Remotes.get(Remotes.Names.SetRole).OnServerEvent:Connect(function(player, role)
-		if GameState.phase() ~= Phase.Lobby then
-			return
-		end
-		if role ~= Role.Patrol and role ~= Role.Operator then
+		if not RoleService.canChooseClass(player) or not GameState.classInfo(role) then
 			return
 		end
 		player:SetAttribute(PlayerAttr.Role, role)

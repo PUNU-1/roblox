@@ -1,4 +1,4 @@
--- Интерфейс игрока: лобби (выбор роли, команда в круге START SHIFT), верхняя строка (таймер, часы ночи),
+-- Интерфейс игрока: лобби (карточки классов, команда в круге START SHIFT), верхняя строка (таймер, часы ночи),
 -- деньги, крупные надписи и экран итога ночи. Клиент только показывает и шлёт намерения.
 
 local Players = game:GetService("Players")
@@ -11,6 +11,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
+local ClassCards = require(script.Parent:WaitForChild("UI"):WaitForChild("ClassCards"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -20,11 +21,6 @@ local Colors = Theme.Colors
 
 local localPlayer = Players.LocalPlayer
 local gui = Theme.screenGui("HUD", 1)
-
-local ROLE_INFO = {
-	[Role.Patrol] = "Runs through the museum and arrests thieves.",
-	[Role.Operator] = "Also has a phone with the cameras (Tab). Can't move while looking at it.",
-}
 
 ---------------------------------------------------------------- верхняя строка и деньги
 
@@ -86,91 +82,49 @@ Remotes.get(Remotes.Names.Banner).OnClientEvent:Connect(function(text, kind)
 	end
 end)
 
----------------------------------------------------------------- лобби: выбор роли
+---------------------------------------------------------------- лобби: выбор класса
 -- Команду собирает круг START SHIFT на полу (LobbyCircle.client, LobbyService), кнопки READY нет.
--- Курсор в лобби не освобождаем (у кнопок нет Modal): в первом лице надо крутить камеру и дойти до круга.
--- Поэтому роль с клавиатуры — клавишами 1 / 2 (подписаны на кнопках), на телефоне кнопки нажимаются пальцем.
+-- Курсор в лобби не освобождаем (у карточек нет Modal): в первом лице надо крутить камеру и дойти до круга.
+-- Поэтому класс с клавиатуры — клавишами 1–5 (подписаны на карточках), на телефоне карточки нажимаются пальцем.
+-- Класс выбирают в лобби и пока ждут в комнате охраны (опоздавший); на смене он не меняется (блок 5).
 
 -- На телефоне и планшете без клавиатуры вместо клавиш — кнопки на экране
 local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
-local ROLE_KEYS = {
-	{ role = Role.Patrol, title = "PATROL", label = "1", keys = { Enum.KeyCode.One, Enum.KeyCode.KeypadOne } },
-	{ role = Role.Operator, title = "OPERATOR", label = "2", keys = { Enum.KeyCode.Two, Enum.KeyCode.KeypadTwo } },
+local CLASS_KEYS = {
+	{ Enum.KeyCode.One, Enum.KeyCode.KeypadOne },
+	{ Enum.KeyCode.Two, Enum.KeyCode.KeypadTwo },
+	{ Enum.KeyCode.Three, Enum.KeyCode.KeypadThree },
+	{ Enum.KeyCode.Four, Enum.KeyCode.KeypadFour },
+	{ Enum.KeyCode.Five, Enum.KeyCode.KeypadFive },
 }
 
-local lobbyPanel = Theme.new("Frame", {
-	Name = "Lobby",
-	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -20),
-	Size = UDim2.new(0.4, 0, 0.22, 0),
-	BackgroundColor3 = Colors.Navy,
-	BackgroundTransparency = 0.15,
-	Visible = false,
-	Parent = gui,
-}, {
-	Theme.corner(16),
-	Theme.stroke(Colors.Gold, 3),
-	Theme.padding(10),
-	Theme.new("UISizeConstraint", { MinSize = Vector2.new(320, 150), MaxSize = Vector2.new(640, 230) }),
-})
-
-Theme.label({ Text = "CHOOSE YOUR ROLE", TextColor3 = Colors.Gold, Size = UDim2.fromScale(1, 0.2), Parent = lobbyPanel })
-
-local roleButtons: { [string]: TextButton } = {}
-for index, entry in ROLE_KEYS do
-	roleButtons[entry.role] = Theme.button({
-		Text = if touchOnly then entry.title else ("[%s]  %s"):format(entry.label, entry.title),
-		Position = UDim2.fromScale(if index == 1 then 0 else 0.52, 0.26),
-		Size = UDim2.fromScale(0.48, 0.36),
-		Parent = lobbyPanel,
-	})
+local function canChooseClass(): boolean
+	return GameState.phase() == Phase.Lobby or localPlayer:GetAttribute(PlayerAttr.InRound) ~= true
 end
 
-local roleInfo = Theme.label({
-	Font = Theme.BodyFont,
-	TextColor3 = Colors.Marble,
-	Position = UDim2.fromScale(0, 0.68),
-	Size = UDim2.fromScale(1, 0.32),
-	MaxTextSize = 18,
-	Parent = lobbyPanel,
-})
-
--- Сервер сам проверит фазу и роль; тут только не шлём лишнего
-local function chooseRole(role: string)
-	if GameState.phase() ~= Phase.Lobby or localPlayer:GetAttribute(PlayerAttr.Role) == role then
+-- Сервер сам проверит, можно ли сейчас менять класс; тут только не шлём лишнего
+local function chooseClass(role: string)
+	if not canChooseClass() or GameState.roleOf(localPlayer) == role then
 		return
 	end
 	Remotes.get(Remotes.Names.SetRole):FireServer(role)
 end
 
-for role, button in roleButtons do
-	button.Activated:Connect(function()
-		chooseRole(role)
-	end)
-end
+local classCards = ClassCards.new(gui, touchOnly, chooseClass)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed or GameState.phase() ~= Phase.Lobby then
+	if gameProcessed or not canChooseClass() then
 		return
 	end
-	for _, entry in ROLE_KEYS do
-		if table.find(entry.keys, input.KeyCode) then
-			chooseRole(entry.role)
+	for index, keys in CLASS_KEYS do
+		local role = Config.Classes.Order[index]
+		if role and table.find(keys, input.KeyCode) then
+			chooseClass(role)
 			return
 		end
 	end
 end)
-
-local function refreshLobby()
-	local myRole = localPlayer:GetAttribute(PlayerAttr.Role) or Role.Patrol
-	for role, button in roleButtons do
-		local selected = role == myRole
-		button.BackgroundColor3 = if selected then Colors.Gold else Colors.NavyLight
-		button.TextColor3 = if selected then Colors.Navy else Colors.White
-	end
-	roleInfo.Text = ROLE_INFO[myRole] or ""
-end
 
 ---------------------------------------------------------------- итог ночи
 
@@ -348,7 +302,7 @@ local function hintText(phase: string): string?
 	if localPlayer:GetAttribute(PlayerAttr.ViewingCameras) == true then
 		return nil -- у экрана камер своя подсказка
 	end
-	local hasPhone = localPlayer:GetAttribute(PlayerAttr.Role) == Role.Operator
+	local hasPhone = GameState.roleOf(localPlayer) == Role.Operator
 	local cameras = if hasPhone then HINT_PHONE else HINT_CONSOLE
 	if phase == Phase.Day then
 		local money = tonumber(localPlayer:GetAttribute(PlayerAttr.Money)) or 0
@@ -437,9 +391,10 @@ RunService.Heartbeat:Connect(function(dt)
 		hintLabel.Text = hint
 	end
 
-	lobbyPanel.Visible = phase == Phase.Lobby
-	if lobbyPanel.Visible then
-		refreshLobby()
+	local choosing = canChooseClass() and phase ~= Phase.Results
+	classCards.setVisible(choosing)
+	if choosing then
+		classCards.refresh(GameState.roleOf(localPlayer))
 	end
 
 	if phase == Phase.Results then

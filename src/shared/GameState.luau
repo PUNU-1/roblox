@@ -18,9 +18,63 @@ GameState.Phase = {
 	Results = "Results",
 }
 
+-- Классы игроков (блок 5): значение атрибута Role. Числа и умения — Config.Classes.
 GameState.Role = {
 	Patrol = "Patrol",
 	Operator = "Operator",
+	Technician = "Technician",
+	DogHandler = "DogHandler",
+	Assault = "Assault",
+}
+
+-- Описание класса из Config.Classes (Title, Ability, числа). nil — такого класса нет.
+function GameState.classInfo(role: any): { [string]: any }?
+	if typeof(role) ~= "string" or not table.find(Config.Classes.Order, role) then
+		return nil
+	end
+	return (Config.Classes :: any)[role]
+end
+
+-- Класс игрока (если атрибута нет или он странный — класс по умолчанию).
+function GameState.roleOf(player: Player): string
+	local role = player:GetAttribute(GameState.PlayerAttr.Role)
+	if GameState.classInfo(role) then
+		return role :: string
+	end
+	return Config.Classes.Default
+end
+
+-- Сколько здоровья у охранника этого класса (Штурмовик — больше).
+function GameState.maxHealthFor(player: Player): number
+	if GameState.roleOf(player) == GameState.Role.Assault then
+		return Config.Classes.Assault.AssaultHealth
+	end
+	return Config.Health.Max
+end
+
+-- Отдача оружия у этого класса (Штурмовик — меньше): множитель.
+function GameState.recoilFor(player: Player): number
+	if GameState.roleOf(player) == GameState.Role.Assault then
+		return Config.Classes.Assault.AssaultRecoil
+	end
+	return 1
+end
+
+-- Атрибуты собаки кинолога (модель в Workspace.Dogs, блок 5). Пишет сервер, двигают собаку клиенты.
+GameState.DogAttr = {
+	Owner = "Owner", -- number, UserId хозяина
+	SpawnPivot = "SpawnPivot", -- CFrame, где сервер поставил модель (от него клиенты считают положение деталей)
+	PartCount = "PartCount", -- number, сколько деталей в модели (клиент ждёт, пока придут все)
+	Alert = "Alert", -- boolean, рядом вор: собака смотрит на него, над ней «!» (вор — ObjectValue Target)
+	BarkAt = "BarkAt", -- number, когда собака гавкнула (workspace:GetServerTimeNow())
+}
+
+-- Атрибуты датчика движения техника (модель в Workspace.Sensors, блок 5).
+GameState.SensorAttr = {
+	Owner = "Owner", -- number, UserId техника
+	PlacedAt = "PlacedAt", -- number, когда поставили (анимация раскладывания)
+	PingAt = "PingAt", -- number, когда рядом прошёл вор: писк и стрелка у всей охраны
+	Radius = "Radius", -- number, докуда видит
 }
 
 -- Атрибуты модели NPC (вор, турист): сервер пишет, что он сейчас делает, клиенты по этому двигают руки и ноги.
@@ -159,7 +213,7 @@ GameState.Attr = {
 
 -- Атрибуты Player
 GameState.PlayerAttr = {
-	Role = "Role", -- string, GameState.Role
+	Role = "Role", -- string, GameState.Role — класс игрока (блок 5)
 	InTeam = "InTeam", -- boolean, стоит в круге START SHIFT в лобби и попал в команду (не больше 5)
 	InRound = "InRound", -- boolean, игрок участвует в текущей ночи
 	ViewingCameras = "ViewingCameras", -- boolean, открыт телефон или пульт
@@ -190,6 +244,10 @@ GameState.PlayerAttr = {
 	TaserReadyAt = "TaserReadyAt", -- number, когда шокер снова заряжен
 	ReloadUntil = "ReloadUntil", -- number, перезарядка кончится (0 — не перезаряжает)
 	HealUntil = "HealUntil", -- number, аптечка подействует (0 — не лечится)
+	-- блок 5: умение класса (пишет AbilityService)
+	AbilityReadyAt = "AbilityReadyAt", -- number, когда умение снова можно использовать (0 — готово)
+	AbilityUntil = "AbilityUntil", -- number, умение действует до этого времени (рывок)
+	AbilityCharges = "AbilityCharges", -- number, сколько раз ещё можно этой ночью (датчики техника)
 }
 
 -- Патронов в магазине и в запасе у оружия (Pistol, Rifle, Shotgun).

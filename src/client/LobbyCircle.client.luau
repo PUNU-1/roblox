@@ -113,7 +113,8 @@ local function refresh()
 	teamLabel.Text = ("Team %d/%d"):format(#team, Config.Players.Max)
 	local names = {}
 	for _, player in team do
-		table.insert(names, ("%s (%s)"):format(player.DisplayName, tostring(player:GetAttribute(PlayerAttr.Role) or "Patrol")))
+		local info = GameState.classInfo(GameState.roleOf(player))
+		table.insert(names, ("%s (%s)"):format(player.DisplayName, if info then tostring(info.Title) else "Patrol"))
 	end
 	namesLabel.Text = table.concat(names, "\n")
 
