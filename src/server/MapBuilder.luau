@@ -1301,16 +1301,11 @@ local function buildStaffArea(doorsFolder: Folder)
 		pipe.Shape = Enum.PartType.Cylinder
 	end
 
-	-- Оружейная: пустая стойка у восточной стены (товары — блок 4), прилавок, шкафчики, мишень
+	-- Оружейная: стойка у восточной стены (товары ставит ArmoryService, блок 4), шкафчики, мишень
 	local rack = placeModel(MapSchema.Models.WeaponRack, CFrame.lookAt(Vector3.new(ARMORY.maxX, 0, 113), Vector3.new(ARMORY.maxX - 1, 0, 113)), WEAPON_RACK_STUB)
 	rack.Name = MapSchema.ArmoryRack
 	wallSign(Vector3.new(ARMORY.maxX, 9.2, 113), Vector3.new(-1, 0, 0), 6, 1.4, "ARMORY", hex("FFFFFF"), COLORS.Red)
-	local counter = {
-		{ size = Vector3.new(10, 3.2, 2), offset = CFrame.new(0, 1.6, 0), color = hex("4A5060"), material = Enum.Material.Metal },
-		{ size = Vector3.new(10.4, 0.3, 2.4), offset = CFrame.new(0, 3.35, 0), color = COLORS.DarkWood, material = Enum.Material.Wood },
-		{ size = Vector3.new(9.6, 0.4, 0.1), offset = CFrame.new(0, 2.6, -1.02), color = hex("F2C230") },
-	}
-	placeModel(MapSchema.Models.ArmoryCounter, CFrame.lookAt(Vector3.new(121, 0, 113), Vector3.new(120, 0, 113)), counter)
+	-- Прилавок с оружием, стол с патронами и манекен в бронежилете ставит ArmoryService (блок 4) от этой стойки
 	local locker = {
 		{ size = Vector3.new(3, 7, 2), offset = CFrame.new(0, 3.5, 0), color = COLORS.Steel, material = Enum.Material.Metal },
 		{ size = Vector3.new(0.1, 6.6, 0.1), offset = CFrame.new(0, 3.5, -1.02), color = hex("2B2F3A") },

@@ -194,12 +194,91 @@ local function revivePose(clock: number): Pose
 	}
 end
 
----------------------------------------------------------------- стойка и оружие (блок 4, 4.2–4.4)
+---------------------------------------------------------------- стойка и оружие (блок 4)
+
+local Weapons = Config.Weapons
+local shotAt: { [Player]: number } = {} -- когда игрок выстрелил (руки дёргаются отдачей)
+
+local function bump(t: number, a: number, b: number): number
+	if t <= a or t >= b then
+		return 0
+	end
+	return math.sin((t - a) / (b - a) * math.pi)
+end
+
+-- Руки с оружием: автомат и дробовик — правая у рукояти, левая под цевьём, корпус чуть боком;
+-- пистолет — обе руки вперёд; шокер — правая вперёд; аптечка — обе руки у груди.
+local function armsPose(pose: Pose, weapon: string, kick: number, reload: number, heal: number)
+	if weapon == "Rifle" or weapon == "Shotgun" then
+		pose.Waist = R(0.02, 0.28, 0)
+		pose.Neck = R(0.05, -0.24, 0)
+		pose.RightShoulder = R(0.62 + 0.15 * kick, 0.1, 0.42)
+		pose.RightElbow = R(1.0 + 0.1 * kick)
+		pose.RightWrist = R(0, 0, 0.35 * reload)
+		pose.LeftShoulder = R(1.42 + 0.12 * kick - 1.0 * reload, 0, 0.55 - 0.3 * reload)
+		pose.LeftElbow = R(0.35 + 0.9 * reload)
+	elseif weapon == "Pistol" then
+		pose.RightShoulder = R(1.5 + 0.2 * kick - 0.4 * reload, 0, -0.22)
+		pose.RightElbow = R(0.08 + 0.15 * kick + 0.6 * reload)
+		pose.LeftShoulder = R(1.45 + 0.2 * kick - 1.0 * reload, 0, 0.38)
+		pose.LeftElbow = R(0.22 + 0.6 * reload)
+		pose.Neck = R(0.02)
+	elseif weapon == "Taser" then
+		pose.RightShoulder = R(1.5 + 0.18 * kick, 0, -0.12)
+		pose.RightElbow = R(0.1)
+	elseif weapon == "Medkit" then
+		pose.RightShoulder = R(0.75 + 0.2 * heal, 0, -0.05)
+		pose.RightElbow = R(1.0 + 0.5 * heal)
+		pose.LeftShoulder = R(0.75 + 0.2 * heal, 0, 0.05)
+		pose.LeftElbow = R(1.0 + 0.5 * heal)
+		pose.Neck = R(-0.25 * heal)
+	end
+end
+
+-- Ноги присевшего: колени согнуты, корпус ниже; идёт — короткие шаги на полусогнутых.
+local function crouchLegs(pose: Pose, phase: number, move: number)
+	local s = math.sin(phase)
+	local c = math.cos(phase)
+	pose.Root = CFrame.new(0, -1.0 + 0.05 * math.abs(s) * move, 0)
+	pose.LeftHip = R(1.0 + 0.4 * s * move)
+	pose.RightHip = R(1.0 - 0.4 * s * move)
+	pose.LeftKnee = R(-1.9 - 0.35 * math.max(0, c) * move)
+	pose.RightKnee = R(-1.9 - 0.35 * math.max(0, -c) * move)
+	pose.LeftAnkle = R(0.85)
+	pose.RightAnkle = R(0.85)
+	pose.Waist = (pose.Waist or CFrame.identity) * R(-0.25, 0, 0)
+end
 
 -- Поза стоящего охранника с оружием, присевшего или в наклоне. nil — обычная анимация Roblox.
--- (заполняется в следующих пунктах блока 4)
-local function standingPose(_player: Player, _character: Model, _rig: Rig, _clock: number): Pose?
-	return nil
+local function standingPose(player: Player, _character: Model, rig: Rig, clock: number): Pose?
+	local weapon = player:GetAttribute(PlayerAttr.Equipped)
+	local crouch = player:GetAttribute(PlayerAttr.Crouch) == true
+	local lean = number(player, PlayerAttr.Lean)
+	local holding = typeof(weapon) == "string" and weapon ~= ""
+	if not holding and not crouch and lean == 0 then
+		return nil
+	end
+	local pose: Pose = {}
+	if holding then
+		local kick = bump(clock - (shotAt[player] or 0), 0, 0.14)
+		local reload = 0
+		local reloadUntil = number(player, PlayerAttr.ReloadUntil)
+		local info = (Weapons :: any)[weapon]
+		if reloadUntil > clock and info and info.ReloadSeconds then
+			reload = bump(1 - (reloadUntil - clock) / info.ReloadSeconds, 0.1, 0.9)
+		end
+		local heal = if number(player, PlayerAttr.HealUntil) > clock then 0.6 + 0.4 * math.abs(math.sin(clock * 9)) else 0
+		armsPose(pose, weapon :: string, kick, reload, heal)
+	end
+	if crouch then
+		crouchLegs(pose, rig.phase, math.clamp(rig.speed / Stance.CrouchSpeed, 0, 1))
+	end
+	if lean ~= 0 then
+		-- Наклон в поясе: выглядывает из-за укрытия, голова чуть выпрямляется
+		pose.Waist = (pose.Waist or CFrame.identity) * R(0, 0, -lean * 0.38)
+		pose.Neck = (pose.Neck or CFrame.identity) * R(0, 0, lean * 0.15)
+	end
+	return pose
 end
 
 ---------------------------------------------------------------- кадр
@@ -359,6 +438,17 @@ end)
 if localPlayer.Character then
 	watchCharacter(localPlayer.Character)
 end
+
+-- Чужой выстрел: руки стрелка дёргаются отдачей
+local Remotes = require(Shared:WaitForChild("Remotes"))
+Remotes.get(Remotes.Names.ShotFx).OnClientEvent:Connect(function(shooter)
+	if typeof(shooter) == "Instance" and shooter:IsA("Player") then
+		shotAt[shooter] = Workspace:GetServerTimeNow()
+	end
+end)
+Players.PlayerRemoving:Connect(function(player)
+	shotAt[player] = nil
+end)
 
 -- Позы пишем последними перед отрисовкой кадра, после обычных анимаций Roblox (как в NpcAnimator);
 -- камеру — сразу после камеры Roblox

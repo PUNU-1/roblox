@@ -109,6 +109,7 @@ type Thief = {
 	punchHit: boolean,
 	nextPunch: number,
 	special: Special?, -- подкоп или крыша
+	stunUntil: number, -- шокер (блок 4): лежит до этого времени
 	footsteps: Sound?,
 	connections: { RBXScriptConnection },
 }
@@ -248,6 +249,8 @@ local function animFor(thief: Thief): string
 	local state = thief.state
 	if state == "Arrested" then
 		return Anim.Arrest
+	elseif state == "Stunned" then
+		return Anim.Stunned
 	elseif state == "Emerge" or state == "Ascend" then
 		return Anim.Climb
 	elseif state == "Roof" then
@@ -805,6 +808,17 @@ local function updateThief(thief: Thief)
 	if thief.state == "Arrested" or thief.state == "Escaped" then
 		return
 	end
+	if thief.state == "Stunned" then
+		-- Шокер: лежит, его можно арестовать; время вышло — встаёт и продолжает своё
+		if now() >= thief.stunUntil then
+			thief.humanoid.WalkSpeed = ThiefConfig.SneakSpeed
+			thief.state = nextState(thief)
+			syncAnim(thief)
+		else
+			stand(thief)
+		end
+		return
+	end
 	if updatePunch(thief) then
 		syncAnim(thief)
 		return
@@ -1137,6 +1151,7 @@ function ThiefService.spawnSpecial(options: Options): Model?
 		punchHit = false,
 		nextPunch = 0,
 		special = nil,
+		stunUntil = 0,
 		footsteps = nil,
 		connections = {},
 	}
@@ -1231,6 +1246,39 @@ function ThiefService.arrest(model: Model): boolean
 	if carried then
 		ExhibitService.returnHome(carried)
 	end
+	return true
+end
+
+-- Шокер (блок 4): вор падает на спину на seconds секунд, дёргается, его можно арестовать.
+-- Что нёс — роняет (экспонат возвращается на место). Фальшивый охранник при этом выдаёт себя.
+-- Шахтёра под полом и Стекольщика на верёвке шокер не берёт. Возвращает true, если оглушил.
+function ThiefService.stun(model: Model, seconds: number): boolean
+	local thief = thieves[model]
+	if not thief or thief.state == "Arrested" or thief.state == "Escaped" or thief.state == "Dig" or SPECIAL_STATES[thief.state] then
+		return false
+	end
+	local wasStunned = thief.state == "Stunned"
+	thief.state = "Stunned"
+	thief.stunUntil = now() + seconds
+	thief.punchStarted = 0
+	thief.punchTarget = nil
+	thief.humanoid.WalkSpeed = 0
+	stand(thief)
+	if thief.footsteps then
+		thief.footsteps:Stop()
+	end
+	ExhibitService.cancelSteal(model)
+	local carried = ExhibitService.getCarried(model)
+	if carried then
+		ExhibitService.returnHome(carried)
+	end
+	if thief.options.disguise then
+		model:SetAttribute(GameState.ThiefAttr.Disguise, nil)
+	end
+	if not wasStunned then
+		syncAnim(thief) -- лежал уже — не падает заново
+	end
+	HeistFx.stunEffect(model, seconds)
 	return true
 end
 

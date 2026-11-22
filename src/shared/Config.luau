@@ -87,7 +87,7 @@ local Config = {
 		},
 		HeadMultiplier = 1.5, -- попадание в голову
 		-- Проверки сервера (клиенту не доверяем)
-		IntervalSlack = 0.85, -- выстрел принимается, если с прошлого прошло не меньше Interval × столько (задержка сети)
+		FireJitter = 0.12, -- выстрел может прийти на столько секунд раньше положенного (задержка сети неровная)
 		OriginSlack = 6, -- точка выстрела не дальше стольки стадов от головы стрелка
 		AimDot = 0, -- направление выстрела не дальше 90° от того, куда смотрит персонаж (по полу)
 		-- Бронежилет и аптечка
@@ -696,6 +696,28 @@ local Config = {
 		GuardDown = "rbxasset://sounds/oof.ogg", -- ВРЕМЕННЫЙ: охранник упал без сил
 		HurtVolume = 0.6,
 		GuardDownVolume = 0.9,
+		-- Выстрелы: ВРЕМЕННЫЕ — стандартный взрыв Roblox высоко тоном (короткий хлопок), шокер — Electric Zaps
+		Shots = {
+			Pistol = { Id = "rbxasset://sounds/impact_explosion_03.mp3", Volume = 0.5, Speed = 2.4 },
+			Rifle = { Id = "rbxasset://sounds/impact_explosion_03.mp3", Volume = 0.38, Speed = 3 },
+			Shotgun = { Id = "rbxasset://sounds/impact_explosion_03.mp3", Volume = 0.7, Speed = 1.55 },
+			Taser = { Id = "rbxassetid://9114277402", Volume = 0.6, Speed = 1.5 },
+		},
+		ShotRollOff = 160, -- выстрелы слышно далеко
+		Click = "rbxasset://sounds/volume_slider.ogg", -- ВРЕМЕННЫЙ: щелчок — перезарядка, пустой магазин, попадание
+		ReloadSpeed = 0.8,
+		EmptySpeed = 1.7,
+		HitSpeed = 2.3,
+		ClickVolume = 0.7,
+		Baton = "rbxasset://sounds/action_jump_land.mp3", -- ВРЕМЕННЫЙ: удар дубинкой
+		BatonSpeed = 1.3,
+		BatonVolume = 0.9,
+		Smoke = "rbxasset://sounds/impact_water.mp3", -- ВРЕМЕННЫЙ: шипение дымовой шашки (вода ниже тоном)
+		SmokeSpeed = 0.55,
+		SmokeVolume = 0.8,
+		RobberDown = "rbxasset://sounds/oof.ogg", -- ВРЕМЕННЫЙ: грабитель упал (ниже тоном)
+		RobberDownSpeed = 0.75,
+		PoliceSpeed = 0.75, -- сирена полиции — та же Alarm ниже тоном (ВРЕМЕННАЯ)
 		StepVolume = 0.6,
 		StepRollOff = 30, -- шаги слышно только рядом
 		EffectRollOff = 60, -- звуки у деталей (касса, доски, камера) слышно в этом радиусе
@@ -742,6 +764,9 @@ local Config = {
 		CutPeriod = 1.6, -- Стекольщик ведёт стеклорез по кругу
 		WorkSnipSpeed = 14, -- Светорез щёлкает кусачками
 		PatrolStride = 0.55, -- Фальшивый охранник: спокойный шаг
+		-- блок 4
+		StunFallSeconds = 0.3, -- шокер: вор падает на спину
+		StunTwitchSeconds = 1.6, -- и столько дёргается
 	},
 
 	Lighting = {

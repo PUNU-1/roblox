@@ -24,6 +24,8 @@ local HeistFx = require(Server:WaitForChild("HeistFx"))
 local BlackoutService = require(Server:WaitForChild("BlackoutService"))
 local CatchService = require(Server:WaitForChild("CatchService"))
 local HealthService = require(Server:WaitForChild("HealthService"))
+local WeaponService = require(Server:WaitForChild("WeaponService"))
+local ArmoryService = require(Server:WaitForChild("ArmoryService"))
 local TrapService = require(Server:WaitForChild("TrapService"))
 local CommsService = require(Server:WaitForChild("CommsService"))
 local TouristService = require(Server:WaitForChild("TouristService"))
@@ -48,6 +50,15 @@ BlackoutService.init(map)
 ThiefService.init(map)
 CatchService.init()
 HealthService.init()
+WeaponService.init()
+ArmoryService.init(map)
+-- Шокер берёт и обычных воров (пули — только грабителей, их добавляет RobberService)
+WeaponService.addTargets({
+	owns = ThiefService.isThief,
+	stun = function(model: Model)
+		return ThiefService.stun(model, Config.Weapons.Taser.StunThief)
+	end,
+})
 TrapService.init(map)
 CommsService.init(map)
 TouristService.init(map)
@@ -138,6 +149,7 @@ local function runDay(night: number): boolean
 	HallService.setDayActive(true)
 	ExhibitService.setDayActive(true)
 	CameraService.setDayActive(true)
+	ArmoryService.setDayActive(true)
 	bannerRemote:FireAllClients(("DAY %d"):format(night), "info")
 	Audio.startMusic(Config.Sounds.DayMusic)
 	local closing = false
@@ -162,6 +174,7 @@ local function runNight(night: number): (boolean, boolean)
 	HallService.setDayActive(false)
 	ExhibitService.setDayActive(false)
 	CameraService.setDayActive(false)
+	ArmoryService.setDayActive(false)
 	setLighting(Config.Lighting.Night)
 	MapBuilder.setDayLights(map, false) -- ночью только дежурные лампы и фонарики
 	local length = nightSeconds(night)
@@ -202,6 +215,7 @@ local function runNight(night: number): (boolean, boolean)
 	ThiefService.endNight()
 	BlackoutService.reset()
 	HealthService.endNight() -- кто пролежал до утра, встаёт
+	WeaponService.endNight() -- оружие из рук
 	Audio.stopMusic()
 	return survived, aborted
 end
@@ -235,6 +249,7 @@ local function finishRun()
 	HallService.reset()
 	CameraService.setDayActive(false)
 	CameraService.reset() -- остаётся только бесплатная камера на Мону Лизу
+	ArmoryService.setDayActive(false)
 	WaveService.endNight()
 	ThiefService.endNight()
 	HeistFx.resetForDay()

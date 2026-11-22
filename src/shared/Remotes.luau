@@ -17,6 +17,12 @@ local NAMES: { [string]: string } = {
 	MarkThief = "MarkThief", -- (thief: Model) метка оператора на вора
 	QuickPhrase = "QuickPhrase", -- (index: number) готовая фраза
 	VoteCast = "VoteCast", -- (voteId: number, yes: boolean) голос за опоздавшего
+	-- блок 4: оружие (всё проверяет WeaponService)
+	Equip = "Equip", -- (slot: number) 1 — основное, 2 — пистолет, 3 — шокер, 4 — аптечка; то же место ещё раз — убрать
+	Fire = "Fire", -- (weapon: string, origin: Vector3, direction: Vector3) выстрел: только направление, луч пускает сервер
+	Reload = "Reload", -- () перезарядить оружие в руках
+	UseMedkit = "UseMedkit", -- () аптечка в руках — лечиться
+	SetStance = "SetStance", -- (crouch: boolean, lean: number) присед и наклон
 
 	-- сервер -> клиенты
 	PhraseShown = "PhraseShown", -- (userId: number, index: number)
@@ -24,6 +30,8 @@ local NAMES: { [string]: string } = {
 	NightResults = "NightResults", -- (results: table) экран итога
 	VoteRequest = "VoteRequest", -- (voteId: number, name: string, seconds: number) пустить ли опоздавшего
 	Hurt = "Hurt", -- (from: Vector3?, amount: number) охранника ранили: с какой стороны вспыхнуть краю экрана
+	ShotFx = "ShotFx", -- (shooter: Instance, weapon: string, origin: Vector3, ends: { Vector3 }, hits: { boolean }) выстрел для картинки
+	HitConfirm = "HitConfirm", -- (kind: string) стрелку: попал ("hit"), в голову ("head"), грабитель упал ("ko"), шокер ("stun")
 }
 Remotes.Names = NAMES
 

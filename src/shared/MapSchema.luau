@@ -25,7 +25,7 @@ local MapSchema = {
 	Skylight = "Skylight", -- стеклянный потолок над центром (стекольщики режут его в блоке 3)
 	Balcony = "Balcony", -- пол балкона над центром
 	FuseBox = "FuseBox", -- щиток POWER в служебном коридоре (вор, который выключает свет, блок 3)
-	ArmoryRack = "ArmoryRack", -- оружейная стойка (товары — блок 4)
+	ArmoryRack = "ArmoryRack", -- оружейная стойка: от неё ArmoryService ставит прилавок, стол и манекен (блок 4)
 	CameraPlaque = "CameraPlaque", -- табличка под местом камеры: на ней кнопка покупки
 	AreaAttribute = "Area", -- атрибут пола: название места для надписей («CENTER HALL», «SOUTH CORRIDOR»)
 
@@ -58,7 +58,6 @@ local MapSchema = {
 		DisplayCase = "prop_displaycase_01", -- витрина-укрытие
 		Reception = "prop_reception_01", -- стойка TICKETS во входном холле
 		Chair = "prop_chair_01", -- кресло у пульта
-		ArmoryCounter = "prop_armory_counter_01", -- прилавок оружейной
 		FuseBox = "prop_fusebox_01",
 		WeaponRack = "prop_weaponrack_01",
 		TRexSkeleton = "prop_skeleton_trex_01",

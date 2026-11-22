@@ -44,6 +44,45 @@ function Purchase.newPrompt(part: BasePart, name: string, price: number): Proxim
 	return prompt
 end
 
+-- Блок 4: личная покупка в оружейной (без складчины). Кнопка одна на всех, но видна ли она игроку
+-- и что на ней написано («Buy $150», «Swap $300», «Need $150»), решает его клиент по своим вещам
+-- (GameState.armoryOffer). item — товар из Config.Armory.Goods.
+function Purchase.newPersonalPrompt(part: BasePart, name: string, price: number, item: string): ProximityPrompt
+	local prompt = Purchase.newPrompt(part, name, price)
+	prompt.MaxActivationDistance = Config.Armory.PromptDistance
+	prompt:SetAttribute(BuyPrompt.Item, item)
+	prompt:SetAttribute(BuyPrompt.Open, false)
+	return prompt
+end
+
+-- Можно ли сейчас покупать (днём). Для личных кнопок клиент ещё прячет ту, что ему не нужна.
+function Purchase.setOpen(prompt: ProximityPrompt, open: boolean)
+	prompt:SetAttribute(BuyPrompt.Open, open)
+	prompt.Enabled = open
+end
+
+-- Берёт у игрока полную цену личной покупки. false — денег не хватает, далеко или игрок не на смене.
+function Purchase.takeFull(player: Player, part: BasePart, price: number): boolean
+	if not RoleService.isParticipant(player) or RoleService.isDowned(player) then
+		return false
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not (root and root:IsA("BasePart")) then
+		return false
+	end
+	if (root.Position - part.Position).Magnitude > Config.Armory.PromptDistance + Config.Catch.ServerDistanceSlack then
+		return false
+	end
+	local money = math.floor(tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0)
+	if money < price then
+		return false
+	end
+	player:SetAttribute(GameState.PlayerAttr.Money, money - price)
+	Audio.purchase(part)
+	return true
+end
+
 -- «Golden Vase — $120» или, если уже вкладывали, «Golden Vase — $40 / $120».
 function Purchase.progressText(title: string, paid: number, price: number): string
 	if paid > 0 then

@@ -569,6 +569,63 @@ end
 ---------------------------------------------------------------- день и ночь
 
 -- Утро: витрины целые, следы воров (дыры в полу, тренога, верёвка, дыра в стекле) убраны.
+-- Шокер (блок 4): искры по телу и звёздочки над головой у оглушённого вора или грабителя на seconds секунд.
+function HeistFx.stunEffect(model: Model, seconds: number)
+	local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("HumanoidRootPart")
+	if torso and torso:IsA("BasePart") then
+		local old = torso:FindFirstChild("StunSparks")
+		if old then
+			old:Destroy()
+		end
+		local sparks = Instance.new("ParticleEmitter")
+		sparks.Name = "StunSparks"
+		sparks.Color = ColorSequence.new(Config.Weapons.Taser.Color, Color3.fromRGB(255, 255, 255))
+		sparks.LightEmission = 1
+		sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 0) })
+		sparks.Lifetime = NumberRange.new(0.12, 0.3)
+		sparks.Speed = NumberRange.new(4, 9)
+		sparks.SpreadAngle = Vector2.new(180, 180)
+		sparks.Rate = 40
+		sparks.Parent = torso
+		task.delay(math.min(seconds, Config.Animations.StunTwitchSeconds), function()
+			if sparks.Parent then
+				sparks.Rate = 0
+				Debris:AddItem(sparks, 0.5)
+			end
+		end)
+	end
+	local head = model:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then
+		local old = head:FindFirstChild("StunStars")
+		if old then
+			old:Destroy()
+		end
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = "StunStars"
+		billboard.Size = UDim2.fromScale(3, 1)
+		billboard.StudsOffset = Vector3.new(0, 1.6, 0)
+		billboard.MaxDistance = 80
+		billboard.LightInfluence = 0
+		local label = Instance.new("TextLabel")
+		label.Name = "Stars"
+		label.BackgroundTransparency = 1
+		label.Size = UDim2.fromScale(1, 1)
+		label.Text = "★ ⚡ ★"
+		label.TextScaled = true
+		label.Font = Enum.Font.FredokaOne
+		label.TextColor3 = Color3.fromHex("FFD23F")
+		label.TextStrokeTransparency = 0
+		label.Parent = billboard
+		billboard.Parent = head
+		Debris:AddItem(billboard, seconds)
+	end
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		local shot = Config.Sounds.Shots.Taser
+		Audio.playOnce(shot.Id, root, shot.Volume, 1.2, shot.Speed * 0.8)
+	end
+end
+
 function HeistFx.resetForDay()
 	for _, case in cases do
 		restoreCase(case)

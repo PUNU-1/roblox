@@ -7,6 +7,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local Config = require(script.Parent:WaitForChild("Config"))
+
 local GameState = {}
 
 GameState.Phase = {
@@ -45,12 +47,17 @@ GameState.ThiefAnim = {
 	Cut = "Cut", -- Стекольщик на коленях режет круг в стекле
 	Work = "Work", -- Светорез возится у щитка с кусачками
 	Patrol = "Patrol", -- Фальшивый охранник: спокойно ходит и стоит, руки за спиной
+	-- блок 4
+	Stunned = "Stunned", -- шокер: упал на спину, дёргается, звёздочки
 }
 
 -- Атрибуты модели вора (пишет сервер).
 GameState.ThiefAttr = {
 	Kind = "ThiefKind", -- string, вид вора (Config.ThiefTypes)
 	Disguise = "Disguise", -- string?, Фальшивый охранник: чей ник у него над головой (пока он не схватил экспонат)
+	Robber = "Robber", -- boolean, грабитель налёта (блок 4): в него попадают пули
+	RobberRole = "RobberRole", -- string, "Gunner" | "Grabber"
+	Surrendered = "Surrendered", -- boolean, сдался полиции: руки вверх
 }
 
 -- Залы музея. Главный (центр, коридоры, входные холлы) открыт всегда,
@@ -105,6 +112,9 @@ GameState.BuyPrompt = {
 	Tag = "BuyPrompt",
 	Price = "BuyPrice", -- number, полная цена
 	Paid = "BuyPaid", -- number, сколько уже вложили вскладчину
+	-- блок 4: личные покупки оружейной (без складчины)
+	Item = "BuyItem", -- string, товар из Config.Armory.Goods
+	Open = "BuyOpen", -- boolean, покупать сейчас можно (днём); видна ли кнопка игроку, решает его клиент по своим вещам
 }
 
 -- Что будет, если удержать кнопку покупки (решение 67): хватает денег на остаток — «Buy $остаток»,
@@ -134,6 +144,9 @@ GameState.Attr = {
 	BestNights = "BestNights", -- number, рекорд сервера: сколько ночей продержались
 	TouristsToday = "TouristsToday", -- number, сколько туристов пришло за день
 	Blackout = "Blackout", -- boolean, Светорез вырубил свет и камеры (блок 3)
+	Raid = "Raid", -- boolean, идёт налёт: огнестрел можно достать (блок 4)
+	PoliceAt = "PoliceAt", -- number, когда приедет полиция (0 — налёта нет); вверху POLICE: 60
+	PoliceArrived = "PoliceArrived", -- boolean, полиция приехала: грабители сдаются
 }
 
 -- Атрибуты Player
@@ -160,7 +173,68 @@ GameState.PlayerAttr = {
 	-- блок 4: стойка (пишет WeaponService по просьбе клиента)
 	Crouch = "Crouch", -- boolean, присел
 	Lean = "Lean", -- number, наклон: -1 влево, 0 нет, 1 вправо
+	-- блок 4: оружие (пишет WeaponService); патроны — атрибуты GameState.ammoAttr / reserveAttr
+	HasTaser = "HasTaser", -- boolean
+	HasPistol = "HasPistol", -- boolean
+	Primary = "Primary", -- string: "" | "Rifle" | "Shotgun"
+	Medkits = "Medkits", -- number, аптечек с собой
+	Equipped = "Equipped", -- string, что в руках: "" | "Rifle" | "Shotgun" | "Pistol" | "Taser" | "Medkit"
+	TaserReadyAt = "TaserReadyAt", -- number, когда шокер снова заряжен
+	ReloadUntil = "ReloadUntil", -- number, перезарядка кончится (0 — не перезаряжает)
+	HealUntil = "HealUntil", -- number, аптечка подействует (0 — не лечится)
 }
+
+-- Патронов в магазине и в запасе у оружия (Pistol, Rifle, Shotgun).
+function GameState.ammoAttr(weapon: string): string
+	return "Ammo" .. weapon
+end
+
+function GameState.reserveAttr(weapon: string): string
+	return "Reserve" .. weapon
+end
+
+-- Можно ли игроку купить товар оружейной (блок 4) и что будет: "Buy" — купить, "Swap" — основное оружие
+-- заменит другое (автомат ↔ дробовик). show = false — уже есть, полная броня, аптечек с собой максимум,
+-- патроны к оружию, которого нет, или запас полный. Сервер проверяет этим же, клиент — прячет кнопку.
+function GameState.armoryOffer(player: Player, item: string): (boolean, string)
+	local good = (Config.Armory.Goods :: any)[item]
+	if not good then
+		return false, "Buy"
+	end
+	local attr = GameState.PlayerAttr
+	if good.Kind == "Weapon" then
+		if GameState.hasWeapon(player, item) then
+			return false, "Buy"
+		end
+		local primary = player:GetAttribute(attr.Primary)
+		if (item == "Rifle" or item == "Shotgun") and typeof(primary) == "string" and primary ~= "" then
+			return true, "Swap"
+		end
+		return true, "Buy"
+	elseif good.Kind == "Vest" then
+		return (tonumber(player:GetAttribute(attr.Armor)) or 0) < Config.Weapons.Vest.Armor, "Buy"
+	elseif good.Kind == "Medkit" then
+		return (tonumber(player:GetAttribute(attr.Medkits)) or 0) < Config.Weapons.Medkit.MaxCarry, "Buy"
+	elseif good.Kind == "Ammo" then
+		local weapon = good.Weapon
+		local info = (Config.Weapons :: any)[weapon]
+		if not info or not GameState.hasWeapon(player, weapon) then
+			return false, "Buy"
+		end
+		return (tonumber(player:GetAttribute(GameState.reserveAttr(weapon))) or 0) < info.MaxReserve, "Buy"
+	end
+	return false, "Buy"
+end
+
+-- Есть ли у игрока это оружие (Taser, Pistol, Rifle, Shotgun).
+function GameState.hasWeapon(player: Player, weapon: string): boolean
+	if weapon == "Taser" then
+		return player:GetAttribute(GameState.PlayerAttr.HasTaser) == true
+	elseif weapon == "Pistol" then
+		return player:GetAttribute(GameState.PlayerAttr.HasPistol) == true
+	end
+	return weapon ~= "" and player:GetAttribute(GameState.PlayerAttr.Primary) == weapon
+end
 
 local FOLDER_NAME = "GameState"
 

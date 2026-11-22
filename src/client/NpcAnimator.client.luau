@@ -469,8 +469,34 @@ local function photoPose(clock: number): Pose
 	return pose
 end
 
-local function poseFor(state: any, t: number, clock: number, phase: number, move: number): Pose
-	if state == TouristAnim.Stroll then
+-- Шокер (блок 4): падает на спину, руки и ноги дёргаются от разряда, потом лежит и слабо подрагивает.
+-- height — от корня до пола (чтобы лечь на пол, а не в пол).
+local function stunnedPose(t: number, clock: number, height: number): Pose
+	local pose: Pose = {}
+	local k = smooth(t / Settings.StunFallSeconds)
+	local twitch = if t < Settings.StunTwitchSeconds then 1 - 0.7 * t / Settings.StunTwitchSeconds else 0.12
+	local j = twitch * math.sin(clock * 37)
+	local j2 = twitch * math.sin(clock * 29 + 1.3)
+	pose.Root = CFrame.new(0, -(height - 0.8) * k, (height - 1) * 0.8 * k) * R(1.45 * k, 0, 0.05 * j2)
+	pose.Waist = R(0.1 * k + 0.06 * j)
+	pose.Neck = R(0.3 * k + 0.12 * j2, 0.15 * j, 0)
+	pose.LeftShoulder = R(2.0 * k + 0.25 * j, 0, -0.6 * k)
+	pose.RightShoulder = R(1.8 * k - 0.25 * j2, 0, 0.7 * k)
+	pose.LeftElbow = R(0.8 * k + 0.35 * j2)
+	pose.RightElbow = R(0.7 * k - 0.35 * j)
+	pose.LeftWrist = R(0.3 * j)
+	pose.RightWrist = R(-0.3 * j2)
+	pose.LeftHip = R(0.3 * k + 0.12 * j, 0, -0.15 * k)
+	pose.RightHip = R(0.1 * k - 0.12 * j2, 0, 0.2 * k)
+	pose.LeftKnee = R(-0.5 * k - 0.15 * math.abs(j))
+	pose.RightKnee = R(-0.35 * k - 0.15 * math.abs(j2))
+	return pose
+end
+
+local function poseFor(state: any, t: number, clock: number, phase: number, move: number, height: number): Pose
+	if state == Anim.Stunned then
+		return stunnedPose(t, clock, height)
+	elseif state == TouristAnim.Stroll then
 		return strollPose(clock, phase, move)
 	elseif state == TouristAnim.Admire then
 		return admirePose(clock)
@@ -578,7 +604,9 @@ local function step(dt: number)
 		rig.phase = (rig.phase + rig.speed * dt * stride) % (math.pi * 2)
 		local move = math.clamp(rig.speed / 6, 0, 1)
 
-		local target = poseFor(state, t, clock, rig.phase, move)
+		local humanoid = model:FindFirstChildOfClass("Humanoid")
+		local height = (if humanoid then humanoid.HipHeight else 2) + rig.root.Size.Y / 2
+		local target = poseFor(state, t, clock, rig.phase, move, height)
 		-- Суставы догружаются по сети уже после появления вора (а Roblox может их пересобрать) — ищем заново
 		local stale = rig.jointCount < #JOINTS
 		if not stale then

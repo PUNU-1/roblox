@@ -16,6 +16,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
+local Fx = require(script.Parent:WaitForChild("Fx"))
 
 local PlayerAttr = GameState.PlayerAttr
 local Colors = Theme.Colors
@@ -245,6 +246,52 @@ Remotes.get(Remotes.Names.Hurt).OnClientEvent:Connect(function(from, amount)
 	else
 		flash(edges.right, strength)
 	end
+end)
+
+---------------------------------------------------------------- чужие выстрелы
+
+-- Конец ствола у оружия в руках стрелка (охранника или грабителя): модель Gear.Held, деталь Root, точка Muzzle.
+local function muzzleOf(shooter: Instance): CFrame?
+	local model = if shooter:IsA("Player") then shooter.Character else shooter
+	local gear = model and model:FindFirstChild("Gear")
+	local held = gear and gear:FindFirstChild("Held")
+	local root = held and held:FindFirstChild("Root")
+	local muzzle = root and root:FindFirstChild("Muzzle")
+	if muzzle and muzzle:IsA("Attachment") then
+		return muzzle.WorldCFrame
+	end
+	return nil
+end
+
+-- Свой выстрел уже нарисован сразу (Weapons.client); здесь — выстрелы других охранников и грабителей
+Remotes.get(Remotes.Names.ShotFx).OnClientEvent:Connect(function(shooter, weapon, origin, ends, hits)
+	if shooter == localPlayer or typeof(shooter) ~= "Instance" or typeof(weapon) ~= "string" or typeof(ends) ~= "table" then
+		return
+	end
+	local muzzle = muzzleOf(shooter)
+	local from = if muzzle then muzzle.Position elseif typeof(origin) == "Vector3" then origin else nil
+	if not from then
+		return
+	end
+	local camera = Workspace.CurrentCamera
+	if camera and (camera.CFrame.Position - from).Magnitude > 260 then
+		return -- далеко: не видно и не слышно
+	end
+	for index, point in ends do
+		if typeof(point) == "Vector3" then
+			local onTarget = typeof(hits) == "table" and hits[index] == true
+			if weapon == "Taser" then
+				Fx.wire(from, point)
+			else
+				Fx.tracer(from, point)
+				Fx.impact(point, onTarget)
+			end
+		end
+	end
+	if muzzle and weapon ~= "Taser" then
+		Fx.muzzleFlash(muzzle, if weapon == "Shotgun" then 1.4 else 1)
+	end
+	Fx.shotSound(weapon, from)
 end)
 
 ---------------------------------------------------------------- метки «REVIVE» над лежащими друзьями
