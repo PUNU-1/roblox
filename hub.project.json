@@ -35,7 +35,8 @@
         "MapDecor": { "$path": "src/server/MapDecor.luau" },
         "Uniform": { "$path": "src/server/Uniform.luau" },
         "Retry": { "$path": "src/server/Retry.luau" },
-        "Teleporter": { "$path": "src/server/Teleporter.luau" }
+        "Teleporter": { "$path": "src/server/Teleporter.luau" },
+        "RecordStore": { "$path": "src/server/RecordStore.luau" }
       }
     },
     "StarterPlayer": {

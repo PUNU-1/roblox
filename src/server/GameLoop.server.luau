@@ -36,6 +36,7 @@ local CameraService = require(Server:WaitForChild("CameraService"))
 local DoorService = require(Server:WaitForChild("DoorService"))
 local VoteService = require(Server:WaitForChild("VoteService"))
 local HubLink = require(Server:WaitForChild("HubLink"))
+local RecordStore = require(Server:WaitForChild("RecordStore"))
 local Audio = require(Server:WaitForChild("Audio"))
 
 local Phase = GameState.Phase
@@ -254,6 +255,12 @@ local function runResults(survived: boolean, night: number)
 	if not survived then
 		bestNights = math.max(bestNights, nightsSurvived)
 		GameState.set(Attr.BestNights, bestNights)
+		-- Рекорд команды — на общую доску рекордов в хабе (блок 6; в Studio не пишется)
+		local ids = {}
+		for _, player in RoleService.participants() do
+			table.insert(ids, player.UserId)
+		end
+		RecordStore.submitAsync(ids, nightsSurvived)
 	end
 	results.night = night
 	results.gameOver = not survived

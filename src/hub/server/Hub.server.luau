@@ -16,6 +16,7 @@ local TeleportTicket = require(Shared:WaitForChild("TeleportTicket"))
 local Server = script.Parent
 local HubBuilder = require(Server:WaitForChild("HubBuilder"))
 local PadService = require(Server:WaitForChild("PadService"))
+local LeaderboardService = require(Server:WaitForChild("LeaderboardService"))
 local Teleporter = require(Server:WaitForChild("Teleporter"))
 local Uniform = require(Server:WaitForChild("Uniform"))
 
@@ -29,8 +30,9 @@ Lighting.Brightness = light.Brightness
 Lighting.Ambient = light.Ambient
 Lighting.OutdoorAmbient = light.OutdoorAmbient
 
-local _, pads = HubBuilder.build()
+local map, pads = HubBuilder.build()
 PadService.init(pads)
+LeaderboardService.init(map) -- доска рекордов: топ-10 команд за всё время и за неделю
 
 local bannerRemote = Remotes.get(Remotes.Names.Banner)
 
