@@ -201,9 +201,19 @@ local resultsCaught = Theme.label({
 	ZIndex = 5,
 	Parent = resultsPanel,
 })
+-- «Thieves used: Decoy, Pincer» — какие планы были у воров (блок 3; заранее о планах ничего не говорится)
+local resultsPlans = Theme.label({
+	Position = UDim2.fromScale(0, 0.3),
+	Size = UDim2.fromScale(1, 0.06),
+	Font = Theme.BodyFont,
+	TextColor3 = Colors.Gold,
+	MaxTextSize = 20,
+	ZIndex = 5,
+	Parent = resultsPanel,
+})
 local resultsList = Theme.new("Frame", {
-	Position = UDim2.fromScale(0, 0.33),
-	Size = UDim2.fromScale(1, 0.54),
+	Position = UDim2.fromScale(0, 0.38),
+	Size = UDim2.fromScale(1, 0.5),
 	BackgroundTransparency = 1,
 	ZIndex = 5,
 	Parent = resultsPanel,
@@ -245,6 +255,15 @@ local function showResults(results: { [string]: any })
 		)
 	end
 	resultsTitle.TextColor3 = if survived then Colors.Gold else Colors.Red
+	local plans = {}
+	if typeof(results.plans) == "table" then
+		for _, title in results.plans do
+			if typeof(title) == "string" then
+				table.insert(plans, title)
+			end
+		end
+	end
+	resultsPlans.Text = if #plans > 0 then "Thieves used: " .. table.concat(plans, ", ") else ""
 
 	local earnings = if typeof(results.earnings) == "table" then results.earnings else {}
 	local catches = if typeof(results.catches) == "table" then results.catches else {}

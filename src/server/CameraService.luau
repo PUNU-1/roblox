@@ -226,6 +226,20 @@ function CameraService.nearestWorking(position: Vector3): BasePart?
 	return best
 end
 
+-- Работающие камеры не дальше radius от точки, ближние первыми (план «Ослепление»).
+function CameraService.workingNear(position: Vector3, radius: number): { BasePart }
+	local list = {}
+	for _, point in points do
+		if CameraService.isWorking(point) and (point.Position - position).Magnitude <= radius then
+			table.insert(list, point)
+		end
+	end
+	table.sort(list, function(a, b)
+		return (a.Position - position).Magnitude < (b.Position - position).Magnitude
+	end)
+	return list
+end
+
 -- Где встать вору под камерой: на полу под кронштейном, чуть дальше от стены (StandPoint пишет MapBuilder).
 function CameraService.standPoint(point: BasePart): Vector3
 	local stand = point:GetAttribute(Attr.StandPoint)

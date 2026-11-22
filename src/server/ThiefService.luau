@@ -51,6 +51,8 @@ export type Options = {
 	silent: boolean?, -- шагов не слышно
 	loud: boolean?, -- бежит и громко топает (приманка)
 	noFlee: boolean?, -- не убегает от охраны
+	cameras: { BasePart }?, -- задание "Camera": какие камеры сломать (план «Ослепление»)
+	disguise: Player?, -- Фальшивый охранник: копия этого игрока
 	plan: string?, -- какой план (для отладки)
 }
 
@@ -377,9 +379,40 @@ local function speedFor(thief: Thief, base: number): number
 	return speed
 end
 
--- Скорость, пока вор идёт к цели: крадётся, а приманка бежит.
+-- Скорость, пока вор идёт к цели: крадётся, приманка бежит, Фальшивый охранник идёт спокойно.
 local function walkSpeed(thief: Thief): number
+	if thief.info.WalkSpeed then
+		return speedFor(thief, thief.info.WalkSpeed)
+	end
 	return speedFor(thief, if thief.options.loud then ThiefConfig.RunSpeed else ThiefConfig.SneakSpeed)
+end
+
+-- Фальшивого охранника кто-то из охраны видит: ближе WatchRadius и между ними нет стены.
+local function watched(thief: Thief): boolean
+	local head = thief.model:FindFirstChild("Head")
+	local from = if head and head:IsA("BasePart") then head.Position else thief.root.Position
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.RespectCanCollide = true
+	local ignore: { Instance } = { folder }
+	local eyes = {}
+	for _, player in RoleService.participants() do
+		local character = player.Character
+		if character then
+			table.insert(ignore, character)
+			local guardHead = character:FindFirstChild("Head")
+			if guardHead and guardHead:IsA("BasePart") and (guardHead.Position - from).Magnitude <= thief.info.WatchRadius then
+				table.insert(eyes, guardHead.Position)
+			end
+		end
+	end
+	params.FilterDescendantsInstances = ignore
+	for _, eye in eyes do
+		if not Workspace:Raycast(eye, from - eye, params) then
+			return true
+		end
+	end
+	return false
 end
 
 -- «!» над головой: вор заметил охранника. Сквозь стены не видно.
@@ -414,6 +447,10 @@ end
 
 local function startEscape(thief: Thief, exhibit: ExhibitService.Exhibit)
 	thief.state = "Escape"
+	if thief.options.disguise then
+		-- С экспонатом в руках он уже не охранник: кнопка становится обычным арестом (CatchService)
+		thief.model:SetAttribute(GameState.ThiefAttr.Disguise, nil)
+	end
 	syncAnim(thief)
 	bannerRemote:FireAllClients(("THE %s IS STOLEN!"):format(string.upper(exhibit.title)), "danger")
 	Audio.alarm()
@@ -782,7 +819,7 @@ local function updateThief(thief: Thief)
 	-- Выбираем, что делать
 	if carried then
 		thief.state = "Escape"
-	elseif mainBusy and mainBusy ~= model and BLOCK_STATES[thief.state] then
+	elseif mainBusy and mainBusy ~= model and BLOCK_STATES[thief.state] and not thief.options.disguise then
 		thief.state = "Block"
 	elseif thief.state == "Block" or thief.state == "Escape" then
 		thief.state = nextState(thief)
@@ -856,9 +893,12 @@ local function updateThief(thief: Thief)
 			target = ExhibitService.pickTarget(model, thief.options.target, ThiefService.guardPositions())
 			thief.target = target
 		end
+		local near = target ~= nil and flatDistance(position, target.stand) < ThiefConfig.StealReachDistance
 		if not target then
 			stand(thief)
-		elseif flatDistance(position, target.stand) < ThiefConfig.StealReachDistance and ExhibitService.tryStartSteal(target, model) then
+		elseif near and thief.options.disguise and watched(thief) then
+			stand(thief) -- Фальшивый охранник ждёт у экспоната, пока на него никто не смотрит
+		elseif near and ExhibitService.tryStartSteal(target, model) then
 			thief.state = "Steal"
 			thief.stealStarted = now()
 			stand(thief)
@@ -1023,7 +1063,7 @@ function ThiefService.spawnSpecial(options: Options): Model?
 	if not special and not entrance then
 		return nil
 	end
-	local model = ThiefKinds.build(kind)
+	local model = ThiefKinds.build(kind, options.disguise)
 	if not model then
 		return nil
 	end
@@ -1033,7 +1073,14 @@ function ThiefService.spawnSpecial(options: Options): Model?
 		model:Destroy() -- ночь кончилась, пока собирался персонаж, или он собрался без частей
 		return nil
 	end
-	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	if options.disguise then
+		-- Ник игрока над головой, как у настоящих охранников
+		humanoid.DisplayName = options.disguise.DisplayName
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+		model:SetAttribute(GameState.ThiefAttr.Disguise, options.disguise.DisplayName)
+	else
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	end
 	humanoid.WalkSpeed = ThiefConfig.SneakSpeed
 	ModelLibrary.setCollisionGroup(model, ModelLibrary.Groups.Thieves)
 	if entrance then
@@ -1074,7 +1121,7 @@ function ThiefService.spawnSpecial(options: Options): Model?
 		taskDone = false,
 		taskStarted = 0,
 		taskCase = nil,
-		cameraQueue = {},
+		cameraQueue = if options.cameras then table.clone(options.cameras) else {},
 		autoCamera = taskName == "Camera" and options.task == nil,
 		holdPoint = if entrance then holdPointFor(entrance) else root.Position,
 		holdStarted = 0,

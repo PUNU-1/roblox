@@ -3,6 +3,7 @@
 --    которые пишет сервер (RoleService.knockDown): падает назад, руки в стороны, голова кружится, встаёт.
 --  • Сам сбитый охранник видит это от первого лица: вид опускается к полу, смотрит в потолок, потом поднимается.
 --  • Звёздочки над головой (BillboardGui от сервера) кружатся.
+--  • Свою кнопку «Check ID» (её видят другие охранники) у себя прячем: проверять самого себя незачем.
 -- Это только картинка: лежит охранник или нет, решает сервер (он и не даёт ходить и ловить).
 
 local Players = game:GetService("Players")
@@ -153,6 +154,30 @@ local function step()
 			touched[character] = nil
 		end
 	end
+end
+
+-- Своя кнопка Check ID видна только другим: у себя выключаем её (только на этом клиенте)
+local function hideOwnPrompt(prompt: Instance)
+	if prompt:IsA("ProximityPrompt") and prompt.Name == "CheckIdPrompt" then
+		prompt.Enabled = false
+		prompt:GetPropertyChangedSignal("Enabled"):Connect(function()
+			if prompt.Enabled then
+				prompt.Enabled = false -- сервер включил после перезарядки — у себя снова прячем
+			end
+		end)
+	end
+end
+
+local function watchCharacter(character: Model)
+	for _, descendant in character:GetDescendants() do
+		hideOwnPrompt(descendant)
+	end
+	character.DescendantAdded:Connect(hideOwnPrompt)
+end
+
+localPlayer.CharacterAdded:Connect(watchCharacter)
+if localPlayer.Character then
+	watchCharacter(localPlayer.Character)
 end
 
 -- Позу пишем последней перед отрисовкой кадра, после стандартных анимаций Roblox (как в NpcAnimator)

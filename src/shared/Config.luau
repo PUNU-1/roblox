@@ -206,6 +206,31 @@ local Config = {
 			Stripe = Color3.fromHex("F2C230"),
 			WorkSeconds = 4, -- баланс: сколько возится у щитка
 		},
+		FakeGuard = { -- Фальшивый охранник (только в плане Fake Guard): копия игрока в форме охраны
+			Title = "FAKE GUARD",
+			FromNight = 4,
+			Weight = 0, -- обычной волной не приходит
+			SpeedMul = 1,
+			Door = true,
+			NoFlee = true, -- ходит спокойно, не убегает
+			WalkAnim = "Patrol",
+			WalkSpeed = 11, -- спокойный шаг охранника (до кражи)
+			WatchRadius = 30, -- крадёт, только когда ни один охранник ближе этого его не видит
+		},
+	},
+
+	-- Планы воров (блок 3): с Waves.PlansFromNight у каждой волны маленький план. Порядок — для выбора.
+	PlanOrder = { "Distraction", "Tunnel", "Blinding", "Pincer", "Decoy", "FakeGuard", "Blackout" },
+	Plans = {
+		-- Title — имя в итоге ночи «Thieves used: …»; FromNight — не раньше этой ночи;
+		-- Needs — нужен этот вид вора (план приходит, когда вид уже открыт)
+		Distraction = { Title = "Distraction", Needs = "Brute" }, -- Громила бьёт витрину, Стекольщик или тихий вор — к Моне Лизе
+		Tunnel = { Title = "Tunnel", Needs = "Miner" }, -- Шахтёры вылезают из пола у разных экспонатов
+		Blinding = { Title = "Blinding", Needs = "Breaker", Cameras = 2, Radius = 110 }, -- ломает до 2 камер со своей стороны
+		Pincer = { Title = "Pincer", FromNight = 2 }, -- две группы через противоположные двери
+		Decoy = { Title = "Decoy", FromNight = 2 }, -- шумный вор с дешёвым экспонатом, тихий — к Моне Лизе
+		FakeGuard = { Title = "Fake Guard", FromNight = 4 }, -- копия игрока с его ником
+		Blackout = { Title = "Blackout", Needs = "Cutter" }, -- Светорез вырубает свет, в темноте работают Тени
 	},
 
 	Blackout = { -- блэкаут (Светорез): гаснут дежурные лампы, подсветка Моны Лизы и все камеры
@@ -245,6 +270,13 @@ local Config = {
 		GapJitter = 0.25, -- случайный разброс паузы ±25%
 		UpdateSeconds = 0.25, -- как часто волны проверяют планы и очередь воров
 		NewThiefBannerDelay = 3.5, -- надпись NEW THIEF через столько секунд после «NIGHT N»
+		PlansFromNight = 2, -- с этой ночи у каждой волны план (1-я ночь — просто волны)
+		BigNightEvery = 3, -- каждая 3-я ночь большая: больше воров, в одной волне несколько планов
+		BigNightExtraPerPlayer = 1, -- баланс: столько воров на игрока добавляет большая ночь
+		BigWavePlans = 2, -- сколько планов сразу в большой волне
+		BigWavePlansManyPlayers = 3, -- а если игроков не меньше ManyPlayers
+		ManyPlayers = 3,
+		FollowTimeout = 45, -- планы с сигналом (камеры сломаны, свет вырублен) пускают остальных воров не позже
 		TestUnlockAll = false, -- ДЛЯ ПРОВЕРКИ: true — все виды воров и планы сразу с 1-й ночи
 	},
 
@@ -366,7 +398,8 @@ local Config = {
 	},
 
 	Catch = {
-		HoldSeconds = 1, -- удержание кнопки для ареста
+		HoldSeconds = 1, -- удержание кнопки для ареста (и для Check ID)
+		CheckIdCooldown = 3, -- Check ID на настоящем охраннике: кнопка гаснет на столько секунд
 		MaxDistance = 8, -- дальше подсказка пропадает, удержание сбрасывается
 		ServerDistanceSlack = 3, -- запас на задержку сети при проверке на сервере
 		HandcuffsOffset = Vector3.new(0.4, -0.2, 0.25), -- от левой кисти вора: между руками в позе ареста
@@ -520,6 +553,7 @@ local Config = {
 		ClimbPeriod = 0.8, -- Шахтёр вылезает из дыры, Стекольщик лезет по верёвке: перехват рук
 		CutPeriod = 1.6, -- Стекольщик ведёт стеклорез по кругу
 		WorkSnipSpeed = 14, -- Светорез щёлкает кусачками
+		PatrolStride = 0.55, -- Фальшивый охранник: спокойный шаг
 	},
 
 	Lighting = {

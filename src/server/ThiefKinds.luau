@@ -316,6 +316,80 @@ local function cutter(): Model?
 	return model
 end
 
+-- Всё, что носят на голове, у копии игрока остаётся (как у настоящих охранников, решение 55).
+local HEAD_TYPES: { [Enum.AccessoryType]: boolean } = {
+	[Enum.AccessoryType.Hat] = true,
+	[Enum.AccessoryType.Hair] = true,
+	[Enum.AccessoryType.Face] = true,
+	[Enum.AccessoryType.Eyebrow] = true,
+	[Enum.AccessoryType.Eyelash] = true,
+}
+
+local BADGE_STUB: { ModelLibrary.StubPart } = {
+	{ size = Vector3.new(0.45, 0.45, 0.08), offset = CFrame.identity, color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal },
+}
+
+-- Фальшивый охранник: аватар игрока (лицо, голова, шапки, волосы, рост) в тёмно-синей форме охраны,
+-- со значком и фонариком — как настоящий охранник на смене.
+local function fakeGuard(player: Player?): Model?
+	local description: HumanoidDescription? = nil
+	local character = player and player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		local ok, result = pcall(function()
+			return humanoid:GetAppliedDescription()
+		end)
+		if ok and result then
+			description = result:Clone()
+		end
+	end
+	local look = description or Instance.new("HumanoidDescription")
+	local uniform = Config.Uniform
+	look.TorsoColor = uniform.Torso
+	look.LeftArmColor = uniform.Arms
+	look.RightArmColor = uniform.Arms
+	look.LeftLegColor = uniform.Legs
+	look.RightLegColor = uniform.Legs
+	look.Shirt = 0
+	look.Pants = 0
+	look.GraphicTShirt = 0
+	look.NeckAccessory = ""
+	look.ShouldersAccessory = ""
+	look.FrontAccessory = ""
+	look.BackAccessory = ""
+	look.WaistAccessory = ""
+	pcall(function()
+		local keep = {}
+		for _, accessory in look:GetAccessories(true) do
+			if HEAD_TYPES[accessory.AccessoryType] then
+				table.insert(keep, accessory)
+			end
+		end
+		look:SetAccessories(keep, true)
+	end)
+	local model = ModelLibrary.createRig(look)
+	look:Destroy()
+	local rigHumanoid = model and model:FindFirstChildOfClass("Humanoid")
+	if not (model and rigHumanoid) then
+		return model
+	end
+	rigHumanoid:AddAccessory(ModelLibrary.accessory(MapSchema.Models.GuardBadge, BADGE_STUB, "BodyFrontAttachment"))
+	-- Фонарик из головы, как у охранников (FlashlightController рисует такие же у настоящих)
+	local head = model:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then
+		local flashlight = Config.Flashlight
+		local light = Instance.new("SpotLight")
+		light.Name = "GuardFlashlight"
+		light.Face = Enum.NormalId.Front
+		light.Range = flashlight.OthersRange
+		light.Angle = flashlight.Angle
+		light.Brightness = flashlight.OthersBrightness
+		light.Color = flashlight.Color
+		light.Parent = head
+	end
+	return model
+end
+
 local BUILDERS: { [string]: () -> Model? } = {
 	Pickpocket = function()
 		return pickpocket(Config.ThiefTypes.Pickpocket.Color)
@@ -330,10 +404,16 @@ local BUILDERS: { [string]: () -> Model? } = {
 	Cutter = cutter,
 }
 
--- Модель вора этого вида (ещё не в мире). nil — если Roblox не смог собрать персонажа.
-function ThiefKinds.build(kind: string): Model?
-	local builder = BUILDERS[kind] or BUILDERS.Pickpocket
-	local model = builder()
+-- Модель вора этого вида (ещё не в мире). disguise — чьей копией будет Фальшивый охранник.
+-- nil — если Roblox не смог собрать персонажа.
+function ThiefKinds.build(kind: string, disguise: Player?): Model?
+	local model
+	if kind == "FakeGuard" then
+		model = fakeGuard(disguise)
+	else
+		local builder = BUILDERS[kind] or BUILDERS.Pickpocket
+		model = builder()
+	end
 	if model then
 		model.Name = "Thief"
 		model:SetAttribute(GameState.ThiefAttr.Kind, kind)

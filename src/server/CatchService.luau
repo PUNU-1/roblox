@@ -2,7 +2,10 @@
 -- Если вор убежал дальше, чем достаёт кнопка, удержание сбрасывается само.
 -- Арест: руки вверх -> наручники -> облачко «пуф». Картина возвращается на стену.
 -- Сервер ещё раз проверяет фазу, роль и расстояние: клиенту не доверяем.
+-- Check ID (блок 3): с ночи Фальшивого охранника на каждом охраннике кнопка «Check ID» (1 сек). На настоящем
+-- игроке — «ID OK» тому, кто проверял, и короткая перезарядка; на Фальшивом охраннике та же кнопка — арест.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
@@ -11,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local MapSchema = require(Shared:WaitForChild("MapSchema"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
@@ -135,6 +139,22 @@ local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt)
 	end)
 end
 
+local ThiefAttr = GameState.ThiefAttr
+local CHECK_PROMPT = "CheckIdPrompt"
+local checkActive = false
+
+-- Подпись кнопки на воре: у Фальшивого охранника — как у настоящего («Check ID» и ник), пока он не схватил экспонат.
+local function labelArrestPrompt(model: Model, prompt: ProximityPrompt)
+	local disguise = model:GetAttribute(ThiefAttr.Disguise)
+	if typeof(disguise) == "string" then
+		prompt.ActionText = "Check ID"
+		prompt.ObjectText = disguise
+	else
+		prompt.ActionText = "Arrest"
+		prompt.ObjectText = "Thief"
+	end
+end
+
 local function onThiefSpawned(model: Model)
 	local root = model:FindFirstChild("HumanoidRootPart")
 	if not (root and root:IsA("BasePart")) then
@@ -142,8 +162,10 @@ local function onThiefSpawned(model: Model)
 	end
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "ArrestPrompt"
-	prompt.ActionText = "Arrest"
-	prompt.ObjectText = "Thief"
+	labelArrestPrompt(model, prompt)
+	model:GetAttributeChangedSignal(ThiefAttr.Disguise):Connect(function()
+		labelArrestPrompt(model, prompt)
+	end)
 	prompt.HoldDuration = Config.Catch.HoldSeconds
 	prompt.MaxActivationDistance = Config.Catch.MaxDistance
 	prompt.KeyboardKeyCode = Config.Keys.Action
@@ -154,8 +176,95 @@ local function onThiefSpawned(model: Model)
 	end)
 end
 
+---------------------------------------------------------------- Check ID на охранниках
+
+local function onCheckId(checker: Player, target: Player, prompt: ProximityPrompt)
+	if GameState.phase() ~= GameState.Phase.Night or checker == target then
+		return
+	end
+	if not RoleService.isParticipant(checker) or RoleService.isViewing(checker) or RoleService.isKnocked(checker) then
+		return
+	end
+	local checkerRoot = checker.Character and checker.Character:FindFirstChild("HumanoidRootPart")
+	local targetRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+	if not (checkerRoot and checkerRoot:IsA("BasePart") and targetRoot and targetRoot:IsA("BasePart")) then
+		return
+	end
+	if (checkerRoot.Position - targetRoot.Position).Magnitude > Config.Catch.MaxDistance + Config.Catch.ServerDistanceSlack then
+		return
+	end
+	-- Настоящий охранник: «ID OK» тому, кто проверял, и кнопка ненадолго гаснет
+	Remotes.get(Remotes.Names.Banner):FireClient(checker, ("ID OK — %s is a real guard"):format(target.DisplayName), "info")
+	prompt.Enabled = false
+	task.delay(Config.Catch.CheckIdCooldown, function()
+		if prompt.Parent and checkActive then
+			prompt.Enabled = true
+		end
+	end)
+end
+
+local function addCheckPrompt(player: Player)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not (root and root:IsA("BasePart")) or root:FindFirstChild(CHECK_PROMPT) or not RoleService.isParticipant(player) then
+		return
+	end
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = CHECK_PROMPT
+	prompt.ActionText = "Check ID"
+	prompt.ObjectText = player.DisplayName
+	prompt.HoldDuration = Config.Catch.HoldSeconds
+	prompt.MaxActivationDistance = Config.Catch.MaxDistance
+	prompt.KeyboardKeyCode = Config.Keys.Action
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = root
+	prompt.Triggered:Connect(function(checker)
+		onCheckId(checker, player, prompt)
+	end)
+end
+
+local function removeCheckPrompts()
+	for _, player in Players:GetPlayers() do
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		local prompt = root and root:FindFirstChild(CHECK_PROMPT)
+		if prompt then
+			prompt:Destroy()
+		end
+	end
+end
+
+-- Ночь началась: с ночи Фальшивого охранника на всех охранниках кнопка Check ID (чтобы его не выдала кнопка ареста).
+function CatchService.beginNight(night: number)
+	removeCheckPrompts()
+	checkActive = Config.Waves.TestUnlockAll or night >= Config.Plans.FakeGuard.FromNight
+	if checkActive then
+		for _, player in RoleService.participants() do
+			addCheckPrompt(player)
+		end
+	end
+end
+
+function CatchService.endNight()
+	checkActive = false
+	removeCheckPrompts()
+end
+
+local function watchPlayer(player: Player)
+	player.CharacterAdded:Connect(function(character)
+		-- Новый персонаж посреди ночи тоже получает кнопку (когда появится HumanoidRootPart)
+		character:WaitForChild("HumanoidRootPart", 10)
+		if checkActive then
+			addCheckPrompt(player)
+		end
+	end)
+end
+
 function CatchService.init()
 	ThiefService.Spawned.Event:Connect(onThiefSpawned)
+	Players.PlayerAdded:Connect(watchPlayer)
+	for _, player in Players:GetPlayers() do
+		watchPlayer(player)
+	end
 end
 
 return CatchService

@@ -1,7 +1,9 @@
 -- Волны воров (блок 3). Решает, КОГДА и КАКИЕ воры приходят; как вор себя ведёт — ThiefService.
 --  • Все воры ночи (ThiefService.countForNight) делятся на волны по 2–3 вора. Первая волна через 15–30 сек,
 --    дальше паузы, к утру всё короче. Одновременно в музее не больше «игроки + 2»: лишние ждут в очереди.
---  • У каждой волны план (Tactics/*): кто, через какие двери, в каком порядке. Без плана — Tactics/Basic.
+--  • С 2-й ночи у каждой волны план (Tactics/*): кто, через какие двери, в каком порядке. Ночь 1 и
+--    первая волна ночи нового вида — без плана (Tactics/Basic). Каждая 3-я ночь большая: +1 вор на игрока,
+--    в средней волне сразу 2–3 плана. О плане игра молчит, только итог ночи: «Thieves used: …».
 --  • Воры следят за охраной: двери и цели выбирают подальше от охранников; если вся охрана стоит у Моны Лизы,
 --    первый вор волны шумит у витрины в стороне, остальные ждут во входном холле, пока охрана не уйдёт.
 --  • Новый вид вора — надпись «NEW THIEF: …» в начале ночи, и он обязательно есть в первой волне.
@@ -16,6 +18,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Server = script.Parent
 local ThiefService = require(Server:WaitForChild("ThiefService"))
 local ExhibitService = require(Server:WaitForChild("ExhibitService"))
+local RoleService = require(Server:WaitForChild("RoleService"))
 local Tactics = Server:WaitForChild("Tactics")
 local Basic = require(Tactics:WaitForChild("Basic"))
 
@@ -54,7 +57,7 @@ type Plan = {
 	update: ((Ctx, any) -> ())?,
 }
 
-type Wave = { at: number, size: number }
+type Wave = { at: number, size: number, plans: number } -- plans — сколько планов сразу (большая волна — 2–3)
 
 local random = Random.new()
 local active = false
@@ -65,6 +68,8 @@ local playerCount = 1
 local queue: { Handle } = {}
 local running: { Ctx } = {}
 local lureReadyAt = 0
+local usedPlans: { string } = {} -- названия планов этой ночи для итога («Thieves used: …»)
+local lastPlan: string? = nil
 
 local bannerRemote = Remotes.get(Remotes.Names.Banner)
 
@@ -197,7 +202,7 @@ local Api = {}
 -- Если охрана столпилась у картины, первый вор волны идёт шуметь, остальные ждут у входа.
 function Api.spawn(ctx: Ctx, options: ThiefService.Options, delay: number?): Handle
 	options.plan = options.plan or ctx.planName
-	if ctx.lure and options.task == nil and options.hold == nil then
+	if ctx.lure and options.task == nil and options.hold == nil and options.disguise == nil then
 		local lure = ctx.lureHandle
 		if not lure then
 			options.task = "Lure"
@@ -259,6 +264,33 @@ function Api.nearestTo(position: Vector3, exclude: { BasePart }?): BasePart?
 	return best
 end
 
+-- Открытые двери музея.
+function Api.entrances(): { BasePart }
+	return ThiefService.entrances()
+end
+
+function Api.entranceCount(): number
+	return #ThiefService.entrances()
+end
+
+-- Есть дешёвый экспонат, который можно схватить (для приманки).
+function Api.hasCheapExhibit(): boolean
+	return ExhibitService.pickTarget(nil, "Cheap", guards()) ~= nil
+end
+
+-- Случайный игрок смены с персонажем (его копией оденется Фальшивый охранник).
+function Api.randomGuardPlayer(): Player?
+	local list = {}
+	for _, player in RoleService.participants() do
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then
+			table.insert(list, player)
+		end
+	end
+	return if #list > 0 then list[random:NextInteger(1, #list)] else nil
+end
+
 -- Вор уже вошёл и его больше нет (пойман, сбежал) — или так и не смог войти.
 function Api.gone(handle: Handle): boolean
 	return handle.spawned and (handle.model == nil or ThiefService.isGone(handle.model))
@@ -298,6 +330,7 @@ end
 
 -- Когда начинается каждая волна (секунды от начала ночи).
 local function schedule(sizes: { number }, nightLength: number): { Wave }
+	-- (plans у всех волн — 1; большую волну делает bigWave)
 	local waves: { Wave } = {}
 	local first = random:NextNumber(Waves.FirstSpawnMin, Waves.FirstSpawnMax)
 	local last = math.max(first, nightLength - Waves.LastSpawnBeforeEnd)
@@ -311,7 +344,7 @@ local function schedule(sizes: { number }, nightLength: number): { Wave }
 			local jitter = 1 + Waves.GapJitter * (random:NextNumber() * 2 - 1)
 			at = math.min(last, at + gap * scale * jitter)
 		end
-		table.insert(waves, { at = at, size = size })
+		table.insert(waves, { at = at, size = size, plans = 1 })
 	end
 	return waves
 end
@@ -343,11 +376,105 @@ local function startPlan(plan: Plan, ctx: Ctx)
 end
 
 local plansByName: { [string]: Plan } = { Basic = Basic :: any }
+for _, name in Config.PlanOrder do
+	plansByName[name] = require(Tactics:WaitForChild(name)) :: any
+end
 
+-- План уже может прийти этой ночью: не раньше своей ночи и только с открытым видом вора.
+local function planAllowed(name: string): boolean
+	local info = (Config.Plans :: any)[name]
+	if not info then
+		return false
+	end
+	if Waves.TestUnlockAll then
+		return true
+	end
+	if info.FromNight and nightNumber < info.FromNight then
+		return false
+	end
+	return info.Needs == nil or unlocked(info.Needs)
+end
+
+-- count разных планов для волны (случайно, по возможности не тот же, что у прошлой волны).
+local function choosePlans(count: number, size: number, wave: number): { Plan }
+	local candidates: { Plan } = {}
+	for _, name in Config.PlanOrder do
+		local plan = plansByName[name]
+		if plan and planAllowed(name) and plan.canRun(newCtx(wave, size, plan), Api) then
+			table.insert(candidates, plan)
+		end
+	end
+	if #candidates > count and lastPlan then
+		for index, plan in candidates do
+			if plan.name == lastPlan then
+				table.remove(candidates, index)
+				break
+			end
+		end
+	end
+	local chosen: { Plan } = {}
+	while #chosen < count and #candidates > 0 do
+		local picked = table.remove(candidates, random:NextInteger(1, #candidates))
+		if picked then
+			table.insert(chosen, picked)
+		end
+	end
+	return chosen
+end
+
+local function rememberPlan(plan: Plan)
+	lastPlan = plan.name
+	local info = (Config.Plans :: any)[plan.name]
+	if info and not table.find(usedPlans, info.Title) then
+		table.insert(usedPlans, info.Title)
+	end
+end
+
+-- Волна: ночь 1 и дебют нового вида — без плана; иначе 1 план (большая волна — 2–3 плана, воры делятся).
 local function startWave(index: number, wave: Wave, forceKind: string?)
-	local ctx = newCtx(index, wave.size, Basic :: any)
-	ctx.forceKind = forceKind
-	startPlan(Basic :: any, ctx)
+	local plans: { Plan } = {}
+	if not forceKind and (Waves.TestUnlockAll or nightNumber >= Waves.PlansFromNight) then
+		plans = choosePlans(wave.plans, wave.size, index)
+	end
+	if #plans == 0 then
+		local ctx = newCtx(index, wave.size, Basic :: any)
+		ctx.forceKind = forceKind
+		startPlan(Basic :: any, ctx)
+		return
+	end
+	local left = wave.size
+	for number, plan in plans do
+		local share = if number == #plans then left else math.max(2, math.floor(wave.size / #plans))
+		share = math.min(share, left)
+		left -= share
+		if share > 0 then
+			rememberPlan(plan)
+			startPlan(plan, newCtx(index, share, plan))
+		end
+	end
+end
+
+-- Большая ночь: волны в середине ночи сливаются в одну, где сразу несколько планов.
+local function bigWave(waves: { Wave }): { Wave }
+	local count = if playerCount >= Waves.ManyPlayers then Waves.BigWavePlansManyPlayers else Waves.BigWavePlans
+	count = math.min(count, #waves)
+	if count < 2 then
+		return waves
+	end
+	local first = math.clamp(math.ceil(#waves / 2) - math.floor((count - 1) / 2), 1, #waves - count + 1)
+	local merged: Wave = { at = waves[first].at, size = 0, plans = count }
+	local result: { Wave } = {}
+	for index, wave in waves do
+		if index >= first and index < first + count then
+			merged.size += wave.size
+			if index == first then
+				table.insert(result, merged)
+			end
+		else
+			table.insert(result, wave)
+		end
+	end
+	return result
 end
 
 local function updatePlans()
@@ -410,11 +537,25 @@ function WaveService.beginNight(players: number, night: number, nightLength: num
 	nightNumber = math.max(1, night)
 	playerCount = math.max(1, players)
 	lureReadyAt = 0
+	lastPlan = nil
+	table.clear(usedPlans)
 	local total = ThiefService.countForNight(playerCount, nightNumber)
+	local big = nightNumber % Waves.BigNightEvery == 0 and (Waves.TestUnlockAll or nightNumber >= Waves.PlansFromNight)
+	if big then
+		total += playerCount * Waves.BigNightExtraPerPlayer -- большая ночь: больше воров
+	end
 	local waves = schedule(splitIntoWaves(total), nightLength)
+	if big then
+		waves = bigWave(waves)
+	end
 	local fresh = newKinds(nightNumber)
 	announce(fresh)
 	thread = task.spawn(loop, waves, fresh)
+end
+
+-- Какие планы были у воров этой ночью (для строки «Thieves used: …» в итоге ночи).
+function WaveService.usedPlans(): { string }
+	return table.clone(usedPlans)
 end
 
 function WaveService.endNight()

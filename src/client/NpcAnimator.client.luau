@@ -412,6 +412,23 @@ local function workPose(clock: number): Pose
 	return pose
 end
 
+-- Фальшивый охранник: идёт спокойно и прямо, руки качаются, голова поворачивается по сторонам;
+-- стоит — руки за спиной, «патрулирует» взглядом.
+local function patrolPose(clock: number, phase: number, move: number): Pose
+	local pose: Pose = {}
+	local s = math.sin(phase)
+	local idle = 1 - move
+	pose.Root = CFrame.new(0, 0.05 * math.abs(s) * move, 0)
+	pose.Neck = R(0.02, 0.35 * math.sin(clock * 0.6) * (0.4 + idle), 0)
+	pose.Waist = R(0, 0.05 * s * move, 0)
+	pose.LeftShoulder = R(-0.45 * s * move - 0.45 * idle, 0, 0.25 * idle - 0.06 * move)
+	pose.RightShoulder = R(0.45 * s * move - 0.45 * idle, 0, -0.25 * idle + 0.06 * move)
+	pose.LeftElbow = R(0.25 + 0.85 * idle)
+	pose.RightElbow = R(0.25 + 0.85 * idle)
+	legs(pose, phase, move, 0.55, 0.6, 0.02, 0)
+	return pose
+end
+
 -- Турист гуляет: спокойный шаг, руки слегка покачиваются, головой вертит по сторонам.
 local function strollPose(clock: number, phase: number, move: number): Pose
 	local pose: Pose = {}
@@ -487,6 +504,8 @@ local function poseFor(state: any, t: number, clock: number, phase: number, move
 		return cutPose(clock)
 	elseif state == Anim.Work then
 		return workPose(clock)
+	elseif state == Anim.Patrol then
+		return patrolPose(clock, phase, move)
 	end
 	return sneakPose(clock, phase, move)
 end
@@ -554,6 +573,7 @@ local function step(dt: number)
 			elseif state == TouristAnim.Stroll then Settings.StrollStride
 			elseif state == Anim.Stomp then Settings.StompStride
 			elseif state == Anim.Prowl then Settings.ProwlStride
+			elseif state == Anim.Patrol then Settings.PatrolStride
 			else Settings.RunStride
 		rig.phase = (rig.phase + rig.speed * dt * stride) % (math.pi * 2)
 		local move = math.clamp(rig.speed / 6, 0, 1)

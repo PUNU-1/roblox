@@ -177,6 +177,7 @@ local function runNight(night: number): (boolean, boolean)
 	end)
 	ThiefService.beginNight(night)
 	WaveService.beginNight(#participants, night, length) -- волны воров и их планы
+	CatchService.beginNight(night) -- кнопки Check ID на охранниках (с ночи Фальшивого охранника)
 	bannerRemote:FireAllClients(("NIGHT %d"):format(night), "danger")
 
 	while survived and GameState.secondsLeft() > 0 do
@@ -188,6 +189,7 @@ local function runNight(night: number): (boolean, boolean)
 	end
 
 	escapedConnection:Disconnect()
+	CatchService.endNight()
 	WaveService.endNight()
 	ThiefService.endNight()
 	BlackoutService.reset()
@@ -208,6 +210,7 @@ local function runResults(survived: boolean, night: number)
 	results.gameOver = not survived
 	results.nightsSurvived = nightsSurvived
 	results.best = bestNights
+	results.plans = WaveService.usedPlans() -- «Thieves used: …» — единственная подсказка о планах воров
 	resultsRemote:FireAllClients(results)
 	while GameState.secondsLeft() > 0 do
 		tick()
