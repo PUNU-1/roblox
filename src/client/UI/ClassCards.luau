@@ -2,6 +2,8 @@
 -- (кроссовок патруля, телефон с камерой, датчик движения, собака, бронежилет с автоматом), название, умение,
 -- клавиша и сколько игроков уже выбрали этот класс. Выбранная карточка приподнята, в золотой рамке.
 -- Выбор — клавишами 1–5 (их ловит HUD.client) или пальцем по карточке. Курсор не освобождается (решение 56).
+-- Этап 4, блок 1: некупленный класс — серая карточка с замком и ценой в алмазах 💎 (GameState.ownsClass);
+-- что делать при нажатии на неё (открыть магазин или подсказать), решает тот, кто создал карточки.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -125,6 +127,10 @@ type Card = {
 	pose: DogAnimator.Pose,
 	angle: number,
 	selected: boolean,
+	locked: boolean,
+	lock: Frame,
+	viewport: ViewportFrame,
+	title: TextLabel,
 }
 
 function ClassCards.new(gui: ScreenGui, touchOnly: boolean, onChoose: (role: string) -> ()): Cards
@@ -245,7 +251,7 @@ function ClassCards.new(gui: ScreenGui, touchOnly: boolean, onChoose: (role: str
 		}, { Theme.corner(11) })
 		local count = Theme.label({ Size = UDim2.fromScale(1, 1), Font = Theme.BodyFont, MaxTextSize = 14, ZIndex = 3, Parent = countFrame })
 
-		Theme.label({
+		local title = Theme.label({
 			Name = "Title",
 			Position = UDim2.fromOffset(6, 112),
 			Size = UDim2.new(1, -12, 0, 26),
@@ -292,6 +298,44 @@ function ClassCards.new(gui: ScreenGui, touchOnly: boolean, onChoose: (role: str
 		}, { Theme.corner(10) })
 		Theme.label({ Size = UDim2.fromScale(1, 1), Text = "YOUR CLASS", TextColor3 = Colors.Navy, MaxTextSize = 13, ZIndex = 4, Parent = ribbon })
 
+		-- Замок: класс ещё не куплен (цена в алмазах). Карточка темнее, картинка серая.
+		local lock = Theme.new("Frame", {
+			Name = "Lock",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Colors.Dark,
+			BackgroundTransparency = 0.42,
+			Visible = false,
+			ZIndex = 5,
+			Parent = button,
+		}, { Theme.corner(14) })
+		Theme.label({
+			Name = "Icon",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(CARD_W / 2, 52),
+			Size = UDim2.fromOffset(44, 44),
+			Text = "🔒",
+			MaxTextSize = 40,
+			ZIndex = 6,
+			Parent = lock,
+		})
+		local pricePill = Theme.new("Frame", {
+			Name = "Price",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(CARD_W / 2, 90),
+			Size = UDim2.fromOffset(84, 24),
+			BackgroundColor3 = Colors.Navy,
+			ZIndex = 6,
+			Parent = lock,
+		}, { Theme.corner(12), Theme.stroke(Colors.Diamond, 1.5) })
+		Theme.label({
+			Size = UDim2.fromScale(1, 1),
+			Text = ("💎 %d"):format(GameState.classPrice(role)),
+			TextColor3 = Colors.Diamond,
+			MaxTextSize = 16,
+			ZIndex = 6,
+			Parent = pricePill,
+		})
+
 		button.Activated:Connect(function()
 			onChoose(role)
 		end)
@@ -309,6 +353,10 @@ function ClassCards.new(gui: ScreenGui, touchOnly: boolean, onChoose: (role: str
 			pose = DogAnimator.newPose(),
 			angle = (index - 1) * 0.8,
 			selected = false,
+			locked = false,
+			lock = lock,
+			viewport = viewport,
+			title = title,
 		})
 	end
 
@@ -320,6 +368,13 @@ function ClassCards.new(gui: ScreenGui, touchOnly: boolean, onChoose: (role: str
 		end
 		for _, card in cards do
 			local selected = card.role == myRole
+			local locked = not GameState.ownsClass(Players.LocalPlayer, card.role)
+			if locked ~= card.locked then
+				card.locked = locked
+				card.lock.Visible = locked
+				card.viewport.ImageColor3 = if locked then Color3.fromRGB(120, 124, 135) else Color3.new(1, 1, 1)
+				card.title.TextColor3 = if locked then Colors.Gray else Colors.White
+			end
 			local n = picked[card.role] or 0
 			card.countFrame.Visible = n > 0
 			card.count.Text = "×" .. n

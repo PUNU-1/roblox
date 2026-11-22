@@ -104,9 +104,15 @@ local function canChooseClass(): boolean
 	return GameState.phase() == Phase.Lobby or localPlayer:GetAttribute(PlayerAttr.InRound) ~= true
 end
 
--- Сервер сам проверит, можно ли сейчас менять класс; тут только не шлём лишнего
+-- Сервер сам проверит, можно ли сейчас менять класс; тут только не шлём лишнего.
+-- Некупленный класс (этап 4, блок 1) покупается только в магазине хаба — подсказываем.
 local function chooseClass(role: string)
 	if not canChooseClass() or GameState.roleOf(localPlayer) == role then
+		return
+	end
+	if not GameState.ownsClass(localPlayer, role) then
+		local info = GameState.classInfo(role)
+		showBanner(("%s — %d 💎. Buy it in the lobby shop"):format(if info then string.upper(tostring(info.Title)) else role, GameState.classPrice(role)), "info")
 		return
 	end
 	Remotes.get(Remotes.Names.SetRole):FireServer(role)

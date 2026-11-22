@@ -14,6 +14,7 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local ModelLibrary = require(script.Parent:WaitForChild("ModelLibrary"))
 local Uniform = require(script.Parent:WaitForChild("Uniform"))
+local ProfileStore = require(script.Parent:WaitForChild("ProfileStore"))
 
 local PlayerAttr = GameState.PlayerAttr
 local Role = GameState.Role
@@ -383,7 +384,8 @@ end
 local function setupRemotes()
 	-- Класс (блок 5): любой из Config.Classes.Order, только пока игрок не на смене
 	Remotes.get(Remotes.Names.SetRole).OnServerEvent:Connect(function(player, role)
-		if not RoleService.canChooseClass(player) or not GameState.classInfo(role) then
+		-- Некупленный класс выбрать нельзя (этап 4, блок 1): владение — по сохранённому профилю
+		if not RoleService.canChooseClass(player) or not GameState.classInfo(role) or not ProfileStore.owns(player, role) then
 			return
 		end
 		player:SetAttribute(PlayerAttr.Role, role)

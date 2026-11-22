@@ -158,6 +158,11 @@ local function chooseClass(role: string)
 	if launching() or GameState.roleOf(localPlayer) == role then
 		return
 	end
+	if not GameState.ownsClass(localPlayer, role) then
+		local info = GameState.classInfo(role)
+		showBanner(("%s — %d 💎. Buy it in the CLASS SHOP"):format(if info then string.upper(tostring(info.Title)) else role, GameState.classPrice(role)), "info")
+		return
+	end
 	Remotes.get(Remotes.Names.SetRole):FireServer(role)
 end
 

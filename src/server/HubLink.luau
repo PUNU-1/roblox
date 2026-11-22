@@ -17,6 +17,7 @@ local TeleportTicket = require(Shared:WaitForChild("TeleportTicket"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Teleporter = require(script.Parent:WaitForChild("Teleporter"))
 local PlaceFinder = require(script.Parent:WaitForChild("PlaceFinder"))
+local ProfileStore = require(script.Parent:WaitForChild("ProfileStore"))
 
 local Attr = GameState.Attr
 local PlayerAttr = GameState.PlayerAttr
@@ -205,14 +206,17 @@ local function onPlayerAdded(player: Player)
 	if not ticket then
 		return
 	end
-	-- Класс из хаба. RoleService ставит новому игроку класс по умолчанию — свой ставим следом
+	-- Класс из хаба. RoleService ставит новому игроку класс по умолчанию — свой ставим следом.
+	-- Этап 4, блок 1: хабу не верим — купил ли игрок класс, музей проверяет сам по его профилю (ProfileStore).
+	-- Пока профиль грузится, у игрока Patrol; не загрузился или класс не куплен — так и остаётся Patrol.
 	local role = ticket.classes[player.UserId]
-	if role then
-		task.defer(function()
-			if player.Parent then
-				player:SetAttribute(PlayerAttr.Role, role)
-			end
-		end)
+	if role and role ~= Config.Classes.Default then
+		ProfileStore.waitLoaded(player, Config.Diamonds.LoadWaitSeconds)
+		if player.Parent and ProfileStore.owns(player, role) then
+			player:SetAttribute(PlayerAttr.Role, role)
+		elseif player.Parent then
+			warn(("[HubLink] %s прилетел с классом %s, но не купил его — Patrol"):format(player.Name, tostring(role)))
+		end
 	end
 end
 

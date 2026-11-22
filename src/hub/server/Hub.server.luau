@@ -95,9 +95,9 @@ Players.PlayerRemoving:Connect(function(player)
 	end
 end)
 
--- Класс (карточки, клавиши 1–5): любой из Config.Classes.Order, пока команда игрока не улетает
+-- Класс (карточки, клавиши 1–5): любой купленный из Config.Classes.Order, пока команда игрока не улетает
 Remotes.get(Remotes.Names.SetRole).OnServerEvent:Connect(function(player, role)
-	if not GameState.classInfo(role) or PadService.isLaunching(player) then
+	if not GameState.classInfo(role) or PadService.isLaunching(player) or not ProfileStore.owns(player, role) then
 		return
 	end
 	player:SetAttribute(PlayerAttr.Role, role)
