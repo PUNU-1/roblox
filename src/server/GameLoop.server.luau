@@ -38,10 +38,12 @@ local VoteService = require(Server:WaitForChild("VoteService"))
 local HubLink = require(Server:WaitForChild("HubLink"))
 local RecordStore = require(Server:WaitForChild("RecordStore"))
 local Audio = require(Server:WaitForChild("Audio"))
+local ProfileStore = require(Server:WaitForChild("ProfileStore"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
 
+ProfileStore.init() -- алмазы 💎 и купленные классы (этап 4, блок 1): грузятся сразу, как игрок вошёл
 ModelLibrary.setupCollisionGroups()
 -- Тени: без них свет ламп и фонариков проходит сквозь стены, и ночью не темно
 Lighting.GlobalShadows = true

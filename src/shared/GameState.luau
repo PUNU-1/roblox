@@ -283,7 +283,54 @@ GameState.PlayerAttr = {
 	-- блок 6
 	Pad = "Pad", -- number, в каком круге хаба стоит игрок и попал в команду (0 — ни в каком)
 	EndChoice = "EndChoice", -- string, выбор в конце забега: "" | "PlayAgain" | "Lobby"
+	-- этап 4, блок 1: профиль игрока (пишет ProfileStore; сохраняется навсегда)
+	Diamonds = "Diamonds", -- number, алмазы 💎
+	OwnedClasses = "OwnedClasses", -- string, купленные классы через запятую: "Patrol,Operator"
+	ProfileStatus = "ProfileStatus", -- string, GameState.ProfileStatus
 }
+
+-- Профиль игрока (этап 4, блок 1): загружен ли он из DataStore.
+GameState.ProfileStatus = {
+	Loading = "Loading", -- ещё грузится: пока открыты только бесплатные классы
+	Ready = "Ready", -- загружен и сохраняется
+	Offline = "Offline", -- Studio без доступа к API: все классы открыты, алмазы не сохраняются
+	Error = "Error", -- Roblox не ответил: пробуем снова, пока открыты только бесплатные классы
+}
+
+-- Цена класса в алмазах 💎 (0 — бесплатный).
+function GameState.classPrice(role: any): number
+	local info = GameState.classInfo(role)
+	return if info then math.max(0, tonumber(info.Price) or 0) else 0
+end
+
+-- Есть ли у игрока этот класс (по атрибутам профиля, их пишет только сервер). Бесплатный — есть у всех.
+-- Для клиента — показать замок; сервер решает сам (ProfileStore.owns) по тем же правилам.
+function GameState.ownsClass(player: Player, role: any): boolean
+	if not GameState.classInfo(role) then
+		return false
+	end
+	if GameState.classPrice(role) <= 0 then
+		return true
+	end
+	if player:GetAttribute(GameState.PlayerAttr.ProfileStatus) == GameState.ProfileStatus.Offline then
+		return true
+	end
+	local owned = player:GetAttribute(GameState.PlayerAttr.OwnedClasses)
+	if typeof(owned) ~= "string" then
+		return false
+	end
+	for name in string.gmatch(owned, "[^,]+") do
+		if name == role then
+			return true
+		end
+	end
+	return false
+end
+
+-- Алмазы игрока (атрибут профиля).
+function GameState.diamondsOf(player: Player): number
+	return tonumber(player:GetAttribute(GameState.PlayerAttr.Diamonds)) or 0
+end
 
 -- Патронов в магазине и в запасе у оружия (Pistol, Rifle, Shotgun).
 function GameState.ammoAttr(weapon: string): string

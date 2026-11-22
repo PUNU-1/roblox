@@ -37,7 +37,8 @@
         "Retry": { "$path": "src/server/Retry.luau" },
         "Teleporter": { "$path": "src/server/Teleporter.luau" },
         "PlaceFinder": { "$path": "src/server/PlaceFinder.luau" },
-        "RecordStore": { "$path": "src/server/RecordStore.luau" }
+        "RecordStore": { "$path": "src/server/RecordStore.luau" },
+        "ProfileStore": { "$path": "src/server/ProfileStore.luau" }
       }
     },
     "StarterPlayer": {

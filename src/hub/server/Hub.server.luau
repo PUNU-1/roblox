@@ -20,6 +20,7 @@ local LeaderboardService = require(Server:WaitForChild("LeaderboardService"))
 local Teleporter = require(Server:WaitForChild("Teleporter"))
 local PlaceFinder = require(Server:WaitForChild("PlaceFinder"))
 local Uniform = require(Server:WaitForChild("Uniform"))
+local ProfileStore = require(Server:WaitForChild("ProfileStore"))
 
 local PlayerAttr = GameState.PlayerAttr
 
@@ -32,6 +33,7 @@ Lighting.Ambient = light.Ambient
 Lighting.OutdoorAmbient = light.OutdoorAmbient
 
 PlaceFinder.init("Hub") -- место музея ищется в фоне; строка [PlaceFinder] в Output
+ProfileStore.init() -- алмазы 💎 и купленные классы (этап 4, блок 1)
 
 local map, pads = HubBuilder.build()
 PadService.init(pads)

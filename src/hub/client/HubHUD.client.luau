@@ -20,6 +20,7 @@ local ClassCards = require(UI:WaitForChild("ClassCards"))
 local PadAttr = GameState.PadAttr
 local PadState = GameState.PadState
 local PlayerAttr = GameState.PlayerAttr
+local ProfileStatus = GameState.ProfileStatus
 local Colors = Theme.Colors
 
 local localPlayer = Players.LocalPlayer
@@ -55,13 +56,58 @@ local topBar = Theme.new("Frame", {
 	Name = "TopBar",
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.5, 0, 0, 12),
-	Size = UDim2.new(0.6, 0, 0, 46),
+	Size = UDim2.new(0.55, 0, 0, 46),
 	BackgroundColor3 = Colors.Navy,
 	BackgroundTransparency = 0.15,
 	Parent = gui,
 }, { Theme.corner(12), Theme.stroke(Colors.Gold, 2), Theme.new("UISizeConstraint", { MinSize = Vector2.new(320, 0) }) })
 local topLabel = Theme.label({ Size = UDim2.fromScale(1, 1), MaxTextSize = 26, Parent = topBar })
 Theme.padding(6).Parent = topBar
+
+---------------------------------------------------------------- алмазы 💎 (этап 4, блок 1)
+-- Справа вверху: сколько алмазов (сохраняются навсегда). В Studio без доступа к API — пометка, что не сохраняются.
+
+local diamondFrame = Theme.new("Frame", {
+	Name = "Diamonds",
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -12, 0, 12),
+	Size = UDim2.fromOffset(150, 46),
+	BackgroundColor3 = Colors.Navy,
+	BackgroundTransparency = 0.15,
+	Parent = gui,
+}, { Theme.corner(12), Theme.stroke(Colors.Diamond, 2) })
+local diamondLabel = Theme.label({ Size = UDim2.fromScale(1, 1), TextColor3 = Colors.Diamond, Text = "💎 0", MaxTextSize = 30, Parent = diamondFrame })
+Theme.padding(6).Parent = diamondFrame
+local diamondNote = Theme.label({
+	Name = "DiamondNote",
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -12, 0, 62),
+	Size = UDim2.fromOffset(240, 18),
+	Font = Theme.BodyFont,
+	TextColor3 = Colors.Marble,
+	TextXAlignment = Enum.TextXAlignment.Right,
+	MaxTextSize = 14,
+	Visible = false,
+	Parent = gui,
+})
+Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 1.5, Parent = diamondNote })
+
+local function refreshDiamonds()
+	local status = localPlayer:GetAttribute(PlayerAttr.ProfileStatus)
+	if status == ProfileStatus.Loading or status == nil then
+		diamondLabel.Text = "💎 ..."
+	else
+		diamondLabel.Text = "💎 " .. tostring(GameState.diamondsOf(localPlayer))
+	end
+	if status == ProfileStatus.Offline then
+		diamondNote.Text = "Diamonds are not saved in Studio"
+	elseif status == ProfileStatus.Error then
+		diamondNote.Text = "Diamonds are unavailable — trying again"
+	else
+		diamondNote.Text = ""
+	end
+	diamondNote.Visible = diamondNote.Text ~= ""
+end
 
 ---------------------------------------------------------------- крупная надпись
 
@@ -267,6 +313,7 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 	accumulator = 0
 
+	refreshDiamonds()
 	local pad = myPad()
 	topLabel.Text = topText(pad)
 	local flying = pad ~= nil and pad:GetAttribute(PadAttr.State) == PadState.Launching

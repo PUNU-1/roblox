@@ -166,9 +166,20 @@ local resultsPlans = Theme.label({
 	ZIndex = 5,
 	Parent = resultsPanel,
 })
+-- Алмазы 💎 (этап 4, блок 1): «+12 💎» за эту ночь или «Diamonds this run: +46 💎» на GAME OVER
+local resultsDiamonds = Theme.label({
+	Position = UDim2.fromScale(0, 0.365),
+	Size = UDim2.fromScale(1, 0.075),
+	RichText = true,
+	TextColor3 = Colors.Diamond,
+	MaxTextSize = 30,
+	ZIndex = 5,
+	Parent = resultsPanel,
+})
+Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = resultsDiamonds })
 local resultsList = Theme.new("Frame", {
-	Position = UDim2.fromScale(0, 0.38),
-	Size = UDim2.fromScale(1, 0.5),
+	Position = UDim2.fromScale(0, 0.46),
+	Size = UDim2.fromScale(1, 0.43),
 	BackgroundTransparency = 1,
 	ZIndex = 5,
 	Parent = resultsPanel,
@@ -315,6 +326,18 @@ local function showResults(results: { [string]: any })
 		end
 	end
 	resultsPlans.Text = if #plans > 0 then "Thieves used: " .. table.concat(plans, ", ") else ""
+	-- Свои алмазы: за ночь или за весь забег; в Studio без доступа к API — пометка, что не сохраняются
+	local myKey = tostring(localPlayer.UserId)
+	local nightDiamonds = if typeof(results.diamonds) == "table" then tonumber(results.diamonds[myKey]) else nil
+	local runDiamonds = if typeof(results.diamondsRun) == "table" then tonumber(results.diamondsRun[myKey]) else nil
+	local notSaved = if results.diamondsSaved == false then '  <font size="16" color="#8A93A6">(not saved in Studio)</font>' else ""
+	if resultsGameOver and runDiamonds then
+		resultsDiamonds.Text = ("Diamonds this run: +%d 💎%s"):format(runDiamonds, notSaved)
+	elseif nightDiamonds then
+		resultsDiamonds.Text = ("+%d 💎%s"):format(nightDiamonds, notSaved)
+	else
+		resultsDiamonds.Text = ""
+	end
 	-- Кнопки Play again / Lobby — только тем, кто был на смене
 	choiceOpen = results.choice == true and localPlayer:GetAttribute(PlayerAttr.InRound) == true
 	choiceBar.Visible = choiceOpen
@@ -325,6 +348,7 @@ local function showResults(results: { [string]: any })
 	local earnings = if typeof(results.earnings) == "table" then results.earnings else {}
 	local catches = if typeof(results.catches) == "table" then results.catches else {}
 	local wallets = if typeof(results.wallets) == "table" then results.wallets else {}
+	local gems = if typeof(results.diamonds) == "table" then results.diamonds else {}
 	local best = tonumber(results.bestUserId) or 0
 	local order = 0
 	for userIdText, amount in earnings do
@@ -341,12 +365,14 @@ local function showResults(results: { [string]: any })
 			TextXAlignment = Enum.TextXAlignment.Left,
 			MaxTextSize = 22,
 			ZIndex = 5,
-			-- Имя, поймал (и сколько заработал арестами), сколько денег у него сейчас
-			Text = ('%s   caught: %d <font color="#3FB56B">(+$%d)</font>   money: <font color="#D4A93A">$%d</font>%s'):format(
+			-- Имя, поймал (и сколько заработал арестами), сколько денег у него сейчас, алмазы за ночь
+			Text = ('%s   caught: %d <font color="#3FB56B">(+$%d)</font>   money: <font color="#D4A93A">$%d</font>   <font color="#%s">+%d 💎</font>%s'):format(
 				name,
 				tonumber(catches[userIdText]) or 0,
 				tonumber(amount) or 0,
 				tonumber(wallets[userIdText]) or 0,
+				Colors.Diamond:ToHex(),
+				tonumber(gems[userIdText]) or 0,
 				star
 			),
 			Parent = resultsList,

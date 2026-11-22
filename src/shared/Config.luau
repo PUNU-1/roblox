@@ -18,10 +18,12 @@ local Config = {
 	-- Один класс могут взять сколько угодно игроков. Ability — какое умение (AbilityService), Keys — клавиши умения.
 	Classes = {
 		Order = { "Patrol", "Operator", "Technician", "DogHandler", "Assault" }, -- порядок карточек и клавиш 1–5
-		Default = "Patrol", -- с этим классом все начинают
+		Default = "Patrol", -- с этим классом все начинают (он бесплатный: Price = 0)
+		-- Price — цена в алмазах 💎 в магазине хаба (решение 74, этап 4, блок 1). 0 — класс бесплатный, есть у всех.
 		AbilitySlack = 0.2, -- умение может прийти на столько секунд раньше конца перезарядки (часы клиента и сервера чуть расходятся)
 		Patrol = {
 			Title = "Patrol",
+			Price = 0, -- бесплатный, с ним все начинают
 			Ability = "Dash", -- рывок
 			AbilityTitle = "DASH",
 			KeyLabel = "Shift",
@@ -34,6 +36,7 @@ local Config = {
 		},
 		Operator = {
 			Title = "Operator",
+			Price = 50, -- баланс: алмазов 💎 (~1–2 забега)
 			Ability = "Phone", -- телефон с камерами (CameraController, RoleService)
 			AbilityTitle = "CAMERA PHONE",
 			KeyLabel = "Tab",
@@ -41,6 +44,7 @@ local Config = {
 		},
 		Technician = {
 			Title = "Technician",
+			Price = 150, -- баланс: алмазов 💎
 			Ability = "Sensor", -- датчик движения
 			AbilityTitle = "MOTION SENSOR",
 			KeyLabel = "G",
@@ -55,6 +59,7 @@ local Config = {
 		},
 		DogHandler = {
 			Title = "Dog Handler",
+			Price = 250, -- баланс: алмазов 💎
 			Ability = "Dog", -- собака ходит рядом и лает на воров (умение без клавиши)
 			AbilityTitle = "K-9 DOG",
 			KeyLabel = "",
@@ -64,6 +69,7 @@ local Config = {
 		},
 		Assault = {
 			Title = "Assault",
+			Price = 400, -- баланс: алмазов 💎 (~10 забегов)
 			Ability = "Tough", -- больше здоровья и меньше отдача (умение без клавиши)
 			AbilityTitle = "TOUGH",
 			KeyLabel = "",
@@ -372,6 +378,20 @@ local Config = {
 			Color = Color3.fromRGB(120, 190, 255),
 		},
 		RecStepSeconds = 0.8, -- мигание REC на мониторах
+	},
+
+	-- Алмазы 💎 (решение 74, этап 4, блок 1): даются за игру и сохраняются навсегда (server/ProfileStore, общий
+	-- для хаба и музея). Тратятся на классы в магазине хаба (цены — Classes.<Name>.Price). Деньги забега ($) — отдельно.
+	Diamonds = {
+		PerNight = 10, -- баланс: каждому на смене за каждую пережитую ночь
+		PerArrest = 1, -- баланс: за каждый свой арест (вор, сдавшийся или оглушённый грабитель)
+		Store = "PlayerProfile_v1", -- DataStore профиля: ключ — UserId, данные { diamonds, ownedClasses }
+		Retries = 3, -- попыток каждого запроса к DataStore (Retry)
+		RetryDelay = 1.5, -- секунд между попытками (вторая — ×2)
+		ReloadSeconds = 30, -- профиль не загрузился (сбой Roblox) — пробуем снова через столько
+		LoadWaitSeconds = 15, -- музей ждёт профиль прилетевшего из хаба не дольше, чтобы проверить его класс
+		CloseWaitSeconds = 25, -- сервер закрывается — ждём сохранения не дольше (Roblox даёт до 30 сек)
+		Color = Color3.fromHex("6FE3FF"), -- цвет алмазов в интерфейсе
 	},
 
 	Leaderboard = { -- доска рекордов в хабе (блок 6): топ команд по числу ночей

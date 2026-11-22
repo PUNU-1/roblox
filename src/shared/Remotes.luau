@@ -28,6 +28,8 @@ local NAMES: { [string]: string } = {
 	-- блок 6: хаб и конец забега
 	PadAction = "PadAction", -- (action: string, value: any) хаб, создатель круга: "Start" — старт сейчас, "FriendsOnly" (value: boolean)
 	GameOverChoice = "GameOverChoice", -- (choice: string) музей, конец забега: "PlayAgain" | "Lobby"
+	-- этап 4, блок 1: магазин классов в хабе
+	BuyClass = "BuyClass", -- (role: string) купить класс за алмазы; сервер проверяет класс, цену и алмазы
 
 	-- сервер -> клиенты
 	PhraseShown = "PhraseShown", -- (userId: number, index: number)
@@ -36,6 +38,7 @@ local NAMES: { [string]: string } = {
 	VoteRequest = "VoteRequest", -- (voteId: number, name: string, seconds: number) пустить ли опоздавшего
 	Hurt = "Hurt", -- (from: Vector3?, amount: number) охранника ранили: с какой стороны вспыхнуть краю экрана
 	ShotFx = "ShotFx", -- (shooter: Instance, weapon: string, origin: Vector3, ends: { Vector3 }, hits: { boolean }) выстрел для картинки
+	ShopResult = "ShopResult", -- (ok: boolean, role: string, message: string) ответ на BuyClass
 	HitConfirm = "HitConfirm", -- (kind: string) стрелку: попал ("hit"), в голову ("head"), грабитель упал ("ko"), шокер ("stun")
 }
 Remotes.Names = NAMES

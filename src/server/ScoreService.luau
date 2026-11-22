@@ -1,6 +1,8 @@
 -- Счёт ночи: кто сколько поймал, деньги, лучший охранник, данные для экрана итога.
 -- Деньги (решение 68): билеты туристов делятся поровну, арест — $5 сразу тому, кто арестовал,
 -- за пережитую ночь денег нет. Деньги живут только в атрибуте Player.Money и обнуляются в начале забега.
+-- Алмазы 💎 (этап 4, блок 1): в итоге каждой ночи +10 за пережитую ночь (тем, кто на смене) и +1 за каждый свой
+-- арест (Config.Diamonds). Они не обнуляются — ProfileStore сразу сохраняет их навсегда.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -8,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
+local ProfileStore = require(script.Parent:WaitForChild("ProfileStore"))
 
 local ScoreService = {}
 
@@ -18,6 +21,7 @@ local caughtTotal = 0
 local spawnedTotal = 0
 local incomePool = 0 -- остаток дохода, который ещё не поделился поровну
 local dayTickets = 0
+local diamondsRun: { [number]: number } = {} -- сколько алмазов каждый получил за этот забег
 
 export type Results = {
 	survived: boolean,
@@ -33,6 +37,9 @@ export type Results = {
 	best: number?, -- рекорд сервера
 	tickets: number?, -- сколько заплатили туристы за день перед этой ночью
 	plans: { string }?, -- какие планы были у воров этой ночью (блок 3)
+	diamonds: { [string]: number }, -- userId (строкой) -> алмазы за эту ночь (этап 4, блок 1)
+	diamondsRun: { [string]: number }, -- userId (строкой) -> алмазы за весь забег
+	diamondsSaved: boolean, -- false — Studio без доступа к API: алмазы не сохраняются
 }
 
 -- Новый забег: всё с нуля, деньги тоже.
@@ -41,6 +48,7 @@ function ScoreService.beginRun(participants: { Player })
 		player:SetAttribute(GameState.PlayerAttr.Money, 0)
 	end
 	incomePool = 0
+	table.clear(diamondsRun)
 end
 
 function ScoreService.beginDay()
@@ -108,10 +116,13 @@ function ScoreService.addStopped()
 end
 
 -- Итог ночи: кто сколько поймал и заработал арестами, сколько денег у каждого. Денег за ночь нет.
+-- Алмазы: пережили ночь — PerNight каждому, кто ещё на смене; плюс PerArrest за каждый свой арест.
 function ScoreService.finish(survived: boolean): Results
 	local earnings: { [string]: number } = {}
 	local catches: { [string]: number } = {}
 	local wallets: { [string]: number } = {}
+	local diamonds: { [string]: number } = {}
+	local runDiamonds: { [string]: number } = {}
 	local bestUserId, bestCount = 0, 0
 	for _, userId in participantIds do
 		local key = tostring(userId)
@@ -123,6 +134,17 @@ function ScoreService.finish(survived: boolean): Results
 		end
 		local player = Players:GetPlayerByUserId(userId)
 		wallets[key] = if player then tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0 else 0
+		-- Алмазы — только тем, кто ещё на сервере и на смене
+		local award = 0
+		if player and player:GetAttribute(GameState.PlayerAttr.InRound) == true then
+			award = caught * Config.Diamonds.PerArrest + (if survived then Config.Diamonds.PerNight else 0)
+			if award > 0 then
+				ProfileStore.addDiamonds(player, award)
+			end
+		end
+		diamondsRun[userId] = (diamondsRun[userId] or 0) + award
+		diamonds[key] = award
+		runDiamonds[key] = diamondsRun[userId]
 	end
 
 	return {
@@ -134,6 +156,9 @@ function ScoreService.finish(survived: boolean): Results
 		wallets = wallets,
 		bestUserId = bestUserId,
 		tickets = dayTickets,
+		diamonds = diamonds,
+		diamondsRun = runDiamonds,
+		diamondsSaved = not ProfileStore.isOffline(),
 	}
 end
 

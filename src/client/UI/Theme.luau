@@ -20,6 +20,7 @@ Theme.Colors = {
 	White = Color3.fromHex("FFFFFF"),
 	Gray = Color3.fromHex("8A93A6"),
 	Green = Color3.fromHex("3FB56B"),
+	Diamond = Config.Diamonds.Color, -- алмазы 💎 (этап 4, блок 1)
 }
 
 Theme.Font = Enum.Font.FredokaOne
