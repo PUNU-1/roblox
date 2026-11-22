@@ -93,9 +93,9 @@ end
 -- doorOnly — только те, кто входит через дверь (без подкопа и крыши).
 local function pickKind(ctx: Ctx, doorOnly: boolean?): string
 	local forced = ctx.forceKind
-	if forced and (not doorOnly or typeInfo(forced).Door ~= false) then
+	if forced then
 		ctx.forceKind = nil
-		return forced
+		return forced -- новый вид ночи дебютирует, даже если приходит не через дверь
 	end
 	local total = 0
 	local pool = {}

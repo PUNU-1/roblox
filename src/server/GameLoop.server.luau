@@ -21,6 +21,7 @@ local ExhibitService = require(Server:WaitForChild("ExhibitService"))
 local ThiefService = require(Server:WaitForChild("ThiefService"))
 local WaveService = require(Server:WaitForChild("WaveService"))
 local HeistFx = require(Server:WaitForChild("HeistFx"))
+local BlackoutService = require(Server:WaitForChild("BlackoutService"))
 local CatchService = require(Server:WaitForChild("CatchService"))
 local TrapService = require(Server:WaitForChild("TrapService"))
 local CommsService = require(Server:WaitForChild("CommsService"))
@@ -42,6 +43,7 @@ RoleService.init(map)
 LobbyService.init(map)
 ExhibitService.init(map)
 HeistFx.init(map)
+BlackoutService.init(map)
 ThiefService.init(map)
 CatchService.init()
 TrapService.init(map)
@@ -120,7 +122,8 @@ end
 local function runDay(night: number): boolean
 	VoteService.admitApproved() -- кого пустили голосованием, входят с утра
 	ExhibitService.returnAll()
-	HeistFx.resetForDay() -- следы воров (трещины на витринах) убраны
+	HeistFx.resetForDay() -- следы воров убраны: витрины, дыры в полу, дыра в стеклянном потолке
+	BlackoutService.reset() -- утром свет снова есть
 	setLighting(Config.Lighting.Day)
 	MapBuilder.setDayLights(map, true) -- днём горят люстры
 	GameState.set(Attr.NightNumber, night)
@@ -187,6 +190,7 @@ local function runNight(night: number): (boolean, boolean)
 	escapedConnection:Disconnect()
 	WaveService.endNight()
 	ThiefService.endNight()
+	BlackoutService.reset()
 	Audio.stopMusic()
 	return survived, aborted
 end
@@ -222,6 +226,7 @@ local function finishRun()
 	WaveService.endNight()
 	ThiefService.endNight()
 	HeistFx.resetForDay()
+	BlackoutService.reset()
 	TrapService.clear()
 	RoleService.endRound()
 	RoleService.setConsoleEnabled(false)

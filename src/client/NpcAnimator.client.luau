@@ -1,6 +1,7 @@
 -- Анимации NPC кодом: воры и туристы. Каждый клиент сам двигает суставы R15 (Transform) по состоянию,
 -- которое сервер пишет в атрибут модели (AnimState). Воры: крадётся, бежит, снимает экспонат, несёт,
--- арест, пинает витрину, ждёт присев; Громила (вразвалку, удар, бьёт витрину), Тень (на полусогнутых) — блок 3. Туристы: гуляет, смотрит на экспонат, фотографирует.
+-- арест, пинает витрину, ждёт присев; Громила (вразвалку, удар, бьёт витрину), Тень (на полусогнутых),
+-- Шахтёр и Стекольщик лезут вверх, Стекольщик режет стекло и спускается на верёвке, Светорез у щитка — блок 3. Туристы: гуляет, смотрит на экспонат, фотографирует.
 -- В Roblox ничего загружать не нужно, а сеть не нагружается: Transform видит только этот клиент.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -335,6 +336,82 @@ local function prowlPose(clock: number, phase: number, move: number): Pose
 	return pose
 end
 
+-- Лезет вверх: перехват руками над головой, ноги по очереди подтягиваются (Шахтёр из дыры, Стекольщик по верёвке).
+local function climbPose(clock: number): Pose
+	local pose: Pose = {}
+	local c = math.sin(clock * math.pi * 2 / Settings.ClimbPeriod)
+	pose.Waist = R(-0.15)
+	pose.Neck = R(0.45)
+	pose.LeftShoulder = R(2.6 + 0.35 * c, 0, 0.05)
+	pose.RightShoulder = R(2.6 - 0.35 * c, 0, -0.05)
+	pose.LeftElbow = R(0.7 - 0.55 * c)
+	pose.RightElbow = R(0.7 + 0.55 * c)
+	pose.LeftHip = R(0.55 + 0.45 * c)
+	pose.RightHip = R(0.55 - 0.45 * c)
+	pose.LeftKnee = R(-0.9 - 0.4 * c)
+	pose.RightKnee = R(-0.9 + 0.4 * c)
+	return pose
+end
+
+-- Спускается на верёвке: обе руки над головой держат верёвку, ноги вместе, чуть согнуты, медленно качается,
+-- смотрит вниз.
+local function rappelPose(clock: number): Pose
+	local pose: Pose = {}
+	local sway = math.sin(clock * 1.3)
+	pose.Root = R(0.06 * sway, 0, 0.05 * math.cos(clock * 1.1))
+	pose.Waist = R(0.05)
+	pose.Neck = R(-0.4, 0.2 * math.sin(clock * 0.7), 0)
+	pose.LeftShoulder = R(2.9, 0, 0.18)
+	pose.RightShoulder = R(2.75, 0, -0.18)
+	pose.LeftElbow = R(0.3)
+	pose.RightElbow = R(0.5)
+	pose.LeftHip = R(0.35, 0, -0.05)
+	pose.RightHip = R(0.35, 0, 0.05)
+	pose.LeftKnee = R(-0.5)
+	pose.RightKnee = R(-0.5)
+	pose.LeftAnkle = R(0.2)
+	pose.RightAnkle = R(0.2)
+	return pose
+end
+
+-- Режет стекло: стоит на правом колене, наклонился, правая рука ведёт стеклорез по кругу, левая на колене.
+local function cutPose(clock: number): Pose
+	local pose: Pose = {}
+	local w = clock * math.pi * 2 / Settings.CutPeriod
+	pose.Root = CFrame.new(0, -1.15, 0)
+	pose.RightHip = R(0.1)
+	pose.RightKnee = R(-1.55)
+	pose.RightAnkle = R(0.6)
+	pose.LeftHip = R(1.5)
+	pose.LeftKnee = R(-1.5)
+	pose.LeftAnkle = R(0.1)
+	pose.Waist = R(-0.55)
+	pose.Neck = R(-0.1)
+	pose.RightShoulder = R(1.15 + 0.3 * math.sin(w), 0, -0.15 + 0.3 * math.cos(w))
+	pose.RightElbow = R(0.5)
+	pose.RightWrist = R(-0.3)
+	pose.LeftShoulder = R(0.6, 0, 0.2)
+	pose.LeftElbow = R(1.3)
+	return pose
+end
+
+-- Возится у щитка: присел, руки у проводов, правая щёлкает кусачками; время от времени отдёргивается от искр.
+local function workPose(clock: number): Pose
+	local pose: Pose = {}
+	local snip = math.sin(clock * Settings.WorkSnipSpeed)
+	local flinch = math.max(0, 1 - (clock % 1.3) / 0.2) -- резкий рывок назад раз в 1,3 сек
+	pose.Root = CFrame.new(0, -0.35, 0)
+	legs(pose, 0, 0, 0, 0, 0.35, 0)
+	pose.Waist = R(-0.25 + 0.25 * flinch, 0.1 * math.sin(clock * 0.8), 0)
+	pose.Neck = R(-0.05 + 0.2 * flinch)
+	pose.LeftShoulder = R(1.35, 0, 0.25)
+	pose.LeftElbow = R(1.0)
+	pose.RightShoulder = R(1.25 + 0.08 * snip, 0, -0.1)
+	pose.RightElbow = R(1.1 + 0.25 * snip)
+	pose.RightWrist = R(0.2 * snip)
+	return pose
+end
+
 -- Турист гуляет: спокойный шаг, руки слегка покачиваются, головой вертит по сторонам.
 local function strollPose(clock: number, phase: number, move: number): Pose
 	local pose: Pose = {}
@@ -402,6 +479,14 @@ local function poseFor(state: any, t: number, clock: number, phase: number, move
 		return smashPose(t)
 	elseif state == Anim.Prowl then
 		return prowlPose(clock, phase, move)
+	elseif state == Anim.Climb then
+		return climbPose(clock)
+	elseif state == Anim.Rappel then
+		return rappelPose(clock)
+	elseif state == Anim.Cut then
+		return cutPose(clock)
+	elseif state == Anim.Work then
+		return workPose(clock)
 	end
 	return sneakPose(clock, phase, move)
 end

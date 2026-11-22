@@ -26,6 +26,7 @@ local RoleService = require(Server:WaitForChild("RoleService"))
 local Audio = require(Server:WaitForChild("Audio"))
 local HeistFx = require(Server:WaitForChild("HeistFx"))
 local ThiefKinds = require(Server:WaitForChild("ThiefKinds"))
+local BlackoutService = require(Server:WaitForChild("BlackoutService"))
 
 local ThiefConfig = Config.Thief
 local Smart = Config.Smart
@@ -53,6 +54,22 @@ export type Options = {
 	plan: string?, -- какой план (для отладки)
 }
 
+-- Шахтёр и Стекольщик приходят не через дверь: у них своя часть пути (подкоп, крыша, верёвка).
+type Special = {
+	started: number, -- когда началась текущая часть (вылезает, режет, ждёт, спускается, лезет вверх)
+	floorY: number, -- высота корня, когда вор стоит на полу
+	floor: number, -- высота самого пола
+	-- Шахтёр
+	digUntil: number, -- когда вылезет
+	digPoint: Vector3, -- где вылезет (точка на полу)
+	hole: HeistFx.Hole?,
+	-- Стекольщик
+	cut: HeistFx.Cut?,
+	holeCenter: Vector3, -- центр дыры на стекле
+	landPoint: Vector3, -- где он на полу под дырой (туда же бежит с добычей)
+	roofY: number, -- высота корня на крыше
+}
+
 type Thief = {
 	model: Model,
 	humanoid: Humanoid,
@@ -62,6 +79,7 @@ type Thief = {
 	info: any, -- Config.ThiefTypes[kind]
 	options: Options,
 	state: string, -- Approach | GoTask | Task | Hold | Steal | Escape | Flee | Block | Arrested | Escaped
+	-- Шахтёр: Dig (под полом, его не видно) -> Emerge; Стекольщик: Roof -> RoofWait -> Descend ... Ascend
 	waypoints: { PathWaypoint },
 	waypointIndex: number,
 	pathTarget: Vector3?,
@@ -88,6 +106,7 @@ type Thief = {
 	punchTarget: Player?,
 	punchHit: boolean,
 	nextPunch: number,
+	special: Special?, -- подкоп или крыша
 	footsteps: Sound?,
 	connections: { RBXScriptConnection },
 }
@@ -226,6 +245,14 @@ local function animFor(thief: Thief): string
 	local state = thief.state
 	if state == "Arrested" then
 		return Anim.Arrest
+	elseif state == "Emerge" or state == "Ascend" then
+		return Anim.Climb
+	elseif state == "Roof" then
+		return Anim.Cut
+	elseif state == "RoofWait" then
+		return Anim.Hold
+	elseif state == "Descend" then
+		return Anim.Rappel
 	elseif thief.punchStarted > 0 then
 		return Anim.Punch
 	elseif state == "Steal" then
@@ -239,6 +266,8 @@ local function animFor(thief: Thief): string
 			return Anim.Kick
 		elseif thief.task == "Smash" then
 			return Anim.Smash
+		elseif thief.task == "Fuse" then
+			return Anim.Work
 		end
 		return Anim.Steal
 	elseif state == "Hold" and thief.holdArrived then
@@ -427,6 +456,9 @@ local function taskPoint(thief: Thief): Vector3?
 			end
 		end
 		return if camera then CameraService.standPoint(camera) else nil
+	elseif thief.task == "Fuse" then
+		-- Светорез: к щитку POWER, если свет ещё есть
+		return if BlackoutService.isOut() then nil else BlackoutService.standPoint()
 	end
 	return nil
 end
@@ -436,6 +468,8 @@ local function taskSeconds(thief: Thief): number
 		return Smart.LureSeconds
 	elseif thief.task == "Smash" then
 		return thief.info.SmashSeconds or Smart.LureSeconds
+	elseif thief.task == "Fuse" then
+		return thief.info.WorkSeconds or 4
 	end
 	return thief.info.BreakSeconds or 2
 end
@@ -461,6 +495,9 @@ local function completeTask(thief: Thief)
 		else
 			thief.state = "GoTask"
 		end
+	elseif thief.task == "Fuse" then
+		BlackoutService.cut() -- свет и камеры гаснут во всём музее
+		finishTask(thief)
 	end
 end
 
@@ -564,6 +601,159 @@ local function updatePunch(thief: Thief): boolean
 	return true
 end
 
+---------------------------------------------------------------- побег, подкоп, крыша
+
+-- Вор вынес экспонат из музея (через дверь или по верёвке на крышу). Мона Лиза — игра окончена,
+-- дешёвый экспонат пропадает, вор уходит. Возвращает true, если вора уже убрали.
+local function getAway(thief: Thief, carried: ExhibitService.Exhibit): boolean
+	if carried.isMain then
+		thief.state = "Escaped"
+		stand(thief)
+		ThiefService.Escaped:Fire(thief.model)
+		return false
+	end
+	bannerRemote:FireAllClients(("THE %s IS GONE!"):format(string.upper(carried.title)), "danger")
+	ExhibitService.lose(carried)
+	ThiefService.remove(thief.model)
+	return true
+end
+
+local function rootHeight(thief: Thief): number
+	return thief.humanoid.HipHeight + thief.root.Size.Y / 2
+end
+
+-- Ставит закреплённого вора (в дыре, на верёвке) в точку, лицом к цели.
+local function anchoredAt(thief: Thief, x: number, y: number, z: number)
+	local position = Vector3.new(x, y, z)
+	local target = thief.target
+	local look = if target then Vector3.new(target.look.X, y, target.look.Z) else position + flat(thief.root.CFrame.LookVector)
+	if flatDistance(position, look) > 0.1 then
+		thief.root.CFrame = CFrame.lookAt(position, look)
+	else
+		thief.root.CFrame = CFrame.new(position) * thief.root.CFrame.Rotation
+	end
+end
+
+-- Вор встал на пол: дальше ходит сам, как обычный.
+local function land(thief: Thief)
+	thief.root.Anchored = false
+	pcall(function()
+		thief.root:SetNetworkOwner(nil)
+	end)
+	thief.holdDone = true
+	thief.state = nextState(thief)
+end
+
+local function guardNear(point: Vector3, radius: number): boolean
+	for _, guard in ThiefService.guardPositions() do
+		if flatDistance(guard, point) < radius then
+			return true
+		end
+	end
+	return false
+end
+
+local function smoothStep(t: number): number
+	local x = math.clamp(t, 0, 1)
+	return x * x * (3 - 2 * x)
+end
+
+-- Шахтёр под полом: за CrackSeconds до появления пол трескается, потом он вылезает из дыры.
+local function updateDig(thief: Thief)
+	local special = thief.special :: Special
+	local info = thief.info
+	local time = now()
+	if not special.hole and time >= special.digUntil - info.CrackSeconds then
+		special.hole = HeistFx.crackFloor(special.digPoint)
+	end
+	if time < special.digUntil then
+		return
+	end
+	local hole = special.hole
+	if hole then
+		HeistFx.openHole(hole)
+	end
+	local point = special.digPoint
+	thief.model:PivotTo(CFrame.new(point.X, special.floorY - info.EmergeDepth, point.Z))
+	thief.model.Parent = folder
+	thief.state = "Emerge"
+	special.started = time
+	anchoredAt(thief, point.X, special.floorY - info.EmergeDepth, point.Z)
+	syncAnim(thief)
+	setupFootsteps(thief)
+	ScoreService.addSpawned()
+	ThiefService.Spawned:Fire(thief.model)
+end
+
+-- Части пути Шахтёра и Стекольщика, пока они закреплены: вылезает из дыры, режет стекло, ждёт на крыше,
+-- спускается и поднимается на верёвке.
+local SPECIAL_STATES = { Emerge = true, Roof = true, RoofWait = true, Descend = true, Ascend = true }
+
+local function updateSpecial(thief: Thief)
+	local special = thief.special :: Special
+	local info = thief.info
+	local state = thief.state
+	local elapsed = now() - special.started
+	local cut = special.cut
+	if state == "Emerge" then
+		local t = math.clamp(elapsed / info.EmergeSeconds, 0, 1)
+		local k = 1 - (1 - t) * (1 - t) -- быстро вначале, плавно в конце
+		local point = special.digPoint
+		anchoredAt(thief, point.X, special.floorY - info.EmergeDepth * (1 - k), point.Z)
+		if t >= 1 then
+			land(thief)
+		end
+	elseif state == "Roof" then
+		if cut then
+			HeistFx.cutProgress(cut, elapsed / info.CutSeconds)
+		end
+		if elapsed >= info.CutSeconds then
+			if cut then
+				HeistFx.finishCut(cut)
+			end
+			thief.state = "RoofWait"
+			special.started = now()
+		end
+	elseif state == "RoofWait" then
+		-- Ждёт, пока охрана отойдёт от места спуска (и сигнала своего плана), но не дольше WaitMax
+		local hold = thief.options.hold
+		local ready = (not hold or hold()) and not guardNear(special.landPoint, info.ClearRadius)
+		if ready or elapsed >= info.WaitMax then
+			thief.state = "Descend"
+			special.started = now()
+			anchoredAt(thief, special.holeCenter.X, special.roofY, special.holeCenter.Z)
+		end
+	elseif state == "Descend" then
+		local t = math.clamp(elapsed / info.DescendSeconds, 0, 1)
+		local y = special.roofY + (special.floorY - special.roofY) * smoothStep(t)
+		anchoredAt(thief, special.landPoint.X, y, special.landPoint.Z)
+		if cut then
+			HeistFx.setRope(cut, y + 0.8)
+		end
+		if t >= 1 then
+			if cut then
+				HeistFx.setRope(cut, special.floor + 0.2) -- верёвка висит до пола
+			end
+			land(thief)
+		end
+	elseif state == "Ascend" then
+		local t = math.clamp(elapsed / info.ClimbSeconds, 0, 1)
+		local y = special.floorY + (special.roofY - special.floorY) * t
+		anchoredAt(thief, special.landPoint.X, y, special.landPoint.Z)
+		if cut then
+			HeistFx.setRope(cut, y + 0.8)
+		end
+		if t >= 1 then
+			local carried = ExhibitService.getCarried(thief.model)
+			if carried then
+				getAway(thief, carried)
+			else
+				ThiefService.remove(thief.model)
+			end
+		end
+	end
+end
+
 -- Состояния, в которых вор замечает охранника и убегает.
 local FLEE_STATES = { Approach = true, GoTask = true, Hold = true }
 -- Состояния, из которых вор бросается загораживать того, кто несёт Мону Лизу.
@@ -575,6 +765,13 @@ local function updateThief(thief: Thief)
 	end
 	if updatePunch(thief) then
 		syncAnim(thief)
+		return
+	end
+	if SPECIAL_STATES[thief.state] then
+		updateSpecial(thief)
+		if thieves[thief.model] then
+			syncAnim(thief)
+		end
 		return
 	end
 	local model = thief.model
@@ -621,8 +818,12 @@ local function updateThief(thief: Thief)
 			local look = if thief.taskCase
 				then thief.taskCase.model:GetPivot().Position
 				elseif thief.cameraQueue[1] then thief.cameraQueue[1].Position
+				elseif thief.task == "Fuse" then BlackoutService.lookPoint() or point
 				else point
 			face(thief, look)
+			if thief.task == "Fuse" then
+				BlackoutService.sparks(taskSeconds(thief)) -- искры, пока возится с проводами
+			end
 		else
 			moveTowards(thief, point, walkSpeed(thief))
 		end
@@ -680,19 +881,18 @@ local function updateThief(thief: Thief)
 			end
 		end
 	elseif state == "Escape" then
-		local exit = nearestEntrance(position)
+		-- Стекольщик убегает к своей верёвке, остальные — к ближайшей двери
+		local special = thief.special
+		local rope = special and special.cut and special.landPoint
+		local exit = rope or nearestEntrance(position)
 		if exit and carried then
 			if flatDistance(position, exit) < ThiefConfig.EscapeReachDistance then
-				if carried.isMain then
-					-- Унёс Мону Лизу — игра окончена
-					thief.state = "Escaped"
+				if rope and special then
+					thief.state = "Ascend" -- лезет по верёвке на крышу с добычей
+					special.started = now()
+					thief.root.Anchored = true
 					stand(thief)
-					ThiefService.Escaped:Fire(model)
-				else
-					-- Унёс дешёвый экспонат: экспоната больше нет, вор уходит, ночь продолжается
-					bannerRemote:FireAllClients(("THE %s IS GONE!"):format(string.upper(carried.title)), "danger")
-					ExhibitService.lose(carried)
-					ThiefService.remove(model)
+				elseif getAway(thief, carried) then
 					return
 				end
 			else
@@ -735,6 +935,81 @@ function ThiefService.aliveCount(): number
 	return count
 end
 
+-- Шахтёр: выбирает экспонат подальше от охраны (не тот, у которого уже копает другой) и место рядом.
+local function setupMiner(thief: Thief): boolean
+	local info = thief.info
+	local guards = ThiefService.guardPositions()
+	local avoid = {}
+	for _, other in thieves do
+		if other.kind == "Miner" and (other.state == "Dig" or other.state == "Emerge") and other.target then
+			table.insert(avoid, other.target)
+		end
+	end
+	local target = ExhibitService.pickTarget(nil, thief.options.target, guards, avoid)
+	if not target then
+		return false
+	end
+	local point = HeistFx.digPoint(target.stand, target.look, info.EmergeDistance, guards)
+	if not point then
+		return false
+	end
+	thief.target = target
+	local height = rootHeight(thief)
+	thief.special = {
+		started = now(),
+		floorY = point.Y + height,
+		floor = point.Y,
+		digUntil = now() + info.DigSeconds + random:NextNumber(-info.DigJitter, info.DigJitter),
+		digPoint = point,
+		hole = nil,
+		cut = nil,
+		holeCenter = point,
+		landPoint = point,
+		roofY = point.Y + height,
+	}
+	thief.root.Anchored = true
+	thief.state = "Dig" -- его не видно, пока не вылезет (модель ещё не в мире)
+	return true
+end
+
+-- Стекольщик: место спуска перед экспонатом (чаще Мона Лиза) под стеклянным потолком, на крыше рядом с ним.
+local function setupGlazier(thief: Thief): boolean
+	local info = thief.info
+	local target = ExhibitService.pickTarget(thief.model, thief.options.target or "Main", ThiefService.guardPositions())
+	if not target then
+		return false
+	end
+	local away = flat(target.stand - target.look)
+	away = if away.Magnitude > 0.1 then away.Unit else Vector3.new(0, 0, 1)
+	local top = HeistFx.skylightPoint(target.stand + away * info.LandOffset, info.SkylightMargin + info.HoleRadius)
+	if not top then
+		return false
+	end
+	local floorPoint = HeistFx.floorAt(Vector3.new(top.X, target.stand.Y, top.Z))
+	local floor = if floorPoint then floorPoint.Y else target.stand.Y - 3
+	local height = rootHeight(thief)
+	local roofY = top.Y + height
+	thief.target = target
+	thief.special = {
+		started = now(),
+		floorY = floor + height,
+		floor = floor,
+		digUntil = 0,
+		digPoint = top,
+		hole = nil,
+		cut = HeistFx.startCut(top, info.HoleRadius),
+		holeCenter = top,
+		landPoint = Vector3.new(top.X, floor + height, top.Z),
+		roofY = roofY,
+	}
+	thief.root.Anchored = true
+	local kneel = top + Vector3.new(info.HoleRadius + 0.9, 0, 0)
+	thief.model:PivotTo(CFrame.lookAt(Vector3.new(kneel.X, roofY, kneel.Z), Vector3.new(top.X, roofY, top.Z)))
+	thief.model.Parent = folder
+	thief.state = "Roof"
+	return true
+end
+
 -- Новый вор по приказу волны. Возвращает модель или nil (нет дверей, Roblox не собрал персонажа, ночь кончилась).
 function ThiefService.spawnSpecial(options: Options): Model?
 	if not active then
@@ -742,8 +1017,10 @@ function ThiefService.spawnSpecial(options: Options): Model?
 	end
 	local kind = options.kind or "Pickpocket"
 	local info = kindInfo(kind)
-	local entrance = options.entrance or ThiefService.pickEntrance()
-	if not entrance then
+	-- Шахтёр приходит из-под пола, Стекольщик — по крыше (если у музея есть стеклянный потолок)
+	local special = kind == "Miner" or (kind == "Glazier" and HeistFx.skylight() ~= nil)
+	local entrance = if special then nil else (options.entrance or ThiefService.pickEntrance())
+	if not special and not entrance then
 		return nil
 	end
 	local model = ThiefKinds.build(kind)
@@ -759,17 +1036,21 @@ function ThiefService.spawnSpecial(options: Options): Model?
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	humanoid.WalkSpeed = ThiefConfig.SneakSpeed
 	ModelLibrary.setCollisionGroup(model, ModelLibrary.Groups.Thieves)
-	model:PivotTo(entrance.CFrame)
-	model.Parent = folder
-	pcall(function()
-		root:SetNetworkOwner(nil) -- воров двигает только сервер
-	end)
+	if entrance then
+		model:PivotTo(entrance.CFrame)
+		model.Parent = folder
+		pcall(function()
+			root:SetNetworkOwner(nil) -- воров двигает только сервер
+		end)
+	end
 
 	local taskName = options.task
 	if taskName == nil and kind == "Breaker" then
 		taskName = "Camera" -- взломщик сначала ломает ближайшую камеру
 	elseif taskName == nil and kind == "Brute" and random:NextNumber() < info.SmashChance then
 		taskName = "Smash" -- Громила иногда сначала разбивает витрину вдали от охраны
+	elseif taskName == nil and kind == "Cutter" and not BlackoutService.isOut() and BlackoutService.standPoint() then
+		taskName = "Fuse" -- Светорез сначала вырубает свет у щитка
 	end
 	local thief: Thief = {
 		model = model,
@@ -795,7 +1076,7 @@ function ThiefService.spawnSpecial(options: Options): Model?
 		taskCase = nil,
 		cameraQueue = {},
 		autoCamera = taskName == "Camera" and options.task == nil,
-		holdPoint = holdPointFor(entrance),
+		holdPoint = if entrance then holdPointFor(entrance) else root.Position,
 		holdStarted = 0,
 		holdDone = false,
 		holdArrived = false,
@@ -803,10 +1084,24 @@ function ThiefService.spawnSpecial(options: Options): Model?
 		punchTarget = nil,
 		punchHit = false,
 		nextPunch = 0,
+		special = nil,
 		footsteps = nil,
 		connections = {},
 	}
 	thief.state = nextState(thief)
+	if kind == "Miner" then
+		if not setupMiner(thief) then
+			model:Destroy()
+			return nil
+		end
+		thieves[model] = thief -- копает: место в музее занимает, но появится позже (Spawned — когда вылезет)
+		return model
+	elseif special then
+		if not setupGlazier(thief) then
+			model:Destroy()
+			return nil
+		end
+	end
 	thieves[model] = thief
 	syncAnim(thief)
 	setupFootsteps(thief)
@@ -912,7 +1207,9 @@ function ThiefService.beginNight(night: number)
 		end
 		accumulator = 0
 		for _, thief in thieves do
-			if thief.model.Parent then
+			if thief.state == "Dig" then
+				updateDig(thief) -- Шахтёр под полом: модели ещё нет в мире
+			elseif thief.model.Parent then
 				updateThief(thief)
 			end
 		end
