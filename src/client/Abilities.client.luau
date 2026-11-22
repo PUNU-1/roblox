@@ -6,6 +6,7 @@
 --  • Датчики техников: раскладываются на полу, лампочка мигает зелёным; вор рядом — у всей охраны на смене
 --    писк, стрелка к датчику вокруг прицела и метка MOTION! над датчиком сквозь стены, по полу бежит волна.
 --  • Техник перезапускает камеры у рубильника CAMERA RESET без удержания.
+--  • Собаки кинологов ходят, сидят и лают (DogAnimator); у хозяина кнопка умения краснеет: «THIEF NEAR!».
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -23,6 +24,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local ClassCards = require(UI:WaitForChild("ClassCards"))
+local DogAnimator = require(script.Parent:WaitForChild("DogAnimator"))
 
 local PlayerAttr = GameState.PlayerAttr
 local Role = GameState.Role
@@ -235,13 +237,19 @@ local function setWidgetRole(role: string)
 	ClassCards.frameCamera(viewportCamera, model)
 	pictureModel = model
 	pictureBase = model.WorldPivot
+end
+
+-- Подпись под кнопкой: «[SHIFT] DASH»; у кинолога, когда собака чует вора, — «THIEF NEAR!»
+local function abilityCaption(info: { [string]: any }, dogAlert: boolean): string
+	if dogAlert then
+		return '<font color="#FF5A5A">THIEF NEAR!</font>'
+	end
 	local key = tostring(info.KeyLabel or "")
 	local title = tostring(info.AbilityTitle)
 	if key ~= "" and not touchOnly then
-		nameLabel.Text = ('<font color="#D4A93A">[%s]</font> %s'):format(string.upper(key), title)
-	else
-		nameLabel.Text = title
+		return ('<font color="#D4A93A">[%s]</font> %s'):format(string.upper(key), title)
 	end
+	return title
 end
 
 local readyFlashFor = 0 -- когда перезарядка кончилась — кнопка вспыхивает
@@ -287,8 +295,22 @@ local function refreshWidget(dt: number)
 		cooldownShade.Size = UDim2.fromScale(1, 1)
 	end
 
+	-- Кинолог: собака чует вора — кнопка мигает красным
+	local dogAlert = role == Role.DogHandler and DogAnimator.ownAlert(localPlayer.UserId)
+	nameLabel.Text = abilityCaption(info, dogAlert)
+	if dogAlert then
+		local pulse = 0.5 + 0.5 * math.sin(t * 10)
+		squareStroke.Color = Classes.Sensor.AlarmColor
+		squareStroke.Thickness = 2.5 + 1.5 * pulse
+		glow.BackgroundColor3 = Classes.Sensor.AlarmColor
+	else
+		squareStroke.Color = info.Color
+		squareStroke.Thickness = 2.5
+		glow.BackgroundColor3 = info.Color
+	end
+
 	if pictureModel then
-		pictureAngle += dt * (if active then 4 else 0.6)
+		pictureAngle += dt * (if active or dogAlert then 4 else 0.6)
 		pictureModel:PivotTo(pictureBase * CFrame.Angles(0, pictureAngle, 0))
 	end
 end
@@ -872,6 +894,8 @@ local function refreshRepairPrompt()
 end
 
 ---------------------------------------------------------------- каждый кадр
+
+DogAnimator.start() -- собаки кинологов в мире
 
 local slowTick = 0
 RunService.RenderStepped:Connect(function(dt)

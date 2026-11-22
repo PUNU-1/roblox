@@ -4,6 +4,8 @@
 --  • Patrol — рывок (Shift): несколько секунд бежит быстрее;
 --  • Technician — датчик движения (G, 1 за ночь): вор прошёл рядом — у всей охраны писк и стрелка к датчику;
 --    камеры у рубильника перезапускает мгновенно (Abilities.client убирает удержание у своей кнопки);
+--  • Dog Handler — собака: модель ставит сервер (Workspace.Dogs), ходит и лает она у клиентов (DogAnimator);
+--    сервер раз в CheckSeconds ищет ближайшего вора у хозяина (DogSenseRadius) и пишет Alert, Target и BarkAt;
 --  • Operator — телефон с камерами (RoleService, CameraController);
 --  • Assault — здоровье (HealthService) и отдача (Weapons.client).
 -- Состояние умения — в атрибутах игрока (AbilityReadyAt, AbilityUntil, AbilityCharges): по ним клиент
@@ -39,6 +41,11 @@ type Sensor = { model: Model, owner: Player, position: Vector3, lastPing: number
 local sensors: { Sensor } = {}
 local sensorsFolder: Folder
 local map: Instance
+
+type Dog = { model: Model, target: ObjectValue, lastBark: number }
+local dogs: { [Player]: Dog } = {}
+local dogsFolder: Folder
+local connections: { [Player]: { RBXScriptConnection } } = {}
 
 local function now(): number
 	return Workspace:GetServerTimeNow()
@@ -225,6 +232,91 @@ local function checkSensors(thieves: { Seen })
 	end
 end
 
+---------------------------------------------------------------- собака кинолога
+
+local DogAttr = GameState.DogAttr
+
+local function removeDog(player: Player)
+	local dog = dogs[player]
+	if dog then
+		dog.model:Destroy()
+		dogs[player] = nil
+	end
+end
+
+-- Собака есть у каждого кинолога (и в лобби): появляется, как только выбрал класс, исчезает, если сменил.
+local function refreshDog(player: Player)
+	local wants = GameState.roleOf(player) == GameState.Role.DogHandler
+	if not wants then
+		removeDog(player)
+		return
+	end
+	if dogs[player] then
+		return
+	end
+	local root = rootOf(player)
+	local origin = if root then root.Position - Vector3.new(0, 3, 0) else Vector3.new(0, -50, 0)
+	local pivot = CFrame.new(origin + Vector3.new(0, 0, 3))
+	local built, pivots = ClassModels.dog()
+	WeaponModels.anchor(built, pivot)
+	local model = built.model
+	model.Name = "Dog_" .. player.UserId
+	local count = 0
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			count += 1
+		end
+	end
+	model:SetAttribute(DogAttr.Owner, player.UserId)
+	model:SetAttribute(DogAttr.SpawnPivot, pivot)
+	model:SetAttribute(DogAttr.PartCount, count)
+	model:SetAttribute(DogAttr.Alert, false)
+	model:SetAttribute(DogAttr.BarkAt, 0)
+	for name, position in pivots do
+		model:SetAttribute("Bone_" .. name, position) -- точки вращения костей (у модели друга — свои)
+	end
+	local target = Instance.new("ObjectValue")
+	target.Name = "Target"
+	target.Parent = model
+	model.Parent = dogsFolder
+	dogs[player] = { model = model, target = target, lastBark = 0 }
+end
+
+-- Ближайший вор у хозяина ближе DogSenseRadius — собака смотрит на него и лает (раз в BarkCooldown).
+-- Чует только на смене; хозяин может и лежать — собака всё равно лает.
+local function checkDogs(thieves: { Seen })
+	local settings = Classes.DogHandler
+	local t = now()
+	for player, dog in dogs do
+		local root = rootOf(player)
+		local best: Model? = nil
+		local bestDistance = settings.DogSenseRadius
+		if root and RoleService.isParticipant(player) then
+			for _, thief in thieves do
+				local distance = (thief.position - root.Position).Magnitude
+				if distance <= bestDistance then
+					best, bestDistance = thief.model, distance
+				end
+			end
+		end
+		if dog.target.Value ~= best then
+			dog.target.Value = best
+		end
+		dog.model:SetAttribute(DogAttr.Alert, best ~= nil)
+		if best and t - dog.lastBark >= settings.BarkCooldown then
+			dog.lastBark = t
+			dog.model:SetAttribute(DogAttr.BarkAt, t)
+		end
+	end
+end
+
+local function calmDogs()
+	for _, dog in dogs do
+		dog.target.Value = nil
+		dog.model:SetAttribute(DogAttr.Alert, false)
+	end
+end
+
 local function onUseAbility(player: Player, name: any)
 	if typeof(name) ~= "string" then
 		return
@@ -265,9 +357,10 @@ end
 
 function AbilityService.beginNight() end
 
--- Ночь кончилась: датчики убираются.
+-- Ночь кончилась: датчики убираются, собаки успокаиваются.
 function AbilityService.endNight()
 	removeSensors()
+	calmDogs()
 	for _, player in Players:GetPlayers() do
 		resetPlayer(player)
 		RoleService.refreshMovement(player)
@@ -293,10 +386,12 @@ end
 function AbilityService.init(builtMap: Instance)
 	map = builtMap
 	sensorsFolder = folder(MapSchema.Sensors)
+	dogsFolder = folder(MapSchema.Dogs)
 	Remotes.get(Remotes.Names.UseAbility).OnServerEvent:Connect(onUseAbility)
 
-	-- Датчики проверяют воров раз в CheckSeconds, только ночью
+	-- Датчики и собаки проверяют воров раз в CheckSeconds, только ночью
 	local accumulator = 0
+	local calm = true
 	RunService.Heartbeat:Connect(function(dt)
 		accumulator += dt
 		if accumulator < Classes.CheckSeconds then
@@ -304,14 +399,41 @@ function AbilityService.init(builtMap: Instance)
 		end
 		accumulator = 0
 		if GameState.phase() ~= Phase.Night then
+			if not calm then
+				calm = true
+				calmDogs()
+			end
 			return
 		end
+		calm = false
 		local thieves = livingThieves()
 		checkSensors(thieves)
+		checkDogs(thieves)
 	end)
-	Players.PlayerAdded:Connect(resetPlayer)
-	for _, player in Players:GetPlayers() do
+
+	local function onPlayerAdded(player: Player)
 		resetPlayer(player)
+		connections[player] = {
+			-- Выбрал Dog Handler — собака появляется, сменил класс — исчезает
+			player:GetAttributeChangedSignal(PlayerAttr.Role):Connect(function()
+				refreshDog(player)
+			end),
+		}
+		refreshDog(player)
+	end
+	Players.PlayerAdded:Connect(onPlayerAdded)
+	Players.PlayerRemoving:Connect(function(player)
+		removeDog(player)
+		local list = connections[player]
+		if list then
+			for _, connection in list do
+				connection:Disconnect()
+			end
+			connections[player] = nil
+		end
+	end)
+	for _, player in Players:GetPlayers() do
+		onPlayerAdded(player)
 	end
 end
 

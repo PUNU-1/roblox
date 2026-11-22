@@ -15,6 +15,7 @@ local GameState = require(Shared:WaitForChild("GameState"))
 local ClassModels = require(Shared:WaitForChild("ClassModels"))
 local WeaponModels = require(Shared:WaitForChild("WeaponModels"))
 local Theme = require(script.Parent:WaitForChild("Theme"))
+local DogAnimator = require(script.Parent.Parent:WaitForChild("DogAnimator"))
 
 local Colors = Theme.Colors
 local Classes = Config.Classes
@@ -65,9 +66,11 @@ end
 ---------------------------------------------------------------- 3D-картинки
 
 -- Собирает картинку класса: модель в контейнере с точкой привязки в начале координат (низ по центру).
-local function buildPicture(role: string): Model
+-- У собаки ещё и скелет: на карточке она сидит, машет хвостом и гавкает (DogAnimator).
+local function buildPicture(role: string): (Model, DogAnimator.Rig?)
 	local container = Instance.new("Model")
 	container.Name = "Picture"
+	local rig: DogAnimator.Rig? = nil
 	local function add(built: WeaponModels.Built, cframe: CFrame)
 		built.model:PivotTo(cframe)
 		built.model.Parent = container
@@ -77,8 +80,13 @@ local function buildPicture(role: string): Model
 	elseif role == "Technician" then
 		add(ClassModels.sensor(), CFrame.identity)
 	elseif role == "DogHandler" then
-		local dog = ClassModels.dog()
+		local dog, pivots = ClassModels.dog()
 		add(dog, CFrame.identity)
+		local dogRig = DogAnimator.newRig(pivots)
+		for _, part in dog.parts do
+			DogAnimator.addPart(dogRig, part, part.CFrame) -- собака стоит в начале координат
+		end
+		rig = dogRig
 	else
 		-- Штурмовик: бронежилет охраны и автомат наискосок перед ним
 		add(WeaponModels.fromSpecs("guard_vest_01", WeaponModels.vestSpecs(Vector3.new(2, 1.6, 1))), CFrame.new(0, 1.1, 0))
@@ -88,7 +96,7 @@ local function buildPicture(role: string): Model
 	container.WorldPivot = CFrame.identity
 	local boxCFrame = container:GetBoundingBox()
 	container.WorldPivot = CFrame.new(boxCFrame.Position.X, 0, boxCFrame.Position.Z)
-	return container
+	return container, rig
 end
 
 -- Камера ViewportFrame смотрит на модель спереди-справа-сверху так, чтобы она поместилась целиком.
@@ -113,6 +121,8 @@ type Card = {
 	countFrame: Frame,
 	model: Model,
 	base: CFrame,
+	rig: DogAnimator.Rig?,
+	pose: DogAnimator.Pose,
 	angle: number,
 	selected: boolean,
 }
@@ -204,7 +214,7 @@ function ClassCards.new(gui: ScreenGui, touchOnly: boolean, onChoose: (role: str
 		local camera = Instance.new("Camera")
 		camera.Parent = viewport
 		viewport.CurrentCamera = camera
-		local model = buildPicture(role)
+		local model, rig = buildPicture(role)
 		model.Parent = viewport
 		frameCamera(camera, model)
 
@@ -295,6 +305,8 @@ function ClassCards.new(gui: ScreenGui, touchOnly: boolean, onChoose: (role: str
 			countFrame = countFrame,
 			model = model,
 			base = model.WorldPivot,
+			rig = rig,
+			pose = DogAnimator.newPose(),
 			angle = (index - 1) * 0.8,
 			selected = false,
 		})
@@ -332,7 +344,14 @@ function ClassCards.new(gui: ScreenGui, touchOnly: boolean, onChoose: (role: str
 		end
 		for _, card in cards do
 			card.angle += dt * (if card.selected then 1.3 else 0.45)
-			card.model:PivotTo(card.base * CFrame.Angles(0, card.angle, 0))
+			local rig = card.rig
+			if rig then
+				-- Собака: поворот вокруг середины и живая поза (детали ставит DogAnimator)
+				DogAnimator.previewPose(card.pose, os.clock())
+				DogAnimator.solve(rig, card.base * CFrame.Angles(0, card.angle, 0) * card.base:Inverse(), card.pose, false)
+			else
+				card.model:PivotTo(card.base * CFrame.Angles(0, card.angle, 0))
+			end
 		end
 	end)
 
