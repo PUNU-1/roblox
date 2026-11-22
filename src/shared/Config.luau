@@ -324,8 +324,8 @@ local Config = {
 	-- Блок 6: два места одной игры. Номера мест владелец вписывает после публикации (0 — ещё не опубликовано:
 	-- телепорта нет, музей работает сам по себе со своим кругом START SHIFT).
 	Places = {
-		HubPlaceId = 0, -- место Hub (общее лобби, стартовое)
-		MuseumPlaceId = 0, -- место Museum (забег одной команды)
+		HubPlaceId = 120651563894118, -- место Hub (общее лобби, стартовое)
+		MuseumPlaceId = 104264244300759, -- место Museum «Guard The Museum» (забег одной команды)
 		TicketSource = "NightGuardHub", -- метка в данных телепорта из хаба (музей принимает только такие)
 		ReturnSource = "NightGuardMuseum", -- метка в данных телепорта из музея обратно в хаб
 		TeleportRetries = 3, -- сколько раз пробовать ReserveServer и TeleportAsync
