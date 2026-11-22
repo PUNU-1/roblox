@@ -295,6 +295,7 @@ local Config = {
 		VoteSeconds = 15, -- сколько длится голосование за опоздавшего
 		WalkSpeed = 16, -- скорость патруля (стандарт Roblox)
 		JumpHeight = 7.2, -- стандарт Roblox
+		FieldOfView = 70, -- свой вид (в рывке шире — Classes.Patrol.FovKick)
 	},
 
 	Lobby = { -- круг START SHIFT в комнате охраны (блок B1): встал в круг — ты в команде

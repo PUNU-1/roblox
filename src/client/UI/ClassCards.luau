@@ -25,7 +25,6 @@ export type Cards = {
 	frame: Frame,
 	setVisible: (visible: boolean) -> (),
 	refresh: (role: string) -> (),
-	picture: (role: string) -> Model?, -- 3D-картинка класса (для кнопки умения)
 }
 
 local CARD_W, CARD_H, GAP, HEADER = 128, 200, 10, 34
@@ -337,24 +336,17 @@ function ClassCards.new(gui: ScreenGui, touchOnly: boolean, onChoose: (role: str
 		end
 	end)
 
-	local pictures: { [string]: boolean } = {}
-	for _, role in order do
-		pictures[role] = true
-	end
-
 	return {
 		frame = panel,
 		setVisible = function(visible: boolean)
 			panel.Visible = visible
 		end,
 		refresh = refresh,
-		picture = function(role: string): Model?
-			if not pictures[role] then
-				return nil
-			end
-			return buildPicture(role)
-		end,
 	}
 end
+
+-- 3D-картинка класса и камера к ней — для кнопки умения (Abilities.client).
+ClassCards.picture = buildPicture
+ClassCards.frameCamera = frameCamera
 
 return ClassCards

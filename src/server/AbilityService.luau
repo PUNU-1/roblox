@@ -1,6 +1,7 @@
 -- Умения классов (блок 5). Клиент только просит («UseAbility», имя умения), сервер решает всё сам:
 -- подходит ли умение классу, идёт ли смена (день или ночь), может ли охранник действовать (не лежит,
 -- не смотрит камеры), прошла ли перезарядка, где встанет датчик, кого учуяла собака.
+--  • Patrol — рывок (Shift): несколько секунд бежит быстрее;
 --  • Operator — телефон с камерами (RoleService, CameraController);
 --  • Assault — здоровье (HealthService) и отдача (Weapons.client).
 -- Состояние умения — в атрибутах игрока (AbilityReadyAt, AbilityUntil, AbilityCharges): по ним клиент
@@ -38,6 +39,25 @@ end
 
 local function readyAt(player: Player): number
 	return tonumber(player:GetAttribute(PlayerAttr.AbilityReadyAt)) or 0
+end
+
+---------------------------------------------------------------- рывок патруля
+
+-- Shift: SprintSeconds бежит со скоростью SprintSpeed (скорость считает RoleService.refreshMovement),
+-- перезарядка SprintCooldown — после конца рывка. Присевший сначала встаёт (сам).
+handlers.Dash = function(player: Player, info: { [string]: any })
+	if player:GetAttribute(PlayerAttr.Crouch) == true then
+		return
+	end
+	local endsAt = now() + info.SprintSeconds
+	player:SetAttribute(PlayerAttr.AbilityUntil, endsAt)
+	player:SetAttribute(PlayerAttr.AbilityReadyAt, endsAt + info.SprintCooldown)
+	RoleService.refreshMovement(player)
+	task.delay(info.SprintSeconds + 0.05, function()
+		if player.Parent then
+			RoleService.refreshMovement(player)
+		end
+	end)
 end
 
 local function onUseAbility(player: Player, name: any)

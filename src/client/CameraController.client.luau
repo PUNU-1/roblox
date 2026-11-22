@@ -808,7 +808,7 @@ local function closeView()
 	applyColorMode() -- вернуть обычную яркость
 	local camera = Workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Custom
-	camera.FieldOfView = 70
+	camera.FieldOfView = Config.Players.FieldOfView
 	local character = localPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
