@@ -3,6 +3,9 @@
 --    На компьютере — клавиша (Shift, G), на телефоне — кнопка на экране (ContextActionService).
 --  • Рывок патруля: свой вид шире, полосы скорости по краям экрана, свист ветра;
 --    у других патрульных в рывке — пыль из-под ног и белый шлейф.
+--  • Датчики техников: раскладываются на полу, лампочка мигает зелёным; вор рядом — у всей охраны на смене
+--    писк, стрелка к датчику вокруг прицела и метка MOTION! над датчиком сквозь стены, по полу бежит волна.
+--  • Техник перезапускает камеры у рубильника CAMERA RESET без удержания.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -15,6 +18,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
+local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
@@ -550,17 +554,336 @@ end
 
 Players.PlayerRemoving:Connect(removeDashFx)
 
+---------------------------------------------------------------- датчики движения техников
+
+local SensorSettings = Classes.Sensor
+local SensorAttr = GameState.SensorAttr
+
+local arrowLayer = Theme.new("Frame", {
+	Name = "SensorArrows",
+	Size = UDim2.fromScale(1, 1),
+	BackgroundTransparency = 1,
+	ZIndex = 6,
+	Parent = gui,
+})
+
+type SensorView = {
+	model: Model,
+	root: BasePart,
+	lamp: BasePart?,
+	light: PointLight?,
+	dashes: { BasePart },
+	pivot: CFrame,
+	placedAt: number,
+	pingAt: number,
+	arrow: Frame,
+	arrowScale: UIScale,
+	arrowText: TextLabel,
+	marker: BillboardGui,
+	markerText: TextLabel,
+	connection: RBXScriptConnection,
+}
+local sensorViews: { [Model]: SensorView } = {}
+
+local function beep()
+	for index = 0, SensorSettings.Beeps - 1 do
+		task.delay(index * SensorSettings.BeepGap, function()
+			playSound(Config.Sounds.SensorBeep, Config.Sounds.SensorBeepVolume, Config.Sounds.SensorBeepSpeed, gui)
+		end)
+	end
+end
+
+-- Волна по полу от датчика: светящийся диск расходится до края круга и тает (видят все рядом).
+local function wave(view: SensorView)
+	local radius = tonumber(view.model:GetAttribute(SensorAttr.Radius)) or Classes.Technician.SensorRadius
+	local disc = Instance.new("Part")
+	disc.Name = "SensorWave"
+	disc.Shape = Enum.PartType.Cylinder
+	disc.Anchored = true
+	disc.CanCollide = false
+	disc.CanQuery = false
+	disc.CanTouch = false
+	disc.CastShadow = false
+	disc.Material = Enum.Material.Neon
+	disc.Color = SensorSettings.AlarmColor
+	disc.Transparency = 0.5
+	disc.Size = Vector3.new(0.05, 1, 1)
+	disc.CFrame = view.pivot * CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.pi / 2)
+	disc.Parent = view.model
+	local tween = TweenService:Create(disc, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(0.05, radius * 2, radius * 2),
+		Transparency = 1,
+	})
+	tween.Completed:Once(function()
+		disc:Destroy()
+	end)
+	tween:Play()
+end
+
+local function onPing(view: SensorView)
+	view.pingAt = tonumber(view.model:GetAttribute(SensorAttr.PingAt)) or 0
+	if now() - view.pingAt > 2 then
+		return -- старое значение (зашли в игру позже)
+	end
+	wave(view)
+	if onShift() then
+		beep()
+		view.arrowScale.Scale = 1.5
+		TweenService:Create(view.arrowScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end
+end
+
+local function removeSensorView(model: Model)
+	local view = sensorViews[model]
+	if view then
+		view.connection:Disconnect()
+		view.arrow:Destroy()
+		view.marker:Destroy()
+		if view.light then
+			view.light:Destroy()
+		end
+		sensorViews[model] = nil
+	end
+end
+
+local function addSensorView(model: Model)
+	if sensorViews[model] then
+		return
+	end
+	local root = model:WaitForChild("Root", 5)
+	if not (root and root:IsA("BasePart")) or not model.Parent then
+		return
+	end
+	-- Ждём, пока придут все детали (круг на полу — последним)
+	model:WaitForChild("Range", 5)
+	local lamp = model:FindFirstChild("Lamp", true)
+	local lampPart = if lamp and lamp:IsA("BasePart") then lamp else nil
+	local light: PointLight? = nil
+	if lampPart then
+		local created = Instance.new("PointLight")
+		created.Range = 5
+		created.Brightness = 1.5
+		created.Color = SensorSettings.LampColor
+		created.Shadows = false
+		created.Parent = lampPart
+		light = created
+	end
+	local dashes = {}
+	local range = model:FindFirstChild("Range")
+	if range then
+		for _, child in range:GetChildren() do
+			if child:IsA("BasePart") then
+				table.insert(dashes, child)
+			end
+		end
+	end
+
+	-- Стрелка к датчику по краю круга вокруг прицела и расстояние
+	local arrow = Theme.new("Frame", {
+		Name = "Arrow",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = UDim2.fromOffset(80, 64),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = arrowLayer,
+	})
+	local arrowScale = Theme.new("UIScale", { Parent = arrow })
+	local glyph = Theme.label({
+		Name = "Glyph",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.32),
+		Size = UDim2.fromOffset(40, 40),
+		Text = "▲",
+		TextColor3 = SensorSettings.AlarmColor,
+		MaxTextSize = 40,
+		Parent = arrow,
+	})
+	Theme.new("UIStroke", { Color = Colors.White, Thickness = 2, Parent = glyph })
+	local arrowText = Theme.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.fromScale(0.5, 0.62),
+		Size = UDim2.new(1, 40, 0, 20),
+		Font = Theme.BodyFont,
+		TextColor3 = Colors.White,
+		MaxTextSize = 15,
+		Parent = arrow,
+	})
+	Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = arrowText })
+
+	-- Метка MOTION! над датчиком, видна сквозь стены
+	local marker = Instance.new("BillboardGui")
+	marker.Name = "MotionMarker"
+	marker.AlwaysOnTop = true
+	marker.LightInfluence = 0
+	marker.Size = UDim2.fromOffset(130, 52)
+	marker.StudsOffsetWorldSpace = Vector3.new(0, 4.2, 0)
+	marker.MaxDistance = SensorSettings.MarkerMaxDistance
+	marker.Enabled = false
+	marker.Adornee = root
+	local pill = Theme.new("Frame", {
+		Size = UDim2.new(1, 0, 0, 30),
+		BackgroundColor3 = SensorSettings.AlarmColor,
+		Parent = marker,
+	}, { Theme.corner(15), Theme.stroke(Colors.White, 2) })
+	Theme.label({ Size = UDim2.fromScale(1, 1), Text = "MOTION!", MaxTextSize = 22, Parent = pill })
+	local markerText = Theme.label({
+		Position = UDim2.fromOffset(0, 32),
+		Size = UDim2.new(1, 0, 0, 18),
+		Font = Theme.BodyFont,
+		MaxTextSize = 14,
+		Parent = marker,
+	})
+	Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = markerText })
+	marker.Parent = root
+
+	local view: SensorView
+	view = {
+		model = model,
+		root = root,
+		lamp = lampPart,
+		light = light,
+		dashes = dashes,
+		pivot = root.CFrame,
+		placedAt = tonumber(model:GetAttribute(SensorAttr.PlacedAt)) or 0,
+		pingAt = tonumber(model:GetAttribute(SensorAttr.PingAt)) or 0,
+		arrow = arrow,
+		arrowScale = arrowScale,
+		arrowText = arrowText,
+		marker = marker,
+		markerText = markerText,
+		connection = model:GetAttributeChangedSignal(SensorAttr.PingAt):Connect(function()
+			onPing(view)
+		end),
+	}
+	sensorViews[model] = view
+end
+
+local function easeOutBack(x: number): number
+	local c1, c3 = 1.70158, 2.70158
+	return 1 + c3 * (x - 1) ^ 3 + c1 * (x - 1) ^ 2
+end
+
+local function updateSensors()
+	local t = now()
+	local camera = Workspace.CurrentCamera
+	local shift = onShift() and not viewing()
+	local halfSize = arrowLayer.AbsoluteSize / 2
+	local radius = math.min(SensorSettings.ArrowRadius, math.min(halfSize.X, halfSize.Y) - 50)
+	for model, view in sensorViews do
+		if not model.Parent then
+			removeSensorView(model)
+			continue
+		end
+		-- Датчик раскладывается: поднимается из пола с поворотом
+		local deploy = (t - view.placedAt) / SensorSettings.DeploySeconds
+		if deploy < 1.2 then
+			local e = easeOutBack(math.clamp(deploy, 0, 1))
+			model:PivotTo(view.pivot * CFrame.new(0, -1.4 * (1 - e), 0) * CFrame.Angles(0, (1 - e) * math.pi, 0))
+		end
+		local alarm = t - view.pingAt < Classes.Technician.PingSeconds
+		-- Лампочка: тихо — зелёная вспышка раз в BlinkSeconds, вор рядом — часто мигает красным
+		local on: boolean
+		local color: Color3
+		if alarm then
+			on = (t * 6) % 1 < 0.5
+			color = SensorSettings.AlarmColor
+		else
+			on = t % SensorSettings.BlinkSeconds < 0.15
+			color = SensorSettings.LampColor
+		end
+		if view.lamp then
+			view.lamp.Color = if on then color else color:Lerp(Color3.new(0, 0, 0), 0.7)
+		end
+		if view.light then
+			view.light.Color = color
+			view.light.Enabled = on
+		end
+		local pulse = if alarm then 0.35 + 0.25 * math.sin(t * 12) else SensorSettings.RingTransparency
+		for _, dash in view.dashes do
+			dash.Color = if alarm then SensorSettings.AlarmColor else SensorSettings.RingColor
+			dash.Transparency = pulse
+		end
+
+		-- Стрелка и метка — у охраны на смене, пока горит тревога
+		local showAlert = alarm and shift and camera ~= nil
+		view.marker.Enabled = alarm and onShift()
+		view.arrow.Visible = false
+		if showAlert and camera then
+			local position = view.root.Position
+			local distance = (position - camera.CFrame.Position).Magnitude
+			view.markerText.Text = ("%d studs"):format(math.floor(distance))
+			local relative = camera.CFrame:PointToObjectSpace(position)
+			local angle = math.atan2(relative.X, -relative.Z)
+			view.arrow.Visible = true
+			view.arrow.Position = UDim2.new(0.5, math.sin(angle) * radius, 0.5, -math.cos(angle) * radius)
+			view.arrow.Rotation = math.deg(angle)
+			view.arrowText.Rotation = -math.deg(angle) -- надпись не переворачивается
+			view.arrowText.Text = ("MOTION  %d"):format(math.floor(distance))
+			local left = Classes.Technician.PingSeconds - (t - view.pingAt)
+			local glyph = view.arrow:FindFirstChild("Glyph")
+			if glyph and glyph:IsA("TextLabel") then
+				glyph.TextTransparency = if left < 0.6 then 1 - left / 0.6 else 0
+			end
+		end
+	end
+end
+
+task.spawn(function()
+	local folder = Workspace:WaitForChild(MapSchema.Sensors)
+	folder.ChildAdded:Connect(function(child)
+		if child:IsA("Model") then
+			addSensorView(child)
+		end
+	end)
+	folder.ChildRemoved:Connect(function(child)
+		if child:IsA("Model") then
+			removeSensorView(child)
+		end
+	end)
+	for _, child in folder:GetChildren() do
+		if child:IsA("Model") then
+			task.spawn(addSensorView, child)
+		end
+	end
+end)
+
+---------------------------------------------------------------- техник: камеры перезапускаются мгновенно
+
+-- Рубильник CAMERA RESET у пульта: у техника кнопка срабатывает сразу, у остальных — удержание
+-- (сервер не проверяет время удержания этой кнопки, поэтому меняем его только у себя).
+local repairPrompt: ProximityPrompt? = nil
+
+local function refreshRepairPrompt()
+	if not repairPrompt then
+		local map = Workspace:FindFirstChild(MapSchema.Root)
+		local switch = map and map:FindFirstChild("CameraResetSwitch", true)
+		local prompt = switch and switch:FindFirstChild("RepairPrompt")
+		if not (prompt and prompt:IsA("ProximityPrompt")) then
+			return
+		end
+		repairPrompt = prompt
+	end
+	local prompt = repairPrompt :: ProximityPrompt
+	local instant = GameState.roleOf(localPlayer) == Role.Technician and Classes.Technician.InstantCameraReset
+	local hold = if instant then 0 else Config.Cameras.RepairHoldSeconds
+	if prompt.HoldDuration ~= hold then
+		prompt.HoldDuration = hold
+	end
+end
+
 ---------------------------------------------------------------- каждый кадр
 
 local slowTick = 0
 RunService.RenderStepped:Connect(function(dt)
 	refreshWidget(dt)
 	updateDashScreen(dt)
+	updateSensors()
 	slowTick += dt
 	if slowTick >= 0.1 then
 		slowTick = 0
 		refreshBinding()
 		refreshTouchButton()
 		updateOthersDash()
+		refreshRepairPrompt()
 	end
 end)
