@@ -359,11 +359,66 @@ Players.PlayerRemoving:Connect(function(player)
 	setMarker(player, false)
 end)
 
+---------------------------------------------------------------- налёт: POLICE: 60
+
+local policeFrame = Theme.new("Frame", {
+	Name = "Police",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 64),
+	Size = UDim2.new(0, 360, 0, 62),
+	BackgroundColor3 = Colors.Dark,
+	BackgroundTransparency = 0.25,
+	Visible = false,
+	Parent = gui,
+}, { Theme.corner(12), Theme.padding(4) })
+local policeStroke = Theme.stroke(Colors.Red, 3)
+policeStroke.Parent = policeFrame
+local policeLabel = Theme.label({ Size = UDim2.fromScale(1, 0.62), MaxTextSize = 34, Parent = policeFrame })
+local policeHint = Theme.label({
+	Position = UDim2.fromScale(0, 0.62),
+	Size = UDim2.fromScale(1, 0.38),
+	Font = Theme.BodyFont,
+	TextColor3 = Colors.Marble,
+	MaxTextSize = 15,
+	Parent = policeFrame,
+})
+
+local function hasGun(): boolean
+	return GameState.hasWeapon(localPlayer, "Pistol") or (localPlayer:GetAttribute(PlayerAttr.Primary) or "") ~= ""
+end
+
+local function refreshPolice()
+	local raid = GameState.get(GameState.Attr.Raid) == true and onShift()
+	policeFrame.Visible = raid
+	if not raid then
+		return
+	end
+	-- Мигалка: текст и рамка красный ↔ синий
+	local blue = math.floor(os.clock() * 3) % 2 == 0
+	local color = if blue then Color3.fromHex("4A8BFF") else Colors.Red
+	policeStroke.Color = color
+	if GameState.get(GameState.Attr.PoliceArrived) == true then
+		policeLabel.Text = "🚨 POLICE ARRIVED"
+		policeLabel.TextColor3 = color
+		policeHint.Text = if touchOnly then "The robbers give up — arrest them for $5!" else "The robbers give up — hold F to arrest them for $5!"
+		return
+	end
+	local left = math.max(0, (tonumber(GameState.get(GameState.Attr.PoliceAt)) or 0) - Workspace:GetServerTimeNow())
+	policeLabel.Text = ("🚨 POLICE: %d"):format(math.ceil(left))
+	policeLabel.TextColor3 = color
+	if hasGun() then
+		policeHint.Text = if touchOnly then "Draw your gun and take cover!" else "Draw your gun (1 / 2), take cover (C, Q / E)!"
+	else
+		policeHint.Text = "No gun? Stay in cover, use the taser, protect the Mona Lisa!"
+	end
+end
+
 ---------------------------------------------------------------- кадр
 
 local accumulator = 0
 RunService.Heartbeat:Connect(function(dt)
 	refreshDowned()
+	refreshPolice()
 	accumulator += dt
 	if accumulator < 0.1 then
 		return

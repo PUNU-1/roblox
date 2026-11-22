@@ -26,6 +26,7 @@ local CatchService = require(Server:WaitForChild("CatchService"))
 local HealthService = require(Server:WaitForChild("HealthService"))
 local WeaponService = require(Server:WaitForChild("WeaponService"))
 local ArmoryService = require(Server:WaitForChild("ArmoryService"))
+local RobberService = require(Server:WaitForChild("RobberService"))
 local TrapService = require(Server:WaitForChild("TrapService"))
 local CommsService = require(Server:WaitForChild("CommsService"))
 local TouristService = require(Server:WaitForChild("TouristService"))
@@ -52,6 +53,7 @@ CatchService.init()
 HealthService.init()
 WeaponService.init()
 ArmoryService.init(map)
+RobberService.init(map)
 -- Шокер берёт и обычных воров (пули — только грабителей, их добавляет RobberService)
 WeaponService.addTargets({
 	owns = ThiefService.isThief,
@@ -190,7 +192,12 @@ local function runNight(night: number): (boolean, boolean)
 	local escapedConnection = ThiefService.Escaped.Event:Connect(function()
 		survived = false
 	end)
+	-- Грабитель налёта вынес Мону Лизу — тоже конец (блок 4)
+	local robberConnection = RobberService.Escaped.Event:Connect(function()
+		survived = false
+	end)
 	ThiefService.beginNight(night)
+	RobberService.beginNight()
 	WaveService.beginNight(#participants, night, length) -- волны воров и их планы
 	CatchService.beginNight(night) -- кнопки Check ID на охранниках (с ночи Фальшивого охранника)
 	bannerRemote:FireAllClients(("NIGHT %d"):format(night), "danger")
@@ -210,8 +217,10 @@ local function runNight(night: number): (boolean, boolean)
 	end
 
 	escapedConnection:Disconnect()
+	robberConnection:Disconnect()
 	CatchService.endNight()
 	WaveService.endNight()
+	RobberService.endNight()
 	ThiefService.endNight()
 	BlackoutService.reset()
 	HealthService.endNight() -- кто пролежал до утра, встаёт
@@ -251,6 +260,8 @@ local function finishRun()
 	CameraService.reset() -- остаётся только бесплатная камера на Мону Лизу
 	ArmoryService.setDayActive(false)
 	WaveService.endNight()
+	RobberService.endNight()
+	RobberService.resetRun()
 	ThiefService.endNight()
 	HeistFx.resetForDay()
 	BlackoutService.reset()

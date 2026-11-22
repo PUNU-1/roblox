@@ -21,6 +21,7 @@ local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local RoleService = require(Server:WaitForChild("RoleService"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
 local ThiefService = require(Server:WaitForChild("ThiefService"))
+local RobberService = require(Server:WaitForChild("RobberService"))
 local Audio = require(Server:WaitForChild("Audio"))
 
 local CatchService = {}
@@ -104,7 +105,7 @@ local function showReward(model: Model)
 	}):Play()
 end
 
-local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt)
+local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt, robber: boolean?)
 	if GameState.phase() ~= GameState.Phase.Night then
 		return
 	end
@@ -121,7 +122,9 @@ local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt)
 	if (playerRoot.Position - thiefRoot.Position).Magnitude > maxDistance then
 		return
 	end
-	if not ThiefService.arrest(model) then
+	-- Грабителя (блок 4) можно арестовать, только пока он сдался или оглушён шокером
+	local arrested = if robber then RobberService.arrest(model) else ThiefService.arrest(model)
+	if not arrested then
 		return
 	end
 
@@ -134,7 +137,11 @@ local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt)
 	task.delay(Config.Thief.ArrestSeconds, function()
 		if model.Parent then
 			poof(thiefRoot.Position)
-			ThiefService.remove(model)
+			if robber then
+				RobberService.remove(model)
+			else
+				ThiefService.remove(model)
+			end
 		end
 	end)
 end
@@ -173,6 +180,30 @@ local function onThiefSpawned(model: Model)
 	prompt.Parent = root
 	prompt.Triggered:Connect(function(player)
 		tryArrest(player, model, prompt)
+	end)
+end
+
+-- Грабитель налёта (блок 4): кнопка «Arrest» видна, только пока он сдался полиции или лежит после шокера.
+local function onRobberSpawned(model: Model)
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if not (root and root:IsA("BasePart")) then
+		return
+	end
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "ArrestPrompt"
+	prompt.ActionText = "Arrest"
+	prompt.ObjectText = "Robber"
+	prompt.HoldDuration = Config.Catch.HoldSeconds
+	prompt.MaxActivationDistance = Config.Catch.MaxDistance
+	prompt.KeyboardKeyCode = Config.Keys.Action
+	prompt.RequiresLineOfSight = false
+	prompt.Enabled = model:GetAttribute(RobberService.ArrestableAttr) == true
+	prompt.Parent = root
+	model:GetAttributeChangedSignal(RobberService.ArrestableAttr):Connect(function()
+		prompt.Enabled = model:GetAttribute(RobberService.ArrestableAttr) == true
+	end)
+	prompt.Triggered:Connect(function(player)
+		tryArrest(player, model, prompt, true)
 	end)
 end
 
@@ -270,6 +301,7 @@ end
 
 function CatchService.init()
 	ThiefService.Spawned.Event:Connect(onThiefSpawned)
+	RobberService.Spawned.Event:Connect(onRobberSpawned)
 	Players.PlayerAdded:Connect(watchPlayer)
 	for _, player in Players:GetPlayers() do
 		watchPlayer(player)

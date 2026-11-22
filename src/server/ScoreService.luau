@@ -101,6 +101,12 @@ function ScoreService.addCatch(player: Player)
 	GameState.set(GameState.Attr.Caught, caughtTotal)
 end
 
+-- Грабителя остановили без ареста (убит или его забрала полиция, блок 4): считается пойманным, денег нет.
+function ScoreService.addStopped()
+	caughtTotal += 1
+	GameState.set(GameState.Attr.Caught, caughtTotal)
+end
+
 -- Итог ночи: кто сколько поймал и заработал арестами, сколько денег у каждого. Денег за ночь нет.
 function ScoreService.finish(survived: boolean): Results
 	local earnings: { [string]: number } = {}

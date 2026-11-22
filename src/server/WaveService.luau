@@ -7,6 +7,7 @@
 --  • Воры следят за охраной: двери и цели выбирают подальше от охранников; если вся охрана стоит у Моны Лизы,
 --    первый вор волны шумит у витрины в стороне, остальные ждут во входном холле, пока охрана не уйдёт.
 --  • Новый вид вора — надпись «NEW THIEF: …» в начале ночи, и он обязательно есть в первой волне.
+--  • Налёт (блок 4): с 3-й ночи с шансом 1 из 3 одна из волн — вооружённые грабители (RobberService) вместо воров.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -19,6 +20,7 @@ local Server = script.Parent
 local ThiefService = require(Server:WaitForChild("ThiefService"))
 local ExhibitService = require(Server:WaitForChild("ExhibitService"))
 local RoleService = require(Server:WaitForChild("RoleService"))
+local RobberService = require(Server:WaitForChild("RobberService"))
 local Tactics = Server:WaitForChild("Tactics")
 local Basic = require(Tactics:WaitForChild("Basic"))
 
@@ -70,6 +72,7 @@ local running: { Ctx } = {}
 local lureReadyAt = 0
 local usedPlans: { string } = {} -- названия планов этой ночи для итога («Thieves used: …»)
 local lastPlan: string? = nil
+local raidWave: number? = nil -- какая волна этой ночи — налёт (блок 4)
 
 local bannerRemote = Remotes.get(Remotes.Names.Banner)
 
@@ -432,6 +435,14 @@ end
 
 -- Волна: ночь 1 и дебют нового вида — без плана; иначе 1 план (большая волна — 2–3 плана, воры делятся).
 local function startWave(index: number, wave: Wave, forceKind: string?)
+	if index == raidWave then
+		-- Налёт вместо воров этой волны: игроки × 3 вооружённых грабителя через одну дверь
+		RobberService.startRaid(playerCount)
+		if not table.find(usedPlans, Config.Raid.Title) then
+			table.insert(usedPlans, Config.Raid.Title)
+		end
+		return
+	end
 	local plans: { Plan } = {}
 	if not forceKind and (Waves.TestUnlockAll or nightNumber >= Waves.PlansFromNight) then
 		plans = choosePlans(wave.plans, wave.size, index)
@@ -548,7 +559,19 @@ function WaveService.beginNight(players: number, night: number, nightLength: num
 	if big then
 		waves = bigWave(waves)
 	end
+	-- Налёт: с Raid.FromNight с шансом Raid.Chance одна из волн (не первая, если можно, и не под самое утро)
+	raidWave = nil
+	local raid = Config.Raid
+	local raidNight = Waves.TestUnlockAll or nightNumber >= raid.FromNight
+	if #waves > 0 and (raid.TestForce or (raidNight and random:NextNumber() < raid.Chance)) then
+		local last = math.max(1, math.ceil(#waves * 0.6))
+		local first = if #waves >= 2 and not raid.TestForce then 2 else 1
+		raidWave = random:NextInteger(first, math.max(first, last))
+	end
 	local fresh = newKinds(nightNumber)
+	if raidWave == 1 and #fresh > 0 then
+		raidWave = if #waves >= 2 then 2 else nil -- первая волна — дебют нового вора
+	end
 	announce(fresh)
 	thread = task.spawn(loop, waves, fresh)
 end

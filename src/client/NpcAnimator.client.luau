@@ -12,6 +12,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local MapSchema = require(Shared:WaitForChild("MapSchema"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Anim = GameState.ThiefAnim
 local TouristAnim = GameState.TouristAnim
@@ -493,9 +494,225 @@ local function stunnedPose(t: number, clock: number, height: number): Pose
 	return pose
 end
 
-local function poseFor(state: any, t: number, clock: number, phase: number, move: number, height: number): Pose
+---------------------------------------------------------------- грабители налёта (блок 4)
+
+local Robber = Config.Robber
+local shotAt: { [Model]: number } = {} -- когда грабитель выстрелил (руки дёргаются отдачей)
+
+local function bump(t: number, a: number, b: number): number
+	if t <= a or t >= b then
+		return 0
+	end
+	return math.sin((t - a) / (b - a) * math.pi)
+end
+
+-- Руки, когда целится: автомат — правая у рукояти, левая под цевьём, корпус боком; пистолет — обе вперёд.
+local function aimArms(pose: Pose, gun: string, kick: number)
+	if gun == "Rifle" then
+		pose.Waist = R(0, 0.28, 0)
+		pose.Neck = R(0.05, -0.24, 0)
+		pose.RightShoulder = R(0.62 + 0.15 * kick, 0.1, 0.42)
+		pose.RightElbow = R(1.0 + 0.1 * kick)
+		pose.LeftShoulder = R(1.42 + 0.12 * kick, 0, 0.55)
+		pose.LeftElbow = R(0.35)
+	else
+		pose.RightShoulder = R(1.5 + 0.22 * kick, 0, -0.22)
+		pose.RightElbow = R(0.08 + 0.2 * kick)
+		pose.LeftShoulder = R(1.45 + 0.22 * kick, 0, 0.38)
+		pose.LeftElbow = R(0.22)
+	end
+end
+
+-- Целится и стреляет: боевая стойка, колени чуть согнуты; может идти.
+local function aimPose(phase: number, move: number, gun: string, kick: number): Pose
+	local pose: Pose = {}
+	pose.Root = CFrame.new(0, -0.12, 0)
+	legs(pose, phase, move, 0.5, 0.55, 0.14, 0)
+	aimArms(pose, gun, kick)
+	return pose
+end
+
+-- Бежит к укрытию: наклон вперёд, оружие у груди стволом вниз; хватальщик — дубинка в руке.
+local function advancePose(phase: number, move: number, gun: string): Pose
+	local pose: Pose = {}
+	local s = math.sin(phase)
+	pose.Root = CFrame.new(0, -0.12 + 0.15 * math.abs(s) * move, 0)
+	pose.Waist = R(-0.22, 0.1 * s * move, 0)
+	pose.Neck = R(0.18)
+	if gun == "Rifle" then
+		pose.RightShoulder = R(0.4, 0.1, 0.35)
+		pose.RightElbow = R(1.1)
+		pose.LeftShoulder = R(1.0, 0, 0.6)
+		pose.LeftElbow = R(0.9)
+	else
+		pose.RightShoulder = R(0.6 + 0.3 * s * move, 0, -0.12)
+		pose.RightElbow = R(0.75)
+		pose.LeftShoulder = R(-0.7 * s * move, 0, 0.1)
+		pose.LeftElbow = R(1.2)
+	end
+	legs(pose, phase, move, 0.85, 1.0, 0.12, 0)
+	return pose
+end
+
+-- За укрытием: присел, оружие стволом вверх у груди, голова поворачивается — выглядывает.
+local function coverPose(clock: number, gun: string): Pose
+	local pose: Pose = {}
+	pose.Root = CFrame.new(0, -1.0, 0)
+	pose.LeftHip = R(1.2, 0, -0.1)
+	pose.RightHip = R(0.85, 0, 0.12)
+	pose.LeftKnee = R(-2.1)
+	pose.RightKnee = R(-1.75)
+	pose.LeftAnkle = R(0.9)
+	pose.RightAnkle = R(0.85)
+	pose.Waist = R(-0.35, 0.15 * math.sin(clock * 0.7), 0)
+	pose.Neck = R(0.35, 0.5 * math.sin(clock * 1.1), 0)
+	if gun == "Rifle" then
+		pose.RightShoulder = R(0.35, 0, 0.3)
+		pose.RightElbow = R(1.7)
+		pose.LeftShoulder = R(0.9, 0, 0.5)
+		pose.LeftElbow = R(1.4)
+	else
+		pose.RightShoulder = R(0.45, 0, 0.1)
+		pose.RightElbow = R(1.85)
+		pose.LeftShoulder = R(0.6, 0, 0.3)
+		pose.LeftElbow = R(1.5)
+	end
+	return pose
+end
+
+-- Бросок шашки: замах правой рукой назад и вверх с поворотом корпуса, бросок вперёд, рука по инерции вниз.
+local function throwPose(t: number): Pose
+	local pose: Pose = {}
+	local p = t / Robber.SmokeThrowSeconds
+	local shoulder, spread, elbow, twist, bend
+	if p < 0.55 then
+		local k = smooth(p / 0.55)
+		shoulder, spread, elbow, twist, bend = lerp(0.3, 2.7, k), lerp(0, 0.45, k), lerp(0.5, 1.6, k), lerp(0, -0.5, k), lerp(0, 0.1, k)
+	else
+		local k = smooth((p - 0.55) / 0.2)
+		shoulder, spread, elbow, twist, bend = lerp(2.7, 0.9, k), lerp(0.45, -0.2, k), lerp(1.6, 0.2, k), lerp(-0.5, 0.4, k), lerp(0.1, -0.35, k)
+	end
+	pose.Root = CFrame.new(0, -0.1, 0)
+	pose.Waist = R(bend, twist, 0)
+	pose.Neck = R(0.1, -twist * 0.5, 0)
+	pose.RightShoulder = R(shoulder, 0, spread)
+	pose.RightElbow = R(elbow)
+	pose.LeftShoulder = R(1.2, 0, 0.25)
+	pose.LeftElbow = R(0.5)
+	pose.LeftHip = R(0.35)
+	pose.LeftKnee = R(-0.35)
+	pose.RightHip = R(-0.2)
+	pose.RightKnee = R(-0.3)
+	return pose
+end
+
+-- Удар: хватальщик — дубинкой сверху наискосок; стрелок — прикладом вперёд с выпадом.
+local function strikePose(t: number, gun: string): Pose
+	local pose: Pose = {}
+	local windup = Robber.BatonWindup
+	local strike = 0.15
+	local recover = math.max(0.1, Robber.BatonSeconds - windup - strike)
+	local k1 = smooth(t / windup)
+	local k2 = smooth((t - windup) / strike)
+	local k3 = smooth((t - windup - strike) / recover)
+	pose.LeftHip = R(0.4, 0, -0.1)
+	pose.LeftKnee = R(-0.45)
+	pose.RightHip = R(-0.15, 0, 0.12)
+	pose.RightKnee = R(-0.3)
+	if gun == "" then
+		local arm, elbow, twist
+		if t < windup then
+			arm, elbow, twist = lerp(0.5, 2.9, k1), lerp(0.9, 1.2, k1), lerp(0, -0.4, k1)
+		elseif t < windup + strike then
+			arm, elbow, twist = lerp(2.9, 0.8, k2), lerp(1.2, 0.15, k2), lerp(-0.4, 0.35, k2)
+		else
+			arm, elbow, twist = lerp(0.8, 0.5, k3), lerp(0.15, 0.9, k3), lerp(0.35, 0, k3)
+		end
+		pose.Root = CFrame.new(0, -0.15, 0)
+		pose.Waist = R(-0.1, twist, 0)
+		pose.Neck = R(0.05, -twist * 0.5, 0)
+		pose.RightShoulder = R(arm, 0, 0.4)
+		pose.RightElbow = R(elbow)
+		pose.LeftShoulder = R(0.8, 0, 0.3)
+		pose.LeftElbow = R(1.2)
+		return pose
+	end
+	local thrust
+	if t < windup then
+		thrust = -k1
+	elseif t < windup + strike then
+		thrust = lerp(-1, 1, k2)
+	else
+		thrust = lerp(1, 0, k3)
+	end
+	local forward = math.max(0, thrust)
+	pose.Root = CFrame.new(0, -0.15, -0.4 * forward)
+	pose.Waist = R(-0.15 - 0.15 * forward, -0.35 * thrust, 0)
+	pose.RightShoulder = R(0.9 + 0.5 * thrust, 0, 0.3)
+	pose.RightElbow = R(1.2 - 0.8 * forward)
+	pose.LeftShoulder = R(1.1 + 0.4 * thrust, 0, 0.5)
+	pose.LeftElbow = R(1.0 - 0.6 * forward)
+	return pose
+end
+
+-- Сдался: руки высоко вверх, голова опущена, слегка покачивается.
+local function surrenderPose(clock: number): Pose
+	local pose: Pose = {}
+	local sway = math.sin(clock * 1.2)
+	pose.Root = R(0, 0, 0.03 * sway)
+	pose.Waist = R(0.03)
+	pose.Neck = R(-0.3, 0.2 * math.sin(clock * 0.8), 0)
+	pose.LeftShoulder = R(2.95, 0, -0.3 - 0.03 * sway)
+	pose.RightShoulder = R(2.95, 0, 0.3 + 0.03 * sway)
+	pose.LeftElbow = R(0.55)
+	pose.RightElbow = R(0.55)
+	legs(pose, 0, 0, 0, 0, 0.05, 0)
+	return pose
+end
+
+-- «Убит»: падает на спину, руки и ноги раскинуты, голова набок (звёздочки — от сервера).
+local function knockoutPose(t: number, height: number): Pose
+	local pose: Pose = {}
+	local k = smooth(t / 0.4)
+	pose.Root = CFrame.new(0, -(height - 0.8) * k, (height - 1) * 0.8 * k) * R(1.45 * k, 0, 0.1 * k)
+	pose.Waist = R(0.1 * k)
+	pose.Neck = R(0.35 * k, 0, 0.45 * k)
+	pose.LeftShoulder = R(2.4 * k, 0, -0.9 * k)
+	pose.RightShoulder = R(2.2 * k, 0, 0.9 * k)
+	pose.LeftElbow = R(0.4 * k)
+	pose.RightElbow = R(0.5 * k)
+	pose.LeftHip = R(0.4 * k, 0, -0.3 * k)
+	pose.RightHip = R(0.2 * k, 0, 0.35 * k)
+	pose.LeftKnee = R(-0.4 * k)
+	pose.RightKnee = R(-0.3 * k)
+	return pose
+end
+
+Remotes.get(Remotes.Names.ShotFx).OnClientEvent:Connect(function(shooter)
+	if typeof(shooter) == "Instance" and shooter:IsA("Model") then
+		shotAt[shooter] = Workspace:GetServerTimeNow()
+	end
+end)
+
+local function poseFor(state: any, t: number, clock: number, phase: number, move: number, height: number, model: Model): Pose
+	local gunValue = model:GetAttribute("RobberGun")
+	local gun = if typeof(gunValue) == "string" then gunValue else ""
 	if state == Anim.Stunned then
 		return stunnedPose(t, clock, height)
+	elseif state == Anim.Aim then
+		return aimPose(phase, move, gun, bump(clock - (shotAt[model] or 0), 0, 0.12))
+	elseif state == Anim.Advance then
+		return advancePose(phase, move, gun)
+	elseif state == Anim.Cover then
+		return coverPose(clock, gun)
+	elseif state == Anim.Throw then
+		return throwPose(t)
+	elseif state == Anim.Strike then
+		return strikePose(t, gun)
+	elseif state == Anim.Surrender then
+		return surrenderPose(clock)
+	elseif state == Anim.Knockout then
+		return knockoutPose(t, height)
 	elseif state == TouristAnim.Stroll then
 		return strollPose(clock, phase, move)
 	elseif state == TouristAnim.Admire then
@@ -580,6 +797,7 @@ local function step(dt: number)
 	for model, rig in rigs do
 		if not model.Parent then
 			rigs[model] = nil
+			shotAt[model] = nil
 			continue
 		end
 		-- Скорость считаем сами по сдвигу: так одинаково работает и у бегущего, и у замершего вора
@@ -606,7 +824,7 @@ local function step(dt: number)
 
 		local humanoid = model:FindFirstChildOfClass("Humanoid")
 		local height = (if humanoid then humanoid.HipHeight else 2) + rig.root.Size.Y / 2
-		local target = poseFor(state, t, clock, rig.phase, move, height)
+		local target = poseFor(state, t, clock, rig.phase, move, height, model)
 		-- Суставы догружаются по сети уже после появления вора (а Roblox может их пересобрать) — ищем заново
 		local stale = rig.jointCount < #JOINTS
 		if not stale then

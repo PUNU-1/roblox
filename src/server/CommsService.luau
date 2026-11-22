@@ -84,7 +84,8 @@ local function onMarkThief(player: Player, thief: any)
 	if GameState.phase() ~= GameState.Phase.Night or not RoleService.isViewing(player) then
 		return
 	end
-	if not ThiefService.isThief(thief) or ThiefService.isArrested(thief) then
+	local robber = thief:GetAttribute(GameState.ThiefAttr.Robber) == true and thief.Parent ~= nil -- грабитель налёта (блок 4)
+	if not robber and (not ThiefService.isThief(thief) or ThiefService.isArrested(thief)) then
 		return
 	end
 	local time = now()
