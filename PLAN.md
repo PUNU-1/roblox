@@ -28,6 +28,8 @@
 - **Блок 2 готов (код):** новый большой музей 260 × 260 (`server/MapBuilder.luau`, украшения залов — `server/MapDecor.luau`), двери сами открываются (`server/DoorService.luau`, `client/Doors.client.luau`), покупка камер (`server/CameraService.luau`), 18 экспонатов. Что решил Claude — пункт 25 в `CLAUDE.md`.
   - Для блока 3: стеклянный потолок центра — `Map.Geometry.Skylight`; щиток POWER — `Map.Props.FuseBox`; точки у 4 дверей — `Map.Entrances` (South, West, North, East); работает ли камера — `CameraService.isWorking`.
   - Для блока 4: оружейная (`Map.Props.ArmoryRack`) в конце служебного коридора; укрытия в коридорах — витрины, колонны, банкетки, валуны в зале Динозавров.
+- **Блок 3 готов (код):** волны (`server/WaveService.luau`), 7 планов (`server/Tactics/*`), виды воров (`server/ThiefKinds.luau`, поведение — `server/ThiefService.luau`), эффекты (`server/HeistFx.luau`), блэкаут (`server/BlackoutService.luau`), падение охранника (`client/Guards.client.luau`), Check ID (`server/CatchService.luau`). Что решил Claude — пункт 26 в `CLAUDE.md`.
+  - Для блока 4: охранник уже умеет «лежать» (`RoleService.knockDown`, атрибуты `KnockedAt` / `KnockedUntil`, поза — `Guards.client`) — пригодится для «без здоровья лежит и ползёт». Налёт — это ещё один план в `Tactics/` (интерфейс как у `Tactics/Basic`), грабителей ставить через `ThiefService.spawnSpecial` или свой сервис.
 - Владелец поиграл и попросил переделать многое. Claude задал ~70 вопросов. Ответы разложены по блокам ниже, короткие решения — 65–72 в `CLAUDE.md`.
 - Свет: Roblox убрал `Lighting.Technology`, вместо него `LightingStyle` + `PrioritizeLightingQuality`. В `NightMuseum.rbxl` и `default.project.json` уже стоят `Realistic` + `true`.
 
@@ -35,7 +37,7 @@
 
 1. [x] Блок 1 — основа: время, покупка, клавиши, деньги, число воров
 2. [x] Блок 2 — новый большой музей
-3. [ ] Блок 3 — волны и умные воры
+3. [x] Блок 3 — волны и умные воры
 4. [ ] Блок 4 — оружие, перестрелки, налёты
 5. [ ] Блок 5 — классы
 6. [ ] Блок 6 — общее лобби с телепортом (после публикации)
