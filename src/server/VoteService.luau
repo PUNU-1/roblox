@@ -24,6 +24,7 @@ type Vote = {
 }
 
 local runActive = false
+local autoApprove: ((Player) -> boolean)? = nil -- блок 6: своего из команды хаба пускаем без голосования
 local queue: { Player } = {}
 local current: Vote? = nil
 local nextId = 0
@@ -150,10 +151,22 @@ function VoteService.admitApproved(): { Player }
 	return admitted
 end
 
+-- Блок 6 (HubLink): кого пускать без голосования — игрок своей команды из хаба, который долетел позже.
+function VoteService.setAutoApprove(check: (Player) -> boolean)
+	autoApprove = check
+end
+
 function VoteService.init()
 	Remotes.get(Remotes.Names.VoteCast).OnServerEvent:Connect(onVote)
 	Players.PlayerAdded:Connect(function(player)
 		if runActive then
+			local check = autoApprove
+			if check and check(player) and not full() then
+				-- Свой из хаба: входит с ближайшего дня, команда не голосует
+				setStatus(player, "Approved")
+				Remotes.get(Remotes.Names.Banner):FireAllClients(("%s WILL JOIN TOMORROW"):format(string.upper(player.DisplayName)), "info")
+				return
+			end
 			table.insert(queue, player)
 			startNext()
 		end

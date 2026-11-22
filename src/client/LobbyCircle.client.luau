@@ -105,6 +105,16 @@ local function refresh()
 		return
 	end
 
+	if GameState.get(GameState.Attr.HubArrival) == true then
+		-- Блок 6: команда прилетела из хаба — круг не нужен, забег начнётся сам
+		setColor(Settings.IdleColor)
+		titleLabel.Text = "START SHIFT"
+		teamLabel.Text = "Your team is arriving"
+		namesLabel.Text = ""
+		statusLabel.Text = ""
+		return
+	end
+
 	local team = GameState.lobbyTeam()
 	local inTeam = localPlayer:GetAttribute(PlayerAttr.InTeam) == true
 	local full = #team >= Config.Players.Max

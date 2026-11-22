@@ -342,6 +342,13 @@ local function topBarText(phase: string): string
 		local text = if typeof(status) == "string" then JOIN_STATUS_TEXT[status] else nil
 		return text or ("Game in progress — night %d"):format(tonumber(GameState.get(Attr.NightNumber)) or 1)
 	end
+	if phase == Phase.Lobby and GameState.get(Attr.HubArrival) == true then
+		-- Блок 6: команда прилетела из хаба, музей ждёт остальных и сразу начинает забег
+		return ("Your team is arriving from the lobby...   •   %d/%d"):format(
+			tonumber(GameState.get(Attr.HubArrived)) or 0,
+			tonumber(GameState.get(Attr.HubExpected)) or 0
+		)
+	end
 	if phase == Phase.Lobby then
 		local count = #GameState.lobbyTeam()
 		local inTeam = localPlayer:GetAttribute(PlayerAttr.InTeam) == true
@@ -391,7 +398,8 @@ RunService.Heartbeat:Connect(function(dt)
 		hintLabel.Text = hint
 	end
 
-	local choosing = canChooseClass() and phase ~= Phase.Results
+	-- Класс из хаба уже выбран: пока команда прилетает, карточек нет
+	local choosing = canChooseClass() and phase ~= Phase.Results and GameState.get(Attr.HubArrival) ~= true
 	classCards.setVisible(choosing)
 	if choosing then
 		classCards.refresh(GameState.roleOf(localPlayer))

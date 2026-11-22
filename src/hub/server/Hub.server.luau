@@ -11,10 +11,12 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local TeleportTicket = require(Shared:WaitForChild("TeleportTicket"))
 
 local Server = script.Parent
 local HubBuilder = require(Server:WaitForChild("HubBuilder"))
 local PadService = require(Server:WaitForChild("PadService"))
+local Teleporter = require(Server:WaitForChild("Teleporter"))
 local Uniform = require(Server:WaitForChild("Uniform"))
 
 local PlayerAttr = GameState.PlayerAttr
@@ -30,6 +32,21 @@ Lighting.OutdoorAmbient = light.OutdoorAmbient
 local _, pads = HubBuilder.build()
 PadService.init(pads)
 
+local bannerRemote = Remotes.get(Remotes.Names.Banner)
+
+---------------------------------------------------------------- телепорт команды в музей
+
+-- Отсчёт круга кончился: свой отдельный сервер музея (ReserveServer) и TeleportAsync всей команды
+-- с данными { team, classes }. В Studio и пока MuseumPlaceId = 0 — надпись «Teleport works only in the published game».
+PadService.setLauncher(function(team: { Player }): (boolean, string?)
+	return Teleporter.toReserved(Config.Places.MuseumPlaceId, team, TeleportTicket.pack(team))
+end)
+
+-- Кто-то не улетел (Roblox отказал уже после отправки) — он остаётся в хабе и видит надпись
+Teleporter.onFailed(function(player: Player, message: string)
+	bannerRemote:FireClient(player, message, "danger")
+end)
+
 ---------------------------------------------------------------- игроки
 
 local connections: { [Player]: RBXScriptConnection } = {}
@@ -41,6 +58,17 @@ local function onPlayerAdded(player: Player)
 	connections[player] = player.CharacterAppearanceLoaded:Connect(function(character)
 		Uniform.apply(character)
 	end)
+	-- Вернулся из музея — «Welcome back» и сколько ночей продержалась команда
+	local ok, joinData = pcall(player.GetJoinData, player)
+	local nights = if ok then TeleportTicket.readReturn(joinData) else nil
+	if nights then
+		task.delay(4, function()
+			if player.Parent then
+				local text = if nights == 1 then "WELCOME BACK! YOUR TEAM SURVIVED 1 NIGHT" else ("WELCOME BACK! YOUR TEAM SURVIVED %d NIGHTS"):format(nights)
+				bannerRemote:FireClient(player, text, "info")
+			end
+		end)
+	end
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)

@@ -35,6 +35,7 @@ local HallService = require(Server:WaitForChild("HallService"))
 local CameraService = require(Server:WaitForChild("CameraService"))
 local DoorService = require(Server:WaitForChild("DoorService"))
 local VoteService = require(Server:WaitForChild("VoteService"))
+local HubLink = require(Server:WaitForChild("HubLink"))
 local Audio = require(Server:WaitForChild("Audio"))
 
 local Phase = GameState.Phase
@@ -70,6 +71,8 @@ HallService.init(map)
 CameraService.init(map)
 DoorService.init(map)
 VoteService.init()
+HubLink.init() -- блок 6: команда и классы из хаба
+VoteService.setAutoApprove(HubLink.isLateTeammate)
 
 -- Что смотрят туристы: Мону Лизу и купленные экспонаты в открытых залах.
 TouristService.setAttractions(ExhibitService.attractions)
@@ -118,12 +121,21 @@ end
 
 -- Лобби: ждём, пока в круге START SHIFT кто-то постоит до конца отсчёта (LobbyService).
 -- Возвращает команду из круга — она и идёт на смену.
+-- Блок 6: команда прилетела из хаба — круг не нужен, ждём всю команду (HubLink) и сразу в музей.
 local function runLobby(): { Player }
 	setLighting(Config.Lighting.Lobby)
 	setPhase(Phase.Lobby, nil)
 	RoleService.setConsoleEnabled(false)
 	LobbyService.open()
 	while true do
+		if HubLink.teamPending() then
+			LobbyService.takeTeam() -- круг START SHIFT закрыт, пока ждём команду из хаба
+			local hubTeam = HubLink.waitForTeam()
+			if #hubTeam > 0 then
+				return hubTeam
+			end
+			LobbyService.open() -- никто не долетел — лобби как обычно
+		end
 		if LobbyService.teamReady() then
 			local team = LobbyService.takeTeam()
 			if #team > 0 then

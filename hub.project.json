@@ -33,7 +33,9 @@
         "ModelLibrary": { "$path": "src/server/ModelLibrary.luau" },
         "MapBuilder": { "$path": "src/server/MapBuilder.luau" },
         "MapDecor": { "$path": "src/server/MapDecor.luau" },
-        "Uniform": { "$path": "src/server/Uniform.luau" }
+        "Uniform": { "$path": "src/server/Uniform.luau" },
+        "Retry": { "$path": "src/server/Retry.luau" },
+        "Teleporter": { "$path": "src/server/Teleporter.luau" }
       }
     },
     "StarterPlayer": {

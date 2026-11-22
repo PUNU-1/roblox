@@ -237,6 +237,10 @@ GameState.Attr = {
 	Raid = "Raid", -- boolean, идёт налёт: огнестрел можно достать (блок 4)
 	PoliceAt = "PoliceAt", -- number, когда приедет полиция (0 — налёта нет); вверху POLICE: 60
 	PoliceArrived = "PoliceArrived", -- boolean, полиция приехала: грабители сдаются
+	-- блок 6: команда из хаба
+	HubArrival = "HubArrival", -- boolean, музей ждёт команду из хаба (круг START SHIFT не работает)
+	HubArrived = "HubArrived", -- number, сколько из команды уже прилетело
+	HubExpected = "HubExpected", -- number, сколько всего в команде
 }
 
 -- Атрибуты Player
