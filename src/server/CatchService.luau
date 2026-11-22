@@ -108,8 +108,8 @@ local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt)
 	if GameState.phase() ~= GameState.Phase.Night then
 		return
 	end
-	if not RoleService.isParticipant(player) or RoleService.isViewing(player) or RoleService.isKnocked(player) then
-		return -- смотрит камеры или лежит после удара Громилы
+	if not RoleService.canAct(player) then
+		return -- смотрит камеры, лежит после удара Громилы или без сил
 	end
 	local character = player.Character
 	local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
@@ -182,7 +182,7 @@ local function onCheckId(checker: Player, target: Player, prompt: ProximityPromp
 	if GameState.phase() ~= GameState.Phase.Night or checker == target then
 		return
 	end
-	if not RoleService.isParticipant(checker) or RoleService.isViewing(checker) or RoleService.isKnocked(checker) then
+	if not RoleService.canAct(checker) or RoleService.isDowned(target) then
 		return
 	end
 	local checkerRoot = checker.Character and checker.Character:FindFirstChild("HumanoidRootPart")
@@ -197,7 +197,7 @@ local function onCheckId(checker: Player, target: Player, prompt: ProximityPromp
 	Remotes.get(Remotes.Names.Banner):FireClient(checker, ("ID OK — %s is a real guard"):format(target.DisplayName), "info")
 	prompt.Enabled = false
 	task.delay(Config.Catch.CheckIdCooldown, function()
-		if prompt.Parent and checkActive then
+		if prompt.Parent and checkActive and not RoleService.isDowned(target) then
 			prompt.Enabled = true
 		end
 	end)
@@ -217,6 +217,7 @@ local function addCheckPrompt(player: Player)
 	prompt.MaxActivationDistance = Config.Catch.MaxDistance
 	prompt.KeyboardKeyCode = Config.Keys.Action
 	prompt.RequiresLineOfSight = false
+	prompt.Enabled = not RoleService.isDowned(player) -- на лежащем без сил охраннике — кнопка Revive
 	prompt.Parent = root
 	prompt.Triggered:Connect(function(checker)
 		onCheckId(checker, player, prompt)
@@ -250,6 +251,14 @@ function CatchService.endNight()
 end
 
 local function watchPlayer(player: Player)
+	-- Упал без сил — Check ID на нём прячется (на одной клавише F Roblox покажет только Revive), встал — снова видна
+	player:GetAttributeChangedSignal(GameState.PlayerAttr.Downed):Connect(function()
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		local prompt = root and root:FindFirstChild(CHECK_PROMPT)
+		if prompt and prompt:IsA("ProximityPrompt") then
+			prompt.Enabled = checkActive and not RoleService.isDowned(player)
+		end
+	end)
 	player.CharacterAdded:Connect(function(character)
 		-- Новый персонаж посреди ночи тоже получает кнопку (когда появится HumanoidRootPart)
 		character:WaitForChild("HumanoidRootPart", 10)

@@ -3,9 +3,192 @@
 -- Числа баланса пока поставил Claude (помечены «баланс»). Друг предложит свои — см. TEAM_PLAN.md.
 
 local Config = {
-	Keys = { -- клавиши (решение 67); Q / E / C пока свободны — под наклоны и присед (блок 4)
-		Action = Enum.KeyCode.F, -- все кнопки у предметов (ProximityPrompt): покупка, арест, пульт; геймпад — как было (X)
+	Keys = { -- клавиши (решение 67, блок 4)
+		Action = Enum.KeyCode.F, -- все кнопки у предметов (ProximityPrompt): покупка, арест, пульт, поднять друга; геймпад — как было (X)
 		Phrases = Enum.KeyCode.T, -- открыть список готовых фраз (пока он открыт — цифры)
+		Reload = Enum.KeyCode.R, -- перезарядка
+		LeanLeft = Enum.KeyCode.Q, -- наклон влево (держать)
+		LeanRight = Enum.KeyCode.E, -- наклон вправо (держать)
+		Crouch = Enum.KeyCode.C, -- присесть / встать
+		-- места с собой: 1 — основное (автомат или дробовик), 2 — пистолет, 3 — шокер, 4 — аптечка
+		Slots = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four },
+	},
+
+	Health = { -- здоровье охраны (блок 4): само не лечится, только аптечкой
+		Max = 100,
+		ReviveSeconds = 10, -- сколько держать F у лежащего друга
+		ReviveHealth = 50, -- с таким здоровьем встаёт (и утром, если пролежал до утра)
+		ReviveDistance = 7, -- с какого расстояния видно кнопку Revive
+		ReviveSlack = 0.6, -- сервер принимает подъём, если F держали не меньше ReviveSeconds минус столько
+		CrawlSpeed = 3.5, -- лежащий охранник медленно ползёт
+		FallSeconds = 0.5, -- падает (анимация)
+		RiseSeconds = 0.8, -- встаёт после подъёма (анимация)
+		CameraDrop = 2.6, -- свой вид, пока лежишь: камера ниже на столько стадов
+		MarkerMaxDistance = 400, -- метка «REVIVE» над лежащим другом видна сквозь стены до стольки стадов
+		HurtFlashSeconds = 0.45, -- край экрана со стороны попадания вспыхивает
+	},
+
+	-- Оружие игроков (блок 4). Цены — у товаров оружейной (Armory). Время — в секундах, урон — здоровья.
+	Weapons = {
+		-- Огнестрел (пистолет, автомат, дробовик) достаётся только во время налёта; шокер — всегда (ночью)
+		Order = { "Rifle", "Shotgun", "Pistol", "Taser" },
+		Taser = {
+			Title = "TASER",
+			Range = 30, -- дальность выстрела
+			StunThief = 10, -- обычный вор лежит столько секунд (его можно арестовать)
+			StunRobber = 5, -- грабитель — меньше (решил Claude)
+			Cooldown = 30, -- перезарядка
+			Color = Color3.fromHex("6FD3FF"), -- провода и искры
+		},
+		Pistol = {
+			Title = "PISTOL",
+			Slot = 2,
+			Damage = 15,
+			Interval = 1, -- 1 выстрел в секунду
+			MagSize = 12,
+			StartReserve = 24, -- запасных патронов при покупке (2 магазина)
+			MaxReserve = 72, -- больше не купить
+			ReloadSeconds = 1.6,
+			Range = 300,
+			RecoilPitch = 2.2, -- отдача: градусов вверх за выстрел
+			RecoilYaw = 0.6, -- и случайно вбок
+		},
+		Rifle = {
+			Title = "RIFLE",
+			Slot = 1,
+			Damage = 10,
+			Interval = 0.1, -- стреляет часто (10 в секунду), пока держишь кнопку
+			Automatic = true,
+			MagSize = 30,
+			StartReserve = 60,
+			MaxReserve = 150,
+			ReloadSeconds = 2.2,
+			Range = 300,
+			RecoilPitch = 1.5, -- сильная отдача: очередь уводит прицел вверх
+			RecoilYaw = 0.9,
+		},
+		Shotgun = {
+			Title = "SHOTGUN",
+			Slot = 1,
+			Pellets = 8, -- дробин за выстрел
+			Damage = 12, -- урон одной дробины вблизи
+			FalloffStart = 8, -- до стольки стадов урон полный
+			FalloffEnd = 35, -- дальше — только FalloffMin от урона
+			FalloffMin = 0.25,
+			Spread = 5, -- разлёт дроби в градусах
+			Interval = 0.9,
+			MagSize = 6,
+			StartReserve = 12,
+			MaxReserve = 36,
+			ReloadSeconds = 3, -- медленная перезарядка
+			Range = 70,
+			RecoilPitch = 5,
+			RecoilYaw = 1.2,
+		},
+		HeadMultiplier = 1.5, -- попадание в голову
+		-- Проверки сервера (клиенту не доверяем)
+		IntervalSlack = 0.85, -- выстрел принимается, если с прошлого прошло не меньше Interval × столько (задержка сети)
+		OriginSlack = 6, -- точка выстрела не дальше стольки стадов от головы стрелка
+		AimDot = 0, -- направление выстрела не дальше 90° от того, куда смотрит персонаж (по полу)
+		-- Бронежилет и аптечка
+		Vest = { Armor = 50 },
+		Medkit = { Heal = 50, UseSeconds = 2, MaxCarry = 2 },
+		TracerSeconds = 0.07, -- трассер пули виден столько
+		TracerWidth = 0.08,
+		TracerColor = Color3.fromHex("FFE7A0"),
+		ImpactSeconds = 0.35, -- искры на месте попадания
+		EquipSeconds = 0.3, -- достать оружие (анимация)
+	},
+
+	Armory = { -- оружейная (блок 4): всё личное, без складчины; хватает денег — Buy $X, нет — Need $X
+		PromptDistance = 6, -- товары стоят рядом, поэтому кнопку видно только вблизи
+		Goods = {
+			-- Kind: Weapon — оружие, Ammo — магазин патронов к Weapon, Vest, Medkit
+			Taser = { Title = "Taser", Price = 100, Kind = "Weapon" },
+			Pistol = { Title = "Pistol", Price = 150, Kind = "Weapon" },
+			Shotgun = { Title = "Shotgun", Price = 300, Kind = "Weapon" },
+			Rifle = { Title = "Rifle", Price = 350, Kind = "Weapon" },
+			Vest = { Title = "Body Armor", Price = 200, Kind = "Vest" },
+			Medkit = { Title = "Medkit", Price = 50, Kind = "Medkit" },
+			PistolAmmo = { Title = "Pistol Ammo", Price = 20, Kind = "Ammo", Weapon = "Pistol" },
+			RifleAmmo = { Title = "Rifle Ammo", Price = 20, Kind = "Ammo", Weapon = "Rifle" },
+			ShotgunAmmo = { Title = "Shotgun Shells", Price = 20, Kind = "Ammo", Weapon = "Shotgun" },
+		},
+	},
+
+	Raid = { -- налёт (блок 4): вооружённые грабители вместо одной волны
+		FromNight = 3, -- с этой ночи
+		Chance = 1 / 3, -- шанс, что одна из волн ночи — налёт
+		PerPlayer = 3, -- грабителей: игроки × 3
+		GrabberShare = 1 / 3, -- доля хватальщиков (остальные — стрелки), не меньше 1
+		Stagger = 0.5, -- грабители входят друг за другом через столько секунд
+		PoliceSeconds = 60, -- полиция приезжает через столько
+		SurrenderSeconds = 15, -- сдавшиеся стоят с поднятыми руками, потом их забирает полиция
+		Title = "Armed Raid", -- в итоге ночи «Thieves used: …»
+		PoliceLightRange = 22, -- мигалки у дверей, когда приехала полиция
+		TestForce = false, -- ДЛЯ ПРОВЕРКИ: true — налёт в каждую ночь (с 1-й)
+	},
+
+	Robber = { -- грабители налёта (блок 4)
+		Health = 100,
+		WalkSpeed = 13, -- стрелки
+		RunSpeed = 15, -- хватальщики без добычи
+		CarrySpeed = 11, -- с добычей
+		StunSeconds = 5, -- шокер (Weapons.Taser.StunRobber)
+		KnockoutSeconds = 2.2, -- «убитый» лежит со звёздочками, потом исчезает в облачке
+		UpdateSeconds = 0.1,
+		-- Стрелки: шанс попадания бота по охраннику; на каждом следующем налёте забега выше
+		Guns = {
+			Pistol = { Chance = 0.4, Damage = 10, Interval = 1.1 },
+			Rifle = { Chance = 0.25, Damage = 8, Interval = 0.14, Burst = 4, BurstPause = 1.3 },
+		},
+		ChanceGrowth = 0.05, -- +5% за каждый следующий налёт
+		MaxChance = 0.65,
+		RifleShare = 0.3, -- доля стрелков с автоматом на первом налёте
+		RifleShareGrowth = 0.15, -- дальше больше
+		ShootRange = 90, -- дальше не стреляют
+		SightRange = 120, -- видят охранника (луч без стен)
+		CrouchFactor = 0.55, -- присевший охранник: шанс ×
+		CoverFactor = 0.5, -- охранник за укрытием (виден только верх): шанс ×
+		SmokeFactor = 0.3, -- луч проходит через дым: шанс ×
+		LeanFactor = 0.8, -- выглядывает из-за укрытия
+		FarDistance = 45, -- дальше этого шанс ×FarFactor
+		FarFactor = 0.7,
+		MissSpread = 3, -- промах пролетает рядом с охранником (стадов)
+		-- Укрытия: стрелок встаёт за витриной, колонной, банкеткой подальше от охраны
+		CoverMinDistance = 18, -- от охранника до укрытия
+		CoverMaxDistance = 60,
+		CoverSearchRadius = 70, -- ищет укрытия не дальше этого от себя
+		CoverGap = 1.6, -- встаёт так далеко от края укрытия
+		CoverRescanSeconds = 6, -- как часто ищет новое укрытие
+		PeekSeconds = 1.6, -- выглядывает и стреляет столько секунд, потом прячется
+		HideSeconds = 1.2, -- столько сидит за укрытием
+		-- Дымовые шашки: у каждого стрелка одна
+		SmokeChance = 0.12, -- шанс в секунду кинуть, когда видит охрану
+		SmokeRange = 32, -- кидает не дальше
+		SmokeThrowSeconds = 0.7, -- замах и бросок
+		SmokeFlightSeconds = 0.9, -- шашка летит
+		SmokeRadius = 9, -- облако
+		SmokeSeconds = 12, -- облако держится
+		-- Дубинка (у хватальщиков; стрелки бьют, если охранник подошёл вплотную)
+		BatonDamage = 20,
+		BatonRange = 5,
+		BatonWindup = 0.35,
+		BatonSeconds = 0.8,
+		BatonCooldown = 1.6,
+		Colors = {
+			Gunner = { Shirt = Color3.fromHex("3A4030"), Pants = Color3.fromHex("23262B"), Vest = Color3.fromHex("1E2124"), Mask = Color3.fromHex("141416") },
+			Grabber = { Shirt = Color3.fromHex("5A4A3A"), Pants = Color3.fromHex("2B2F3A"), Vest = Color3.fromHex("8C7A5A"), Mask = Color3.fromHex("141416"), Stripe = Color3.fromHex("C8343A") },
+			Skin = Color3.fromHex("E0AC82"),
+		},
+	},
+
+	Stance = { -- присед (C) и наклоны (Q / E), блок 4
+		CrouchSpeed = 8, -- присевший ходит медленнее
+		CrouchDrop = 1.7, -- свой вид опускается на столько стадов
+		LeanOffset = 1.5, -- свой вид сдвигается вбок на столько стадов (выглянуть из-за укрытия)
+		LeanRoll = 0.21, -- и наклоняется (радианы, ~12°)
+		BlendSpeed = 10, -- как быстро вид перетекает в новую стойку
 	},
 
 	Purchase = { -- покупка одним удержанием F (решение 67): хватает денег — покупаешь сразу, нет — всё в полоску
@@ -508,6 +691,11 @@ local Config = {
 		GlassCut = "", -- стеклорез режет тихо (звука нет)
 		Sparks = "rbxassetid://9114277402", -- ВРЕМЕННЫЙ: Electric Zaps 6 — искры у щитка, свет гаснет
 		PowerOn = "rbxassetid://9120484192", -- ВРЕМЕННЫЙ: Wall Light Switch — свет вернули
+		-- блок 4: в Studio есть только несколько стандартных звуков, поэтому разные звуки — из одного с другой высотой тона
+		Hurt = "rbxasset://sounds/ouch.ogg", -- ВРЕМЕННЫЙ: охранника задела пуля или дубинка
+		GuardDown = "rbxasset://sounds/oof.ogg", -- ВРЕМЕННЫЙ: охранник упал без сил
+		HurtVolume = 0.6,
+		GuardDownVolume = 0.9,
 		StepVolume = 0.6,
 		StepRollOff = 30, -- шаги слышно только рядом
 		EffectRollOff = 60, -- звуки у деталей (касса, доски, камера) слышно в этом радиусе

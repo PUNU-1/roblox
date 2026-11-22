@@ -149,7 +149,8 @@ function ThiefService.guardPositions(): { Vector3 }
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if root and root:IsA("BasePart") and humanoid and humanoid.Health > 0 then
+		-- Лежащий без сил охранник воров не пугает и не сторожит (блок 4)
+		if root and root:IsA("BasePart") and humanoid and humanoid.Health > 0 and not RoleService.isDowned(player) then
 			table.insert(list, root.Position)
 		end
 	end
@@ -401,7 +402,9 @@ local function watched(thief: Thief): boolean
 		if character then
 			table.insert(ignore, character)
 			local guardHead = character:FindFirstChild("Head")
-			if guardHead and guardHead:IsA("BasePart") and (guardHead.Position - from).Magnitude <= thief.info.WatchRadius then
+			if guardHead and guardHead:IsA("BasePart") and not RoleService.isDowned(player)
+				and (guardHead.Position - from).Magnitude <= thief.info.WatchRadius
+			then
 				table.insert(eyes, guardHead.Position)
 			end
 		end
@@ -545,7 +548,9 @@ local function inFront(thief: Thief, player: Player, range: number): boolean
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not (root and root:IsA("BasePart") and humanoid and humanoid.Health > 0) or RoleService.isKnocked(player) then
+	if not (root and root:IsA("BasePart") and humanoid and humanoid.Health > 0) or RoleService.isKnocked(player)
+		or RoleService.isDowned(player)
+	then
 		return false
 	end
 	local offset = flat(root.Position - thief.root.Position)

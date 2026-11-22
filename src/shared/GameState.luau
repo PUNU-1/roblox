@@ -147,6 +147,19 @@ GameState.PlayerAttr = {
 	JoinStatus = "JoinStatus", -- string?, опоздавший: Voting | Approved | Rejected | Full
 	KnockedAt = "KnockedAt", -- number, когда Громила сбил охранника с ног (workspace:GetServerTimeNow())
 	KnockedUntil = "KnockedUntil", -- number, до какого времени охранник лежит
+	-- блок 4: здоровье (пишет HealthService)
+	Health = "Health", -- number, здоровье охранника (0..MaxHealth)
+	MaxHealth = "MaxHealth", -- number
+	Armor = "Armor", -- number, броня бронежилета (0 — жилета нет)
+	Downed = "Downed", -- boolean, здоровье кончилось: лежит и ползёт, ждёт друга
+	DownedAt = "DownedAt", -- number, когда упал (для анимации)
+	RevivedAt = "RevivedAt", -- number, когда друг поднял (анимация «встаёт»)
+	ReviveTarget = "ReviveTarget", -- number, UserId друга, которого этот игрок сейчас поднимает (0 — никого)
+	RevivedBy = "RevivedBy", -- number, UserId того, кто поднимает лежащего (0 — никто)
+	ReviveStartedAt = "ReviveStartedAt", -- number, когда начали поднимать (полоска у лежащего)
+	-- блок 4: стойка (пишет WeaponService по просьбе клиента)
+	Crouch = "Crouch", -- boolean, присел
+	Lean = "Lean", -- number, наклон: -1 влево, 0 нет, 1 вправо
 }
 
 local FOLDER_NAME = "GameState"

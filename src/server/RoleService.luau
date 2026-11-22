@@ -38,13 +38,29 @@ local function getHumanoid(player: Player): Humanoid?
 	return character and character:FindFirstChildOfClass("Humanoid")
 end
 
-local function setFrozen(player: Player, frozen: boolean)
+-- Охранник лежит после удара Громилы (блок 3).
+local function knockedNow(player: Player): boolean
+	local untilTime = player:GetAttribute(PlayerAttr.KnockedUntil)
+	return typeof(untilTime) == "number" and untilTime > Workspace:GetServerTimeNow()
+end
+
+-- Скорость охранника по его состоянию (одно место на всё): смотрит камеры или сбит Громилой — стоит,
+-- лежит без сил — ползёт, присел — идёт медленнее, иначе — обычный шаг и прыжок.
+local function refreshMovement(player: Player)
 	local humanoid = getHumanoid(player)
 	if not humanoid then
 		return
 	end
-	humanoid.WalkSpeed = if frozen then 0 else Config.Players.WalkSpeed
-	humanoid.JumpHeight = if frozen then 0 else Config.Players.JumpHeight
+	local speed, jump = Config.Players.WalkSpeed, Config.Players.JumpHeight
+	if player:GetAttribute(PlayerAttr.ViewingCameras) == true or knockedNow(player) then
+		speed, jump = 0, 0
+	elseif player:GetAttribute(PlayerAttr.Downed) == true then
+		speed, jump = Config.Health.CrawlSpeed, 0
+	elseif player:GetAttribute(PlayerAttr.Crouch) == true then
+		speed, jump = Config.Stance.CrouchSpeed, 0
+	end
+	humanoid.WalkSpeed = speed
+	humanoid.JumpHeight = jump
 	humanoid.JumpPower = 0
 	humanoid.UseJumpPower = false
 end
@@ -187,9 +203,22 @@ end
 
 -- Охранник лежит после удара Громилы (блок 3).
 function RoleService.isKnocked(player: Player): boolean
-	local untilTime = player:GetAttribute(PlayerAttr.KnockedUntil)
-	return typeof(untilTime) == "number" and untilTime > Workspace:GetServerTimeNow()
+	return knockedNow(player)
 end
+
+-- Здоровье кончилось: лежит и ползёт, пока друг не поднимет (блок 4, HealthService).
+function RoleService.isDowned(player: Player): boolean
+	return player:GetAttribute(PlayerAttr.Downed) == true
+end
+
+-- Охранник может действовать: на смене, не смотрит камеры, не сбит Громилой и не лежит без сил.
+function RoleService.canAct(player: Player): boolean
+	return RoleService.isParticipant(player) and not RoleService.isViewing(player) and not knockedNow(player)
+		and not RoleService.isDowned(player)
+end
+
+-- Пересчитать скорость (после смены стойки, падения, подъёма).
+RoleService.refreshMovement = refreshMovement
 
 function RoleService.setViewing(player: Player, open: boolean, source: string?)
 	if open == RoleService.isViewing(player) and (not open or player:GetAttribute(PlayerAttr.ViewSource) == source) then
@@ -197,7 +226,7 @@ function RoleService.setViewing(player: Player, open: boolean, source: string?)
 	end
 	player:SetAttribute(PlayerAttr.ViewingCameras, open)
 	player:SetAttribute(PlayerAttr.ViewSource, if open then source else "")
-	setFrozen(player, open or RoleService.isKnocked(player))
+	refreshMovement(player)
 	if open and source == "Phone" then
 		addPhoneProp(player)
 	else
@@ -236,18 +265,18 @@ end
 -- потом встаёт сам. Как он падает и встаёт, рисуют клиенты (Guards.client) по атрибутам KnockedAt / KnockedUntil.
 -- Возвращает false, если охранник уже лежит.
 function RoleService.knockDown(player: Player, seconds: number): boolean
-	if RoleService.isKnocked(player) or not RoleService.isParticipant(player) then
+	if RoleService.isKnocked(player) or RoleService.isDowned(player) or not RoleService.isParticipant(player) then
 		return false
 	end
 	local started = Workspace:GetServerTimeNow()
 	player:SetAttribute(PlayerAttr.KnockedAt, started)
 	player:SetAttribute(PlayerAttr.KnockedUntil, started + seconds)
 	RoleService.setViewing(player, false)
-	setFrozen(player, true)
+	refreshMovement(player)
 	addStars(player, seconds)
 	task.delay(seconds, function()
 		if player.Parent and not RoleService.isKnocked(player) then
-			setFrozen(player, RoleService.isViewing(player))
+			refreshMovement(player)
 		end
 	end)
 	return true
@@ -324,6 +353,7 @@ local function onCharacterAdded(player: Player, character: Model)
 	player:SetAttribute(PlayerAttr.ViewSource, "")
 	player:SetAttribute(PlayerAttr.KnockedUntil, 0) -- новый персонаж стоит на ногах
 	phoneProps[player] = nil
+	task.defer(refreshMovement, player) -- лежал без сил или присел — так и остаётся
 	if RoleService.isParticipant(player) and isRoundPhase() then
 		-- Погиб или упал во время смены — возвращаем в зал
 		task.defer(function()
@@ -384,7 +414,7 @@ local function setupConsole()
 	prompt.Enabled = false
 	prompt.Parent = console
 	prompt.Triggered:Connect(function(player)
-		if isRoundPhase() and RoleService.isParticipant(player) and not RoleService.isKnocked(player) then
+		if isRoundPhase() and RoleService.isParticipant(player) and not RoleService.isKnocked(player) and not RoleService.isDowned(player) then
 			RoleService.setViewing(player, true, "Console")
 		end
 	end)
@@ -410,7 +440,9 @@ local function setupRemotes()
 			RoleService.setViewing(player, false)
 			return
 		end
-		if isRoundPhase() and RoleService.isParticipant(player) and RoleService.canUsePhone(player) and not RoleService.isKnocked(player) then
+		if isRoundPhase() and RoleService.isParticipant(player) and RoleService.canUsePhone(player) and not RoleService.isKnocked(player)
+			and not RoleService.isDowned(player)
+		then
 			local humanoid = getHumanoid(player)
 			if humanoid and humanoid.Health > 0 then
 				RoleService.setViewing(player, true, "Phone")

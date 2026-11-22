@@ -56,7 +56,7 @@ end
 -- part — где стоит покупка (проверка расстояния и звук кассы). Возвращает, сколько взяли (0 — ничего).
 -- Фазу (день) проверяет сам сервис до вызова.
 function Purchase.take(player: Player, part: BasePart, paid: number, price: number): number
-	if not RoleService.isParticipant(player) then
+	if not RoleService.isParticipant(player) or RoleService.isDowned(player) then
 		return 0
 	end
 	local character = player.Character

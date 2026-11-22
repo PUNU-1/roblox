@@ -23,6 +23,7 @@ local NAMES: { [string]: string } = {
 	Banner = "Banner", -- (text: string, kind: string) крупная надпись вверху экрана
 	NightResults = "NightResults", -- (results: table) экран итога
 	VoteRequest = "VoteRequest", -- (voteId: number, name: string, seconds: number) пустить ли опоздавшего
+	Hurt = "Hurt", -- (from: Vector3?, amount: number) охранника ранили: с какой стороны вспыхнуть краю экрана
 }
 Remotes.Names = NAMES
 

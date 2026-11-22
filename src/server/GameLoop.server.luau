@@ -23,6 +23,7 @@ local WaveService = require(Server:WaitForChild("WaveService"))
 local HeistFx = require(Server:WaitForChild("HeistFx"))
 local BlackoutService = require(Server:WaitForChild("BlackoutService"))
 local CatchService = require(Server:WaitForChild("CatchService"))
+local HealthService = require(Server:WaitForChild("HealthService"))
 local TrapService = require(Server:WaitForChild("TrapService"))
 local CommsService = require(Server:WaitForChild("CommsService"))
 local TouristService = require(Server:WaitForChild("TouristService"))
@@ -46,6 +47,7 @@ HeistFx.init(map)
 BlackoutService.init(map)
 ThiefService.init(map)
 CatchService.init()
+HealthService.init()
 TrapService.init(map)
 CommsService.init(map)
 TouristService.init(map)
@@ -185,6 +187,12 @@ local function runNight(night: number): (boolean, boolean)
 			aborted = true
 			break
 		end
+		if HealthService.allDown() then
+			-- Лежат все охранники: грабители забирают всё, игра проиграна (блок 4)
+			survived = false
+			bannerRemote:FireAllClients("ALL GUARDS ARE DOWN!", "danger")
+			break
+		end
 		tick()
 	end
 
@@ -193,6 +201,7 @@ local function runNight(night: number): (boolean, boolean)
 	WaveService.endNight()
 	ThiefService.endNight()
 	BlackoutService.reset()
+	HealthService.endNight() -- кто пролежал до утра, встаёт
 	Audio.stopMusic()
 	return survived, aborted
 end
