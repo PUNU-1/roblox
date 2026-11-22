@@ -36,6 +36,7 @@
         "Uniform": { "$path": "src/server/Uniform.luau" },
         "Retry": { "$path": "src/server/Retry.luau" },
         "Teleporter": { "$path": "src/server/Teleporter.luau" },
+        "PlaceFinder": { "$path": "src/server/PlaceFinder.luau" },
         "RecordStore": { "$path": "src/server/RecordStore.luau" }
       }
     },

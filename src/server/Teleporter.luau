@@ -1,6 +1,7 @@
 -- Телепорт между местами игры (блок 6): хаб → отдельный сервер музея для команды, музей → хаб.
 -- Общий для музея и хаба (hub.project.json подключает этот файл). Всё через pcall с повтором.
--- В Studio и пока номер места 0 (игра не опубликована) телепорт не работает — возвращаем понятный текст.
+-- Номера мест находит PlaceFinder (этап 4, блок 0). В Studio и пока место не найдено телепорт не работает —
+-- возвращаем понятный текст.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -16,10 +17,17 @@ local Places = Config.Places
 local Teleporter = {}
 
 Teleporter.StudioText = "Teleport works only in the published game"
+Teleporter.MuseumNotFoundText = "Museum place not found — ask the owner to publish it"
+Teleporter.HubNotFoundText = "Lobby place not found — ask the owner to publish it"
 
--- Можно ли сейчас телепортировать в это место: не Studio и номер места вписан в Config.Places.
+-- Можно ли сейчас телепортировать в это место: не Studio и место найдено (PlaceFinder вернул не 0).
 function Teleporter.canTeleport(placeId: number): boolean
 	return not RunService:IsStudio() and placeId ~= 0
+end
+
+-- Почему телепорта нет: в Studio — StudioText, в опубликованной игре — «место не найдено».
+local function blockedText(notFound: string): string
+	return if RunService:IsStudio() then Teleporter.StudioText else notFound
 end
 
 local function send(placeId: number, players: { Player }, options: TeleportOptions): (boolean, string?)
@@ -45,7 +53,7 @@ end
 -- Команду — на новый отдельный сервер места (ReserveServer): туда больше никто не попадёт.
 function Teleporter.toReserved(placeId: number, players: { Player }, data: { [string]: any }): (boolean, string?)
 	if not Teleporter.canTeleport(placeId) then
-		return false, Teleporter.StudioText
+		return false, blockedText(Teleporter.MuseumNotFoundText)
 	end
 	local ok, code = Retry.call(Places.TeleportRetries, Places.RetryDelay, function()
 		local accessCode = TeleportService:ReserveServer(placeId)
@@ -64,7 +72,7 @@ end
 -- В обычный (общий) сервер места — например, обратно в хаб.
 function Teleporter.toPublic(placeId: number, players: { Player }, data: { [string]: any }?): (boolean, string?)
 	if not Teleporter.canTeleport(placeId) then
-		return false, Teleporter.StudioText
+		return false, blockedText(Teleporter.HubNotFoundText)
 	end
 	local options = Instance.new("TeleportOptions")
 	if data then

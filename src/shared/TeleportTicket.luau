@@ -28,11 +28,12 @@ function TeleportTicket.pack(team: { Player }): { [string]: any }
 end
 
 -- Музей: данные хаба из Player:GetJoinData(). nil — игрок пришёл не из хаба (Studio, прямой вход) или данные странные.
-function TeleportTicket.read(joinData: any, userId: number): Ticket?
+-- hubPlaceId — место хаба (server/PlaceFinder); 0 — не найдено, тогда место, откуда пришёл игрок, не проверяем.
+function TeleportTicket.read(joinData: any, userId: number, hubPlaceId: number): Ticket?
 	if typeof(joinData) ~= "table" then
 		return nil
 	end
-	if Places.HubPlaceId ~= 0 and joinData.SourcePlaceId ~= Places.HubPlaceId then
+	if hubPlaceId ~= 0 and joinData.SourcePlaceId ~= hubPlaceId then
 		return nil
 	end
 	local data = joinData.TeleportData
@@ -68,11 +69,12 @@ function TeleportTicket.packReturn(nights: number): { [string]: any }
 end
 
 -- Хаб: игрок вернулся из музея? Сколько ночей продержались (nil — пришёл не из музея).
-function TeleportTicket.readReturn(joinData: any): number?
+-- museumPlaceId — место музея (server/PlaceFinder); 0 — не найдено, тогда место, откуда пришёл игрок, не проверяем.
+function TeleportTicket.readReturn(joinData: any, museumPlaceId: number): number?
 	if typeof(joinData) ~= "table" then
 		return nil
 	end
-	if Places.MuseumPlaceId ~= 0 and joinData.SourcePlaceId ~= Places.MuseumPlaceId then
+	if museumPlaceId ~= 0 and joinData.SourcePlaceId ~= museumPlaceId then
 		return nil
 	end
 	local data = joinData.TeleportData

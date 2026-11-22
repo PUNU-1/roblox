@@ -18,6 +18,7 @@ local HubBuilder = require(Server:WaitForChild("HubBuilder"))
 local PadService = require(Server:WaitForChild("PadService"))
 local LeaderboardService = require(Server:WaitForChild("LeaderboardService"))
 local Teleporter = require(Server:WaitForChild("Teleporter"))
+local PlaceFinder = require(Server:WaitForChild("PlaceFinder"))
 local Uniform = require(Server:WaitForChild("Uniform"))
 
 local PlayerAttr = GameState.PlayerAttr
@@ -30,6 +31,8 @@ Lighting.Brightness = light.Brightness
 Lighting.Ambient = light.Ambient
 Lighting.OutdoorAmbient = light.OutdoorAmbient
 
+PlaceFinder.init("Hub") -- место музея ищется в фоне; строка [PlaceFinder] в Output
+
 local map, pads = HubBuilder.build()
 PadService.init(pads)
 LeaderboardService.init(map) -- доска рекордов: топ-10 команд за всё время и за неделю
@@ -39,9 +42,10 @@ local bannerRemote = Remotes.get(Remotes.Names.Banner)
 ---------------------------------------------------------------- телепорт команды в музей
 
 -- Отсчёт круга кончился: свой отдельный сервер музея (ReserveServer) и TeleportAsync всей команды
--- с данными { team, classes }. В Studio и пока MuseumPlaceId = 0 — надпись «Teleport works only in the published game».
+-- с данными { team, classes }. Место музея находит PlaceFinder. В Studio — надпись «Teleport works only in the
+-- published game», в опубликованной игре без места музея — «Museum place not found — ask the owner to publish it».
 PadService.setLauncher(function(team: { Player }): (boolean, string?)
-	return Teleporter.toReserved(Config.Places.MuseumPlaceId, team, TeleportTicket.pack(team))
+	return Teleporter.toReserved(PlaceFinder.museumId(), team, TeleportTicket.pack(team))
 end)
 
 -- Кто-то не улетел (Roblox отказал уже после отправки) — он остаётся в хабе и видит надпись
@@ -60,17 +64,21 @@ local function onPlayerAdded(player: Player)
 	connections[player] = player.CharacterAppearanceLoaded:Connect(function(character)
 		Uniform.apply(character)
 	end)
-	-- Вернулся из музея — «Welcome back» и сколько ночей продержалась команда
-	local ok, joinData = pcall(player.GetJoinData, player)
-	local nights = if ok then TeleportTicket.readReturn(joinData) else nil
-	if nights then
-		task.delay(4, function()
-			if player.Parent then
-				local text = if nights == 1 then "WELCOME BACK! YOUR TEAM SURVIVED 1 NIGHT" else ("WELCOME BACK! YOUR TEAM SURVIVED %d NIGHTS"):format(nights)
-				bannerRemote:FireClient(player, text, "info")
-			end
-		end)
-	end
+	-- Вернулся из музея — «Welcome back» и сколько ночей продержалась команда.
+	-- Место музея может ещё искаться (PlaceFinder) — ждём в отдельном потоке.
+	task.spawn(function()
+		local museumPlaceId = PlaceFinder.museumId()
+		local ok, joinData = pcall(player.GetJoinData, player)
+		local nights = if ok then TeleportTicket.readReturn(joinData, museumPlaceId) else nil
+		if nights then
+			task.delay(4, function()
+				if player.Parent then
+					local text = if nights == 1 then "WELCOME BACK! YOUR TEAM SURVIVED 1 NIGHT" else ("WELCOME BACK! YOUR TEAM SURVIVED %d NIGHTS"):format(nights)
+					bannerRemote:FireClient(player, text, "info")
+				end
+			end)
+		end
+	end)
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)

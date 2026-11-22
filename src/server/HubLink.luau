@@ -16,6 +16,7 @@ local GameState = require(Shared:WaitForChild("GameState"))
 local TeleportTicket = require(Shared:WaitForChild("TeleportTicket"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Teleporter = require(script.Parent:WaitForChild("Teleporter"))
+local PlaceFinder = require(script.Parent:WaitForChild("PlaceFinder"))
 
 local Attr = GameState.Attr
 local PlayerAttr = GameState.PlayerAttr
@@ -40,11 +41,16 @@ local function now(): number
 end
 
 -- Данные хаба игрока (читаются один раз). nil — пришёл не из хаба.
+-- Может подождать, пока PlaceFinder найдёт место хаба (первые секунды сервера).
 local function ticketOf(player: Player): TeleportTicket.Ticket?
 	if not checked[player] then
+		local hubPlaceId = PlaceFinder.hubId()
+		if checked[player] then
+			return tickets[player] -- пока ждали, прочитал другой вызов
+		end
 		checked[player] = true
 		local ok, joinData = pcall(player.GetJoinData, player)
-		local ticket = if ok then TeleportTicket.read(joinData, player.UserId) else nil
+		local ticket = if ok then TeleportTicket.read(joinData, player.UserId, hubPlaceId) else nil
 		if ticket then
 			tickets[player] = ticket
 			for _, id in ticket.team do
@@ -115,7 +121,8 @@ end
 -- В лобби: в опубликованной игре — телепорт в хаб (с «Welcome back, N nights»), иначе остаются в музее —
 -- GameLoop.finishRun перенесёт их в домик SECURITY с кругом START SHIFT.
 local function sendToLobby(players: { Player })
-	if not Teleporter.canTeleport(Config.Places.HubPlaceId) then
+	local hubPlaceId = PlaceFinder.hubId()
+	if not Teleporter.canTeleport(hubPlaceId) then
 		return
 	end
 	local list = {}
@@ -129,7 +136,7 @@ local function sendToLobby(players: { Player })
 		return
 	end
 	task.spawn(function()
-		local ok, message = Teleporter.toPublic(Config.Places.HubPlaceId, list, TeleportTicket.packReturn(lastNights))
+		local ok, message = Teleporter.toPublic(hubPlaceId, list, TeleportTicket.packReturn(lastNights))
 		if not ok then
 			for _, player in list do
 				sentToHub[player] = nil
@@ -210,11 +217,12 @@ local function onPlayerAdded(player: Player)
 end
 
 function HubLink.init()
+	PlaceFinder.init("Museum") -- место хаба ищется в фоне; строка [PlaceFinder] в Output
 	GameState.set(Attr.HubArrival, false)
 	Remotes.get(Remotes.Names.GameOverChoice).OnServerEvent:Connect(onChoice)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	for _, player in Players:GetPlayers() do
-		onPlayerAdded(player)
+		task.spawn(onPlayerAdded, player) -- может ждать PlaceFinder — не держим init
 	end
 	Players.PlayerRemoving:Connect(function(player)
 		tickets[player] = nil

@@ -19,7 +19,9 @@ local PadState = GameState.PadState
 local PlayerAttr = GameState.PlayerAttr
 local Settings = Config.Hub
 
-local STUDIO_TEXT = "Teleport works only in the published game"
+local Teleporter = require(script.Parent:WaitForChild("Teleporter"))
+
+local STUDIO_TEXT = Teleporter.StudioText
 
 local PadService = {}
 
@@ -170,7 +172,8 @@ local function launch(pad: Pad)
 		local ok, message = launcher(team)
 		if not ok and pad.state == PadState.Launching then
 			local text = message or "Teleport failed — try again"
-			block(pad, text, if text == STUDIO_TEXT then Settings.BlockedSeconds else Settings.FailedSeconds)
+			local lasting = text == STUDIO_TEXT or text == Teleporter.MuseumNotFoundText -- само не пройдёт
+			block(pad, text, if lasting then Settings.BlockedSeconds else Settings.FailedSeconds)
 		end
 	end)
 end
