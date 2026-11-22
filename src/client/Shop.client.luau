@@ -349,7 +349,7 @@ local function personalState(card: Card, item: string): ButtonState
 			local weapon = (Config.Weapons :: any)[good.Weapon]
 			return { text = "NO " .. (if weapon then tostring(weapon.Title) else "WEAPON"), color = Colors.Gray, enabled = false, owned = false, dim = true }
 		end
-		return { text = "FULL", color = Colors.Green, enabled = false, owned = true, dim = false }
+		return { text = "FULL", color = Colors.Green, enabled = false, owned = false, dim = false }
 	end
 	if money() >= price then
 		return { text = ("%s $%d"):format(string.upper(action), price), color = Colors.Gold, enabled = true, owned = false, dim = false }
@@ -449,6 +449,8 @@ local function press(card: Card)
 		showMessage("Buy this exhibit first — Exhibits tab", Colors.Red)
 	elseif string.sub(state.text, 1, 3) == "NO " then
 		showMessage("Buy the weapon first", Colors.Red)
+	elseif state.text == "FULL" then
+		showMessage("You can't carry more", Colors.Gray)
 	else
 		local item = attrText(card, ShopAttr.Item)
 		local need = attrNumber(card, ShopAttr.Price) - (if item == "" then attrNumber(card, ShopAttr.Paid) else 0) - money()
