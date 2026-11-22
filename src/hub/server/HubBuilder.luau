@@ -620,6 +620,7 @@ function HubBuilder.build(): (Instance, { BasePart })
 		floorColor = colors.Wood,
 		floorMaterial = Enum.Material.WoodPlanks,
 		lampSpacing = 0,
+		ceilingColor = hex("2B3550"), -- тёмный потолок: светлый под потолочными лампами пересвечен
 	}, "Hub")
 
 	-- Игроки появляются у южной двери лицом к кругам (на север)

@@ -36,6 +36,8 @@
   - `Config.Raid.TestForce = true` — налёт каждую ночь с 1-й (для проверки).
 - **Блок 5 готов (код):** классы — `Config.Classes`, умения на сервере (`server/AbilityService.luau`, Remote `UseAbility`), кнопка умения, датчики и рывок на экране (`client/Abilities.client.luau`), собаки (`client/DogAnimator.luau`), карточки в лобби (`client/UI/ClassCards.luau`), модели собаки, датчика и картинок (`shared/ClassModels.luau`). Что решил Claude — пункт 28 в `CLAUDE.md`.
   - Для блока 6: класс — атрибут `Role` у игрока (выбор — `RoleService.canChooseClass`, Remote `SetRole`); в хабе карточки — тот же `ClassCards.new(gui, touchOnly, onChoose)`, класс передавать в `TeleportData` и ставить в музее до `startRound`. Здоровье по классу считает `GameState.maxHealthFor`.
+- **Блок 6 готов (код):** место Hub — `hub.project.json`, `src/hub/` (комната — `HubBuilder`, круги — `PadService`, доска рекордов — `LeaderboardService`, экран — `HubHUD.client`, таблички — `HubPads.client`). Общие модули: `server/Teleporter`, `server/RecordStore`, `server/Retry`, `server/Uniform`, `shared/TeleportTicket`. Музей: `server/HubLink` (команда и классы из хаба, кнопки Play again / Lobby). Что решил Claude — пункт 29 в `CLAUDE.md`. Файл хаба — `D:/Punhan/My files/museun/Hub.rbxl` (собирается `rojo build hub.project.json -o ...`).
+  - Владельцу после публикации: вписать `Config.Places.HubPlaceId` и `MuseumPlaceId`, включить API Services, Museum — 5 игроков на сервер, Hub — стартовое место.
 - Владелец поиграл и попросил переделать многое. Claude задал ~70 вопросов. Ответы разложены по блокам ниже, короткие решения — 65–72 в `CLAUDE.md`.
 - Свет: Roblox убрал `Lighting.Technology`, вместо него `LightingStyle` + `PrioritizeLightingQuality`. В `NightMuseum.rbxl` и `default.project.json` уже стоят `Realistic` + `true`.
 
@@ -46,7 +48,7 @@
 3. [x] Блок 3 — волны и умные воры
 4. [x] Блок 4 — оружие, перестрелки, налёты
 5. [x] Блок 5 — классы
-6. [ ] Блок 6 — общее лобби с телепортом (после публикации)
+6. [x] Блок 6 — общее лобби с телепортом (код готов; телепорт и доска рекордов заработают после публикации)
 7. Блок 7 — по желанию
 
 ---
@@ -317,6 +319,8 @@
 - Отсчёт кончился → `TeleportService:ReserveServer(museumPlaceId)` и `TeleportAsync` всей команды с `TeleportData = { classes }`. Музей читает `Player:GetJoinData()`.
 - Конец игры — кнопки **Play again** (та же команда, новый забег на этом же сервере) и **Lobby**. Ничего не нажал за 20 сек — в хаб.
 - Телепорт не работает в Studio — проверяет только владелец в опубликованной игре. Номера мест (placeId) владелец вписывает в `Config`.
+
+Коммиты: 6.1 хаб и круги → 6.2 телепорт и данные → 6.3 доска рекордов → 6.4 кнопки конца игры. Все сделаны (22.11).
 
 ---
 
