@@ -3,6 +3,8 @@
 -- ждёт всю команду (не дольше Config.GameOver.WaitTeamSeconds после первого) и сразу начинает забег —
 -- без круга START SHIFT. Свой игрок, который долетел позже, входит с ближайшего дня без голосования.
 -- Без данных хаба (Studio, неопубликованная игра, прямой вход) музей работает как раньше: свой круг и выбор класса.
+-- Конец забега: кнопки Play again (та же команда, новый забег на этом сервере) и Lobby (телепорт в хаб;
+-- если телепорта нет — в домик SECURITY). Ничего не нажал за Config.GameOver.ChoiceSeconds — в лобби.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,6 +14,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local TeleportTicket = require(Shared:WaitForChild("TeleportTicket"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Teleporter = require(script.Parent:WaitForChild("Teleporter"))
 
 local Attr = GameState.Attr
 local PlayerAttr = GameState.PlayerAttr
@@ -23,6 +27,13 @@ local checked: { [Player]: boolean } = {}
 local expected: { number } = {} -- UserId команды из хаба (по данным всех, кто уже прилетел)
 local firstArrival = 0 -- когда прилетел первый из команды
 local teamStarted = false -- команда из хаба уже начала забег: дальше Play again или круг START SHIFT
+
+-- Конец забега: кто выбирает и что выбрал
+local choosing = false
+local choosers: { Player } = {}
+local choices: { [Player]: string } = {}
+local sentToHub: { [Player]: boolean } = {}
+local lastNights = 0
 
 local function now(): number
 	return Workspace:GetServerTimeNow()
@@ -101,6 +112,87 @@ function HubLink.isLateTeammate(player: Player): boolean
 	return teamStarted and ticketOf(player) ~= nil
 end
 
+-- В лобби: в опубликованной игре — телепорт в хаб (с «Welcome back, N nights»), иначе остаются в музее —
+-- GameLoop.finishRun перенесёт их в домик SECURITY с кругом START SHIFT.
+local function sendToLobby(players: { Player })
+	if not Teleporter.canTeleport(Config.Places.HubPlaceId) then
+		return
+	end
+	local list = {}
+	for _, player in players do
+		if player.Parent and not sentToHub[player] then
+			sentToHub[player] = true
+			table.insert(list, player)
+		end
+	end
+	if #list == 0 then
+		return
+	end
+	task.spawn(function()
+		local ok, message = Teleporter.toPublic(Config.Places.HubPlaceId, list, TeleportTicket.packReturn(lastNights))
+		if not ok then
+			for _, player in list do
+				sentToHub[player] = nil
+				if player.Parent then
+					Remotes.get(Remotes.Names.Banner):FireClient(player, message or "Teleport failed — try again", "danger")
+				end
+			end
+		end
+	end)
+end
+
+local function onChoice(player: Player, choice: any)
+	if not choosing or not table.find(choosers, player) or choices[player] ~= nil then
+		return
+	end
+	if choice ~= "PlayAgain" and choice ~= "Lobby" then
+		return
+	end
+	choices[player] = choice
+	player:SetAttribute(PlayerAttr.EndChoice, choice)
+	if choice == "Lobby" then
+		sendToLobby({ player }) -- в хаб сразу, не ждём остальных
+	end
+end
+
+-- GameLoop: экран GAME OVER с кнопками. Ждёт, пока все выберут (или кончится время фазы итога),
+-- отправляет в лобби всех, кто не нажал Play again, и отдаёт тех, кто нажал: с ними — новый забег.
+function HubLink.runGameOverChoice(participants: { Player }, nights: number): { Player }
+	choosers = table.clone(participants)
+	table.clear(choices)
+	lastNights = nights
+	for _, player in choosers do
+		player:SetAttribute(PlayerAttr.EndChoice, "")
+	end
+	choosing = true
+	while GameState.secondsLeft() > 0 do
+		local waiting = false
+		for _, player in choosers do
+			if player.Parent and choices[player] == nil then
+				waiting = true
+			end
+		end
+		if not waiting then
+			break -- все выбрали (или ушли) — не ждём конца отсчёта
+		end
+		task.wait(Config.Phases.TickSeconds)
+	end
+	choosing = false
+	local again, rest = {}, {}
+	for _, player in choosers do
+		if player.Parent then
+			if choices[player] == "PlayAgain" then
+				table.insert(again, player)
+			else
+				table.insert(rest, player) -- нажал Lobby или ничего не нажал за 20 сек
+			end
+			player:SetAttribute(PlayerAttr.EndChoice, "")
+		end
+	end
+	sendToLobby(rest)
+	return again
+end
+
 local function onPlayerAdded(player: Player)
 	local ticket = ticketOf(player)
 	if not ticket then
@@ -119,6 +211,7 @@ end
 
 function HubLink.init()
 	GameState.set(Attr.HubArrival, false)
+	Remotes.get(Remotes.Names.GameOverChoice).OnServerEvent:Connect(onChoice)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	for _, player in Players:GetPlayers() do
 		onPlayerAdded(player)
@@ -126,6 +219,8 @@ function HubLink.init()
 	Players.PlayerRemoving:Connect(function(player)
 		tickets[player] = nil
 		checked[player] = nil
+		choices[player] = nil
+		sentToHub[player] = nil
 	end)
 end
 

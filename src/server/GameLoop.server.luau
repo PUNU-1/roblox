@@ -247,9 +247,12 @@ local function runNight(night: number): (boolean, boolean)
 	return survived, aborted
 end
 
-local function runResults(survived: boolean, night: number)
+-- Итог ночи. Конец забега (картину вынесли) — экран GAME OVER с кнопками Play again / Lobby (блок 6):
+-- возвращает тех, кто нажал Play again (с ними сразу новый забег), остальные идут в лобби.
+local function runResults(survived: boolean, night: number): { Player }
 	RoleService.closeAllViews()
-	setPhase(Phase.Results, Config.Phases.ResultsSeconds)
+	local gameOver = not survived
+	setPhase(Phase.Results, if gameOver then Config.GameOver.ChoiceSeconds else Config.Phases.ResultsSeconds)
 	local results = ScoreService.finish(survived)
 	local nightsSurvived = if survived then night else night - 1
 	if not survived then
@@ -267,10 +270,15 @@ local function runResults(survived: boolean, night: number)
 	results.nightsSurvived = nightsSurvived
 	results.best = bestNights
 	results.plans = WaveService.usedPlans() -- «Thieves used: …» — единственная подсказка о планах воров
+	results.choice = gameOver -- кнопки Play again / Lobby
 	resultsRemote:FireAllClients(results)
+	if gameOver then
+		return HubLink.runGameOverChoice(RoleService.participants(), nightsSurvived)
+	end
 	while GameState.secondsLeft() > 0 do
 		tick()
 	end
+	return {}
 end
 
 -- Конец забега: всех обратно в комнату охраны, музей с нуля.
@@ -300,8 +308,18 @@ local function finishRun()
 	GameState.set(Attr.NightNumber, 0)
 end
 
+local playAgain: { Player } = {} -- кто нажал Play again: с ними новый забег без лобби (блок 6)
 while true do
-	local team = runLobby()
+	local team: { Player } = {}
+	for _, player in playAgain do
+		if player.Parent then
+			table.insert(team, player)
+		end
+	end
+	playAgain = {}
+	if #team == 0 then
+		team = runLobby()
+	end
 	local participants = RoleService.startRound(team)
 	ScoreService.beginRun(participants)
 	VoteService.setRunActive(true)
@@ -315,8 +333,9 @@ while true do
 		if aborted then
 			break
 		end
-		runResults(survived, night)
+		local again = runResults(survived, night)
 		if not survived then
+			playAgain = again
 			break
 		end
 	end

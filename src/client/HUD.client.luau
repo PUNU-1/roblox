@@ -1,5 +1,6 @@
 -- Интерфейс игрока: лобби (карточки классов, команда в круге START SHIFT), верхняя строка (таймер, часы ночи),
--- деньги, крупные надписи и экран итога ночи. Клиент только показывает и шлёт намерения.
+-- деньги, крупные надписи и экран итога ночи; в конце забега — кнопки Play again / Lobby (блок 6).
+-- Клиент только показывает и шлёт намерения.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -185,6 +186,102 @@ local resultsFooter = Theme.label({
 
 local resultsGameOver = false
 
+---------------------------------------------------------------- конец забега: Play again / Lobby (блок 6)
+-- Кнопки под экраном GAME OVER. Пока они видны, курсор свободен (Modal), с клавиатуры — P и L.
+-- Выбор решает сервер (HubLink): Play again — новый забег той же командой, Lobby — в хаб (или в домик SECURITY).
+
+local choiceBar = Theme.new("Frame", {
+	Name = "GameOverChoice",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0.865, 0),
+	Size = UDim2.new(0.42, 0, 0, 56),
+	BackgroundTransparency = 1,
+	Visible = false,
+	ZIndex = 6,
+	Parent = resultsFrame,
+}, { Theme.new("UISizeConstraint", { MinSize = Vector2.new(320, 0) }) })
+local againButton = Theme.button({
+	Name = "PlayAgain",
+	Size = UDim2.new(0.49, 0, 1, 0),
+	BackgroundColor3 = Colors.Green,
+	Text = if touchOnly then "PLAY AGAIN" else "PLAY AGAIN  [P]",
+	Modal = true, -- курсор свободен, пока кнопки на экране
+	ZIndex = 6,
+	Parent = choiceBar,
+})
+local lobbyButton = Theme.button({
+	Name = "Lobby",
+	Position = UDim2.new(0.51, 0, 0, 0),
+	Size = UDim2.new(0.49, 0, 1, 0),
+	BackgroundColor3 = Colors.NavyLight,
+	Text = if touchOnly then "LOBBY" else "LOBBY  [L]",
+	ZIndex = 6,
+	Parent = choiceBar,
+})
+local againStroke = Theme.stroke(Colors.Gold, 3)
+againStroke.Enabled = false
+againStroke.Parent = againButton
+local lobbyStroke = Theme.stroke(Colors.Gold, 3)
+lobbyStroke.Enabled = false
+lobbyStroke.Parent = lobbyButton
+local choiceHint = Theme.label({
+	Position = UDim2.new(0, 0, 1, 6),
+	Size = UDim2.new(1, 0, 0, 22),
+	Font = Theme.BodyFont,
+	TextColor3 = Colors.Marble,
+	MaxTextSize = 18,
+	ZIndex = 6,
+	Parent = choiceBar,
+})
+local choiceOpen = false
+
+local function myChoice(): string
+	local value = localPlayer:GetAttribute(PlayerAttr.EndChoice)
+	return if typeof(value) == "string" then value else ""
+end
+
+local function chooseEnd(choice: string)
+	if not choiceOpen or myChoice() ~= "" then
+		return
+	end
+	Remotes.get(Remotes.Names.GameOverChoice):FireServer(choice)
+end
+
+againButton.Activated:Connect(function()
+	chooseEnd("PlayAgain")
+end)
+lobbyButton.Activated:Connect(function()
+	chooseEnd("Lobby")
+end)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed or not choiceOpen then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.P then
+		chooseEnd("PlayAgain")
+	elseif input.KeyCode == Enum.KeyCode.L then
+		chooseEnd("Lobby")
+	end
+end)
+
+local function refreshChoice()
+	local chosen = myChoice()
+	againStroke.Enabled = chosen == "PlayAgain"
+	lobbyStroke.Enabled = chosen == "Lobby"
+	local locked = chosen ~= ""
+	againButton.AutoButtonColor = not locked
+	lobbyButton.AutoButtonColor = not locked
+	againButton.BackgroundTransparency = if locked and chosen ~= "PlayAgain" then 0.6 else 0
+	lobbyButton.BackgroundTransparency = if locked and chosen ~= "Lobby" then 0.6 else 0
+	if chosen == "PlayAgain" then
+		choiceHint.Text = "Waiting for the others — a new run starts soon"
+	elseif chosen == "Lobby" then
+		choiceHint.Text = "Going to the lobby..."
+	else
+		choiceHint.Text = "Same team, new run — or back to the lobby"
+	end
+end
+
 local function showResults(results: { [string]: any })
 	for _, child in resultsList:GetChildren() do
 		if child:IsA("TextLabel") then
@@ -218,6 +315,12 @@ local function showResults(results: { [string]: any })
 		end
 	end
 	resultsPlans.Text = if #plans > 0 then "Thieves used: " .. table.concat(plans, ", ") else ""
+	-- Кнопки Play again / Lobby — только тем, кто был на смене
+	choiceOpen = results.choice == true and localPlayer:GetAttribute(PlayerAttr.InRound) == true
+	choiceBar.Visible = choiceOpen
+	if choiceOpen then
+		refreshChoice()
+	end
 
 	local earnings = if typeof(results.earnings) == "table" then results.earnings else {}
 	local catches = if typeof(results.catches) == "table" then results.catches else {}
@@ -407,11 +510,16 @@ RunService.Heartbeat:Connect(function(dt)
 
 	if phase == Phase.Results then
 		local left = Theme.formatTime(GameState.secondsLeft())
+		if choiceOpen then
+			refreshChoice()
+		end
 		resultsFooter.Text = if resultsGameOver
-			then "Back to the guard room in " .. left
+			then "Back to the lobby in " .. left
 			else ("Day %d starts in %s"):format((tonumber(GameState.get(Attr.NightNumber)) or 0) + 1, left)
 	elseif phase == Phase.Lobby or phase == Phase.Day then
 		-- Прячем итог только в лобби: событие с итогом может прийти чуть раньше смены фазы
 		resultsFrame.Visible = false
+		choiceOpen = false
+		choiceBar.Visible = false
 	end
 end)
