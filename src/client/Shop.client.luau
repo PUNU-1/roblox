@@ -460,6 +460,9 @@ end
 
 -- 3D-картинка: копия модели Preview, крутится вокруг своей середины по полу
 local function buildPicture(card: Card)
+	if card.model then
+		return
+	end
 	local preview = card.folder:FindFirstChild("Preview")
 	if not (preview and preview:IsA("PVInstance")) then
 		return
@@ -469,6 +472,10 @@ local function buildPicture(card: Card)
 	preview:Clone().Parent = container
 	container.WorldPivot = CFrame.identity
 	local boxCFrame, size = container:GetBoundingBox()
+	if size.Magnitude < 0.001 then
+		container:Destroy()
+		return
+	end
 	container.WorldPivot = CFrame.new(boxCFrame.Position.X, boxCFrame.Position.Y - size.Y / 2, boxCFrame.Position.Z)
 	container.Parent = card.viewport
 	local camera = card.viewport.CurrentCamera
@@ -627,6 +634,44 @@ local function addCard(category: string, folder: Instance)
 	}
 	cards[key] = card
 	buildPicture(card)
+	if not card.model then
+		local retryScheduled = false
+		local conn: RBXScriptConnection?
+		conn = folder.DescendantAdded:Connect(function()
+			if card.model then
+				if conn then
+					conn:Disconnect()
+					conn = nil
+				end
+				return
+			end
+			if retryScheduled then
+				return
+			end
+			retryScheduled = true
+			task.defer(function()
+				retryScheduled = false
+				if not folder.Parent or card.model then
+					if conn then
+						conn:Disconnect()
+						conn = nil
+					end
+					return
+				end
+				buildPicture(card)
+				if card.model and conn then
+					conn:Disconnect()
+					conn = nil
+				end
+			end)
+		end)
+		folder.Destroying:Once(function()
+			if conn then
+				conn:Disconnect()
+				conn = nil
+			end
+		end)
+	end
 	button.Activated:Connect(function()
 		press(card)
 	end)

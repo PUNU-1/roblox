@@ -10,6 +10,7 @@
 -- карточках; собака сидит и машет хвостом) и пишет на табличке над ней название и цену или OWNED — у каждого своё.
 -- Модуль один на клиента: его берут HubHUD (кнопка SHOP, клавиша B, серые карточки) и он сам (кнопки F витрины).
 
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -60,6 +61,7 @@ local overlay = Theme.new("Frame", {
 	Size = UDim2.fromScale(1, 1),
 	BackgroundColor3 = Colors.Dark,
 	BackgroundTransparency = 0.35,
+	Active = true,
 	Visible = false,
 	Parent = gui,
 })
@@ -70,6 +72,7 @@ local panel = Theme.new("Frame", {
 	Position = UDim2.fromScale(0.5, 0.5),
 	Size = UDim2.fromOffset(PANEL_W, PANEL_H),
 	BackgroundColor3 = Colors.Navy,
+	Active = true,
 	ClipsDescendants = true,
 	Parent = overlay,
 }, {
@@ -340,6 +343,7 @@ local confirm = Theme.new("Frame", {
 	Size = UDim2.fromScale(1, 1),
 	BackgroundColor3 = Colors.Dark,
 	BackgroundTransparency = 0.3,
+	Active = true,
 	Visible = false,
 	ZIndex = 20,
 	Parent = panel,
@@ -349,6 +353,7 @@ local confirmBox = Theme.new("Frame", {
 	Position = UDim2.fromScale(0.5, 0.5),
 	Size = UDim2.fromOffset(460, 210),
 	BackgroundColor3 = Colors.Navy,
+	Active = true,
 	ZIndex = 20,
 	Parent = confirm,
 }, { Theme.corner(18), Theme.stroke(Colors.Gold, 3) })
@@ -570,6 +575,9 @@ function ClassShop.open(role: string?)
 end
 
 function ClassShop.close()
+	if not openFlag then
+		return
+	end
 	openFlag = false
 	overlay.Visible = false
 	confirmClose()
@@ -585,6 +593,7 @@ function ClassShop.toggle()
 end
 
 closeButton.Activated:Connect(ClassShop.close)
+GuiService.MenuOpened:Connect(ClassShop.close)
 
 for _, name in { PlayerAttr.Diamonds, PlayerAttr.OwnedClasses, PlayerAttr.ProfileStatus } do
 	localPlayer:GetAttributeChangedSignal(name):Connect(function()
@@ -676,7 +685,7 @@ local function buildDisplay(stand: Instance)
 		Parent = surface,
 	})
 
-	local prompt = top:FindFirstChild("ShopPrompt")
+	local prompt = top:WaitForChild("ShopPrompt", 10)
 	if prompt and prompt:IsA("ProximityPrompt") then
 		prompt.Triggered:Connect(function()
 			ClassShop.open(role)

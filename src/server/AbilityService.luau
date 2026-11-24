@@ -173,6 +173,15 @@ local function removeSensors()
 	table.clear(sensors)
 end
 
+local function hasSensor(player: Player): boolean
+	for _, sensor in sensors do
+		if sensor.owner == player then
+			return true
+		end
+	end
+	return false
+end
+
 -- G: датчик встаёт на пол на PlaceReach перед ногами (если там стена — прямо под ногами).
 -- Ставить можно днём и ночью, SensorsPerNight раз за ночь; утром датчики убираются.
 handlers.Sensor = function(player: Player, info: { [string]: any })
@@ -417,6 +426,15 @@ function AbilityService.init(builtMap: Instance)
 			-- Выбрал Dog Handler — собака появляется, сменил класс — исчезает
 			player:GetAttributeChangedSignal(PlayerAttr.Role):Connect(function()
 				refreshDog(player)
+				if
+					onShiftPhase()
+					and RoleService.isParticipant(player)
+					and GameState.roleOf(player) == GameState.Role.Technician
+					and not hasSensor(player)
+					and (tonumber(player:GetAttribute(PlayerAttr.AbilityCharges)) or 0) <= 0
+				then
+					player:SetAttribute(PlayerAttr.AbilityCharges, Classes.Technician.SensorsPerNight)
+				end
 			end),
 		}
 		refreshDog(player)

@@ -356,6 +356,13 @@ local function onPlayerAdded(player: Player)
 		player:GetAttributeChangedSignal(PlayerAttr.Role):Connect(function()
 			if not RoleService.isParticipant(player) then
 				resetPlayer(player)
+			elseif GameState.phase() == GameState.Phase.Day then
+				local oldMax = HealthService.maxHealth(player)
+				local max = GameState.maxHealthFor(player)
+				player:SetAttribute(PlayerAttr.MaxHealth, max)
+				if max > oldMax and not RoleService.isDowned(player) then
+					player:SetAttribute(PlayerAttr.Health, math.min(max, HealthService.health(player) + (max - oldMax)))
+				end
 			end
 		end),
 		-- Новый персонаж, а охранник всё ещё лежит — кнопка Revive на новом персонаже

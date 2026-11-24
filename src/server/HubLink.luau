@@ -26,6 +26,7 @@ local HubLink = {}
 
 local tickets: { [Player]: TeleportTicket.Ticket } = {}
 local checked: { [Player]: boolean } = {}
+local roleReady: { [Player]: boolean } = {}
 local expected: { number } = {} -- UserId команды из хаба (по данным всех, кто уже прилетел)
 local firstArrival = 0 -- когда прилетел первый из команды
 local teamStarted = false -- команда из хаба уже начала забег: дальше Play again или круг START SHIFT
@@ -89,6 +90,15 @@ local function allSpawned(team: { Player }): boolean
 	return true
 end
 
+local function allRolesReady(team: { Player }): boolean
+	for _, player in team do
+		if roleReady[player] ~= true then
+			return false
+		end
+	end
+	return true
+end
+
 -- Прилетела команда из хаба, а забег с ней ещё не начат: круг START SHIFT не нужен.
 function HubLink.teamPending(): boolean
 	return not teamStarted and #expected > 0
@@ -104,7 +114,7 @@ function HubLink.waitForTeam(): { Player }
 		team = arrivedTeam()
 		GameState.set(Attr.HubArrived, #team)
 		GameState.set(Attr.HubExpected, #expected)
-		if (#team >= #expected and allSpawned(team)) or now() >= firstArrival + Config.GameOver.WaitTeamSeconds then
+		if (#team >= #expected and allSpawned(team) and allRolesReady(team)) or now() >= firstArrival + Config.GameOver.WaitTeamSeconds then
 			break
 		end
 		task.wait(Config.Phases.TickSeconds)
@@ -204,6 +214,9 @@ end
 local function onPlayerAdded(player: Player)
 	local ticket = ticketOf(player)
 	if not ticket then
+		if player.Parent then
+			roleReady[player] = true
+		end
 		return
 	end
 	-- Класс из хаба. RoleService ставит новому игроку класс по умолчанию — свой ставим следом.
@@ -218,6 +231,9 @@ local function onPlayerAdded(player: Player)
 			warn(("[HubLink] %s прилетел с классом %s, но не купил его — Patrol"):format(player.Name, tostring(role)))
 		end
 	end
+	if player.Parent then
+		roleReady[player] = true
+	end
 end
 
 function HubLink.init()
@@ -231,6 +247,7 @@ function HubLink.init()
 	Players.PlayerRemoving:Connect(function(player)
 		tickets[player] = nil
 		checked[player] = nil
+		roleReady[player] = nil
 		choices[player] = nil
 		sentToHub[player] = nil
 	end)
