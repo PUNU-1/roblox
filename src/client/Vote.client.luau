@@ -8,6 +8,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
 
@@ -92,11 +93,22 @@ Remotes.get(Remotes.Names.VoteRequest).OnClientEvent:Connect(function(id, name, 
 	if typeof(id) ~= "number" or typeof(name) ~= "string" or typeof(seconds) ~= "number" then
 		return
 	end
+	if id == 0 or seconds <= 0 then
+		hidePanel()
+		return
+	end
 	currentId = id
 	endsAt = os.clock() + seconds
 	question.Text = ("Let %s join the team?"):format(name)
 	panel.Visible = true
 	ContextActionService:BindAction(VOTE_ACTION, onVoteKey, false, Enum.KeyCode.Y, Enum.KeyCode.N)
+end)
+
+GameState.folder():GetAttributeChangedSignal(GameState.Attr.Phase):Connect(function()
+	local phase = GameState.phase()
+	if phase == GameState.Phase.Lobby or phase == GameState.Phase.Results then
+		hidePanel()
+	end
 end)
 
 RunService.Heartbeat:Connect(function()

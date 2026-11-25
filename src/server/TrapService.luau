@@ -195,6 +195,13 @@ local function slowAndHighlight(thief: Model)
 	end)
 end
 
+local INACTIVE_STATES = {
+	[GameState.ThiefAnim.Stunned] = true,
+	[GameState.ThiefAnim.Surrender] = true,
+	[GameState.ThiefAnim.Knockout] = true,
+	[GameState.ThiefAnim.Arrest] = true,
+}
+
 local function checkGrids()
 	local thievesFolder = Workspace:FindFirstChild(MapSchema.Thieves)
 	if not thievesFolder then
@@ -208,7 +215,15 @@ local function checkGrids()
 			local tripped = false
 			for _, thief in thievesFolder:GetChildren() do
 				local root = thief:FindFirstChild("HumanoidRootPart")
-				if thief:IsA("Model") and root and root:IsA("BasePart") and not root.Anchored then
+				local animState = thief:GetAttribute(GameState.NpcAttr.AnimState)
+				if
+					thief:IsA("Model")
+					and root
+					and root:IsA("BasePart")
+					and not root.Anchored
+					and thief:GetAttribute(GameState.ThiefAttr.Surrendered) ~= true
+					and not INACTIVE_STATES[animState]
+				then
 					local offset = root.Position - grid.center
 					if Vector3.new(offset.X, 0, offset.Z).Magnitude < radius then
 						slowAndHighlight(thief)

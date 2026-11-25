@@ -87,9 +87,10 @@ local function openHall(door: Door)
 			}):Play()
 		end
 	end
+	local fallingModel = door.model
 	task.delay(HallConfig.BoardsFallSeconds, function()
-		if door.model.Parent then
-			door.model.Parent = nil -- храним до нового забега (reset)
+		if fallingModel.Parent and door.model == fallingModel then
+			fallingModel.Parent = nil -- храним до нового забега (reset)
 		end
 	end)
 end

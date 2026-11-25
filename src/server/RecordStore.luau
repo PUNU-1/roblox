@@ -17,6 +17,17 @@ local WEEK_SECONDS = 7 * 24 * 60 * 60
 local DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz"
 
 local RecordStore = {}
+local inflight = 0
+
+if not RunService:IsStudio() then
+	game:BindToClose(function()
+		local deadline = os.clock() + Config.Diamonds.CloseWaitSeconds
+		task.wait(0.1)
+		while inflight > 0 and os.clock() < deadline do
+			task.wait(0.2)
+		end
+	end)
+end
 
 export type Entry = {
 	key: string,
@@ -102,7 +113,15 @@ end
 
 -- То же, но не ждём ответа (игровой цикл не стоит, пока DataStore отвечает).
 function RecordStore.submitAsync(userIds: { number }, nights: number)
-	task.spawn(RecordStore.submit, table.clone(userIds), nights)
+	if #userIds == 0 or nights < Settings.MinNights or RunService:IsStudio() then
+		return
+	end
+	inflight += 1
+	local copy = table.clone(userIds)
+	task.spawn(function()
+		pcall(RecordStore.submit, copy, nights)
+		inflight -= 1
+	end)
 end
 
 -- Хаб: лучшие команды. scope — "AllTime" или "Weekly". nil и текст ошибки — хранилище недоступно

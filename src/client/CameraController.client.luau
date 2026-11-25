@@ -56,6 +56,9 @@ pcall(function()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
 end)
 
+if not game:IsLoaded() then
+	game.Loaded:Wait()
+end
 local map = Workspace:WaitForChild(MapSchema.Root)
 local cameraPointsFolder = map:WaitForChild(MapSchema.CameraPoints)
 
@@ -240,7 +243,7 @@ local closeButton = Theme.button({
 local hallFloors: { BasePart } = {}
 local hallCenter, hallSize = Vector3.zero, Vector3.new(100, 1, 70)
 do
-	local geometry = map:FindFirstChild(MapSchema.Geometry)
+	local geometry = map:WaitForChild(MapSchema.Geometry, 30)
 	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
 	if geometry then
 		for _, part in geometry:GetChildren() do
@@ -480,7 +483,13 @@ local function applyColorMode()
 	Lighting.ExposureCompensation = if viewing and isNight() then Config.Cameras.NightExposure else 0
 end
 
+local staticConnection: RBXScriptConnection? = nil
+
 local function playStatic()
+	if staticConnection then
+		staticConnection:Disconnect()
+		staticConnection = nil
+	end
 	staticFrame.Visible = true
 	local started = os.clock()
 	local connection: RBXScriptConnection
@@ -488,6 +497,9 @@ local function playStatic()
 		if os.clock() - started >= Config.Cameras.StaticSeconds then
 			staticFrame.Visible = false
 			connection:Disconnect()
+			if staticConnection == connection then
+				staticConnection = nil
+			end
 			return
 		end
 		staticFrame.BackgroundColor3 = Color3.fromRGB(math.random(40, 110), math.random(40, 110), math.random(40, 110))
@@ -495,6 +507,7 @@ local function playStatic()
 			bar.Position = UDim2.fromScale(0, math.random())
 		end
 	end)
+	staticConnection = connection
 end
 
 local function showCamera(index: number)
@@ -796,6 +809,11 @@ end
 local function closeView()
 	viewing = false
 	gui.Enabled = false
+	staticFrame.Visible = false
+	if staticConnection then
+		staticConnection:Disconnect()
+		staticConnection = nil
+	end
 	ContextActionService:UnbindAction(SWITCH_ACTION)
 	if renderConnection then
 		renderConnection:Disconnect()

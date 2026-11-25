@@ -267,6 +267,7 @@ local nightProps: { Instance } = {} -- дыры, тренога, верёвка:
 local skylight: BasePart? = nil
 local skylightCut: BasePart? = nil -- стекло с дырой (вместо целого)
 local skylightTransparency = 0.6
+local nightGeneration = 0
 
 local function remember(instance: Instance): Instance
 	table.insert(nightProps, instance)
@@ -428,6 +429,7 @@ export type Cut = {
 	radius: number,
 	segments: { BasePart }, -- светящийся след стеклореза
 	union: BasePart?, -- стекло с дырой (считается заранее, пока он режет)
+	finished: boolean,
 	pulley: Vector3, -- блок треноги: верх верёвки
 	rope: BasePart?,
 }
@@ -449,6 +451,22 @@ function HeistFx.skylightPoint(position: Vector3, margin: number): Vector3?
 	return glass.CFrame:PointToWorldSpace(clamped)
 end
 
+local function applySkylightUnion(union: BasePart)
+	local glass = skylight
+	if not glass or not glass.Parent then
+		union:Destroy()
+		return
+	end
+	if skylightCut then
+		skylightCut:Destroy()
+	end
+	union.Parent = glass.Parent
+	skylightCut = union
+	glass.Transparency = 1
+	glass.CanCollide = false
+	glass.CanQuery = false
+end
+
 -- Стекольщик начал резать: по стеклу пойдёт светящийся круг; стекло с дырой считаем заранее.
 function HeistFx.startCut(center: Vector3, radius: number): Cut
 	local segments = {}
@@ -462,27 +480,34 @@ function HeistFx.startCut(center: Vector3, radius: number): Cut
 		remember(segment)
 		table.insert(segments, segment)
 	end
-	local cut: Cut = { center = center, radius = radius, segments = segments, union = nil, pulley = center + Vector3.new(0, Heist.PulleyHeight, 0), rope = nil }
-	local glass = skylight
-	if glass then
+	local cut: Cut = { center = center, radius = radius, segments = segments, union = nil, finished = false, pulley = center + Vector3.new(0, Heist.PulleyHeight, 0), rope = nil }
+	local source = skylightCut or skylight
+	if source then
+		local gen = nightGeneration
 		task.spawn(function()
 			local cutter = Instance.new("Part")
 			cutter.Shape = Enum.PartType.Cylinder
-			cutter.Size = Vector3.new(glass.Size.Y + 2, radius * 2, radius * 2)
-			cutter.CFrame = CFrame.new(center.X, glass.Position.Y, center.Z) * CFrame.Angles(0, 0, math.pi / 2)
+			cutter.Size = Vector3.new(source.Size.Y + 2, radius * 2, radius * 2)
+			cutter.CFrame = CFrame.new(center.X, source.Position.Y, center.Z) * CFrame.Angles(0, 0, math.pi / 2)
 			local ok, result = pcall(function()
-				return glass:SubtractAsync({ cutter })
+				return source:SubtractAsync({ cutter })
 			end)
 			cutter:Destroy()
 			if ok and result then
 				result.Name = "SkylightCut"
 				result.Anchored = true
 				result.UsePartColor = true
-				result.Color = glass.Color
-				result.Material = glass.Material
-				result.Transparency = glass.Transparency
+				result.Color = source.Color
+				result.Material = source.Material
+				result.Transparency = skylightTransparency
 				result.CastShadow = false
-				cut.union = result
+				if gen ~= nightGeneration then
+					result:Destroy()
+				elseif cut.finished then
+					applySkylightUnion(result)
+				else
+					cut.union = result
+				end
 			else
 				warn("[HeistFx] Не получилось вырезать дыру в стекле:", result)
 			end
@@ -501,6 +526,7 @@ end
 
 -- Круг прорезан: в стекле дыра, стеклянный диск отложен в сторону, над дырой тренога с блоком.
 function HeistFx.finishCut(cut: Cut)
+	cut.finished = true
 	for _, segment in cut.segments do
 		segment.Transparency = 0
 		segment.Color = Color3.fromHex("8C9AA6") -- край дыры
@@ -508,13 +534,9 @@ function HeistFx.finishCut(cut: Cut)
 	end
 	local glass = skylight
 	if glass then
-		local union = cut.union
-		if union and not skylightCut then
-			union.Parent = glass.Parent
-			skylightCut = union
-			glass.Transparency = 1
-			glass.CanCollide = false
-			glass.CanQuery = false
+		if cut.union then
+			applySkylightUnion(cut.union)
+			cut.union = nil
 		end
 		-- Вырезанный диск: приподнят и лежит на стекле рядом с дырой
 		local disc = decor("GlassDisc", Vector3.new(glass.Size.Y, cut.radius * 2, cut.radius * 2), CFrame.new(cut.center + Vector3.new(cut.radius * 2 + 1.4, 0.2, 0)) * CFrame.Angles(0.1, 0, math.pi / 2), glass.Color, Enum.Material.Glass, Workspace)
@@ -627,6 +649,7 @@ function HeistFx.stunEffect(model: Model, seconds: number)
 end
 
 function HeistFx.resetForDay()
+	nightGeneration += 1
 	for _, case in cases do
 		restoreCase(case)
 	end

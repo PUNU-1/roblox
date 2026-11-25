@@ -25,6 +25,7 @@ type Vote = {
 
 local runActive = false
 local autoApprove: ((Player) -> boolean)? = nil -- блок 6: своего из команды хаба пускаем без голосования
+local ignoreJoiner: ((Player) -> boolean)? = nil
 local queue: { Player } = {}
 local current: Vote? = nil
 local nextId = 0
@@ -45,11 +46,21 @@ end
 
 local startNext: () -> ()
 
+local function cancelVote(vote: Vote)
+	local remote = Remotes.get(Remotes.Names.VoteRequest)
+	for _, voter in vote.voters do
+		if voter.Parent then
+			remote:FireClient(voter, 0, "", 0)
+		end
+	end
+end
+
 local function finish(vote: Vote)
 	if current ~= vote then
 		return
 	end
 	current = nil
+	cancelVote(vote)
 	local yes = 0
 	for _, voter in vote.voters do
 		if vote.answers[voter] == true then
@@ -59,12 +70,17 @@ local function finish(vote: Vote)
 	local candidate = vote.candidate
 	if candidate.Parent then
 		-- «Да» от половины или больше
-		local approved = yes * 2 >= #vote.voters
-		setStatus(candidate, if approved then "Approved" else "Rejected")
-		local text = if approved
-			then ("%s WILL JOIN TOMORROW"):format(string.upper(candidate.DisplayName))
-			else ("%s WAS NOT LET IN"):format(string.upper(candidate.DisplayName))
-		Remotes.get(Remotes.Names.Banner):FireAllClients(text, "info")
+		local enough = #vote.voters > 0 and yes * 2 >= #vote.voters
+		if enough and full() then
+			setStatus(candidate, "Full")
+			Remotes.get(Remotes.Names.Banner):FireAllClients("THE TEAM IS FULL", "info")
+		else
+			setStatus(candidate, if enough then "Approved" else "Rejected")
+			local text = if enough
+				then ("%s WILL JOIN TOMORROW"):format(string.upper(candidate.DisplayName))
+				else ("%s WAS NOT LET IN"):format(string.upper(candidate.DisplayName))
+			Remotes.get(Remotes.Names.Banner):FireAllClients(text, "info")
+		end
 	end
 	startNext()
 end
@@ -124,12 +140,15 @@ function VoteService.setRunActive(active: boolean)
 		-- Кто остался в комнате охраны при старте (больше 5 игроков), тоже в очереди:
 		-- увидит «команда полная», а если кто-то уйдёт — команда проголосует за него
 		for _, player in Players:GetPlayers() do
-			if not RoleService.isParticipant(player) and not table.find(queue, player) then
+			if not RoleService.isParticipant(player) and not (ignoreJoiner and ignoreJoiner(player)) and not table.find(queue, player) then
 				table.insert(queue, player)
 			end
 		end
 		startNext()
 	else
+		if current then
+			cancelVote(current)
+		end
 		current = nil
 		table.clear(queue)
 		for _, player in Players:GetPlayers() do
@@ -156,6 +175,10 @@ function VoteService.setAutoApprove(check: (Player) -> boolean)
 	autoApprove = check
 end
 
+function VoteService.setIgnoreJoiner(check: (Player) -> boolean)
+	ignoreJoiner = check
+end
+
 function VoteService.init()
 	Remotes.get(Remotes.Names.VoteCast).OnServerEvent:Connect(onVote)
 	Players.PlayerAdded:Connect(function(player)
@@ -178,11 +201,30 @@ function VoteService.init()
 		end
 		local vote = current
 		if vote and vote.candidate == player then
+			cancelVote(vote)
 			current = nil
 			startNext()
+		elseif vote then
+			local voterIndex = table.find(vote.voters, player)
+			if voterIndex then
+				table.remove(vote.voters, voterIndex)
+				vote.answers[player] = nil
+				if #vote.voters == 0 then
+					current = nil
+					startNext()
+				else
+					local answered = 0
+					for _ in vote.answers do
+						answered += 1
+					end
+					if answered >= #vote.voters then
+						finish(vote)
+					end
+				end
+			end
 		end
 		-- Из команды ушёл игрок — освободилось место: голосуем за тех, кому сказали «команда полная»
-		if runActive and RoleService.isParticipant(player) then
+		if runActive and (RoleService.isParticipant(player) or player:GetAttribute(GameState.PlayerAttr.JoinStatus) == "Approved") then
 			task.defer(function()
 				for _, waiting in Players:GetPlayers() do
 					if waiting:GetAttribute(GameState.PlayerAttr.JoinStatus) == "Full" and not table.find(queue, waiting) then

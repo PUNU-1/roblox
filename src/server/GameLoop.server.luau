@@ -78,6 +78,7 @@ DoorService.init(map)
 VoteService.init()
 HubLink.init() -- блок 6: команда и классы из хаба
 VoteService.setAutoApprove(HubLink.isLateTeammate)
+VoteService.setIgnoreJoiner(HubLink.isLeaving)
 
 -- Что смотрят туристы: Мону Лизу и купленные экспонаты в открытых залах.
 TouristService.setAttractions(ExhibitService.attractions)

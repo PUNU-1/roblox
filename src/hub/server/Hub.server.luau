@@ -52,6 +52,7 @@ end)
 
 -- Кто-то не улетел (Roblox отказал уже после отправки) — он остаётся в хабе и видит надпись
 Teleporter.onFailed(function(player: Player, message: string)
+	PadService.cancelLaunch(player)
 	bannerRemote:FireClient(player, message, "danger")
 end)
 
@@ -86,6 +87,9 @@ end
 Players.PlayerAdded:Connect(onPlayerAdded)
 for _, player in Players:GetPlayers() do
 	onPlayerAdded(player)
+	if player.Character and player:HasAppearanceLoaded() then
+		Uniform.apply(player.Character)
+	end
 end
 Players.PlayerRemoving:Connect(function(player)
 	local connection = connections[player]

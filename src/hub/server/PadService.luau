@@ -33,6 +33,7 @@ type Pad = {
 	endsAt: number, -- когда кончится отсчёт; 0 — отсчёта нет
 	state: string, -- GameState.PadState
 	stateUntil: number, -- Blocked — до какого времени висит надпись; Launching — когда сдаться и открыть круг
+	launchToken: number,
 	message: string,
 }
 
@@ -166,6 +167,8 @@ end
 
 -- Отсчёт кончился: команда улетает. Пока летит, в круг никто не входит и класс не меняется.
 local function launch(pad: Pad)
+	pad.launchToken += 1
+	local token = pad.launchToken
 	pad.state = PadState.Launching
 	pad.message = "Teleporting to the museum..."
 	pad.stateUntil = now() + Settings.LaunchTimeout
@@ -173,7 +176,7 @@ local function launch(pad: Pad)
 	local team = table.clone(pad.members)
 	task.spawn(function()
 		local ok, message = launcher(team)
-		if not ok and pad.state == PadState.Launching then
+		if not ok and pad.state == PadState.Launching and pad.launchToken == token then
 			local text = message or "Teleport failed — try again"
 			local lasting = text == STUDIO_TEXT or text == Teleporter.MuseumNotFoundText -- само не пройдёт
 			block(pad, text, if lasting then Settings.BlockedSeconds else Settings.FailedSeconds)
@@ -249,6 +252,22 @@ function PadService.isLaunching(player: Player): boolean
 	return pad ~= nil and pad.state == PadState.Launching
 end
 
+function PadService.cancelLaunch(player: Player)
+	local pad = padOfPlayer(player)
+	if not pad or pad.state ~= PadState.Launching then
+		return
+	end
+	local index = table.find(pad.members, player)
+	if index then
+		table.remove(pad.members, index)
+	end
+	setPlayerPad(player, 0)
+	if #pad.members == 0 then
+		reopen(pad)
+	end
+	publish(pad)
+end
+
 -- Hub.server: чем отправлять команду (телепорт в музей).
 function PadService.setLauncher(fn: Launcher)
 	launcher = fn
@@ -282,6 +301,7 @@ function PadService.init(parts: { BasePart })
 			endsAt = 0,
 			state = PadState.Open,
 			stateUntil = 0,
+			launchToken = 0,
 			message = "",
 		}
 		table.insert(pads, pad)

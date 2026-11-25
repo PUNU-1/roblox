@@ -92,11 +92,11 @@ end
 
 -- Запросы к DataStore одного игрока идут по очереди: начисление не перебьёт покупку.
 local function lock(profile: Profile)
+	inflight += 1
 	while profile.busy do
 		task.wait(0.1)
 	end
 	profile.busy = true
-	inflight += 1
 end
 
 local function unlock(profile: Profile)

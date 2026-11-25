@@ -13,6 +13,9 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 
 local DoorAttr = GameState.DoorAttr
 
+if not game:IsLoaded() then
+	game.Loaded:Wait()
+end
 local map = Workspace:WaitForChild(MapSchema.Root)
 local doorsFolder = map:WaitForChild(MapSchema.Doors, 60)
 
@@ -27,18 +30,21 @@ local function setupDoor(door: Instance)
 		return
 	end
 	local leaves: { Leaf } = {}
-	for _, child in door:GetChildren() do
-		local slide = child:GetAttribute(DoorAttr.SlideX)
-		if child:IsA("PVInstance") and typeof(slide) == "number" then
-			table.insert(leaves, { model = child, closed = child:GetPivot(), slide = slide })
-		end
-	end
-	if #leaves == 0 then
-		return
-	end
-
 	local progress = Instance.new("NumberValue") -- 0 — закрыта, 1 — открыта
 	progress.Value = if door:GetAttribute(DoorAttr.Open) == true then 1 else 0
+	local function addLeaf(child: Instance)
+		local slide = child:GetAttribute(DoorAttr.SlideX)
+		if child:IsA("PVInstance") and typeof(slide) == "number" then
+			local leaf: Leaf = { model = child, closed = child:GetPivot(), slide = slide }
+			table.insert(leaves, leaf)
+			leaf.model:PivotTo(leaf.closed * CFrame.new(leaf.slide * progress.Value, 0, 0))
+		end
+	end
+	for _, child in door:GetChildren() do
+		addLeaf(child)
+	end
+	local childAdded = door.ChildAdded:Connect(addLeaf)
+
 	local function apply()
 		for _, leaf in leaves do
 			leaf.model:PivotTo(leaf.closed * CFrame.new(leaf.slide * progress.Value, 0, 0))
@@ -60,6 +66,7 @@ local function setupDoor(door: Instance)
 	end
 	local changed = door:GetAttributeChangedSignal(DoorAttr.Open):Connect(onOpenChanged)
 	door.Destroying:Connect(function()
+		childAdded:Disconnect()
 		changed:Disconnect()
 		if tween then
 			tween:Cancel()

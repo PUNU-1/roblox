@@ -48,6 +48,8 @@ type Pose = { [string]: CFrame }
 -- Состояние одного персонажа: суставы, наша поза поверх анимации и её вес по каждому суставу.
 type Rig = {
 	joints: { [string]: Joint },
+	jointCount: number,
+	lastScan: number,
 	current: Pose, -- наша поза (плавно догоняет нужную)
 	weights: { [string]: number }, -- 0 — сустав двигает обычная анимация, 1 — наша поза
 	phase: number, -- шаг (ползёт, идёт присев)
@@ -299,8 +301,17 @@ local function poseFor(player: Player, character: Model, rig: Rig, clock: number
 	return standingPose(player, character, rig, clock), 0.2
 end
 
+local function countKeys(t: { [string]: Joint }): number
+	local count = 0
+	for _ in t do
+		count += 1
+	end
+	return count
+end
+
 local function newRig(character: Model): Rig
-	return { joints = findJoints(character), current = {}, weights = {}, phase = 0, lastPosition = nil, speed = 0 }
+	local joints = findJoints(character)
+	return { joints = joints, jointCount = countKeys(joints), lastScan = os.clock(), current = {}, weights = {}, phase = 0, lastPosition = nil, speed = 0 }
 end
 
 local function step(dt: number)
@@ -330,9 +341,16 @@ local function step(dt: number)
 		local pose, fade = poseFor(player, character, rig, clock)
 		-- Плавно: наш вес по каждому суставу растёт к 1 (поза есть) или падает к 0 (обычная анимация)
 		local weightBlend = 1 - math.exp(-dt / math.max(0.05, fade) * 3)
+		if rig.jointCount < #JOINTS and os.clock() - rig.lastScan >= 0.5 then
+			rig.joints = findJoints(character)
+			rig.jointCount = countKeys(rig.joints)
+			rig.lastScan = os.clock()
+		end
 		for name, joint in rig.joints do
 			if not joint.Parent then
 				rig.joints = findJoints(character) -- Roblox пересобрал суставы
+				rig.jointCount = countKeys(rig.joints)
+				rig.lastScan = os.clock()
 				break
 			end
 			local target = pose and pose[name]

@@ -92,7 +92,12 @@ function Teleporter.onFailed(callback: (player: Player, message: string) -> ())
 		if retryable and count < Places.TeleportRetries and options then
 			task.delay(Places.RetryDelay, function()
 				if player.Parent then
-					pcall(TeleportService.TeleportAsync, TeleportService, placeId, { player }, options)
+					local ok, err = pcall(TeleportService.TeleportAsync, TeleportService, placeId, { player }, options)
+					if not ok then
+						failures[player] = nil
+						warn(("[Teleporter] %s не улетел: %s"):format(player.Name, tostring(err)))
+						callback(player, "Teleport failed — try again")
+					end
 				end
 			end)
 			return

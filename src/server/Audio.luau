@@ -39,13 +39,11 @@ function Audio.playOnce(id: string, parent: Instance?, volume: number?, maxSecon
 		sound:Destroy()
 	end)
 	sound:Play()
-	if maxSeconds then
-		task.delay(maxSeconds, function()
-			if sound.Parent then
-				sound:Destroy()
-			end
-		end)
-	end
+	task.delay(maxSeconds or 15, function()
+		if sound.Parent then
+			sound:Destroy()
+		end
+	end)
 end
 
 -- Сирена на весь музей (кража, лазерная сетка, сигнализация на Моне Лизе).

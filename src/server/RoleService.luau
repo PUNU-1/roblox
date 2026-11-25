@@ -231,7 +231,7 @@ function RoleService.knockDown(player: Player, seconds: number): boolean
 	RoleService.setViewing(player, false)
 	refreshMovement(player)
 	addStars(player, seconds)
-	task.delay(seconds, function()
+	task.delay(seconds + 0.05, function()
 		if player.Parent and not RoleService.isKnocked(player) then
 			refreshMovement(player)
 		end
@@ -424,6 +424,9 @@ function RoleService.init(builtMap: Instance)
 		onPlayerAdded(player)
 		if player.Character then
 			onCharacterAdded(player, player.Character)
+			if player:HasAppearanceLoaded() then
+				Uniform.apply(player.Character)
+			end
 		end
 	end
 end

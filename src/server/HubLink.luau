@@ -129,6 +129,10 @@ function HubLink.isLateTeammate(player: Player): boolean
 	return teamStarted and ticketOf(player) ~= nil
 end
 
+function HubLink.isLeaving(player: Player): boolean
+	return sentToHub[player] == true
+end
+
 -- В лобби: в опубликованной игре — телепорт в хаб (с «Welcome back, N nights»), иначе остаются в музее —
 -- GameLoop.finishRun перенесёт их в домик SECURITY с кругом START SHIFT.
 local function sendToLobby(players: { Player })
@@ -178,6 +182,7 @@ end
 function HubLink.runGameOverChoice(participants: { Player }, nights: number): { Player }
 	choosers = table.clone(participants)
 	table.clear(choices)
+	table.clear(sentToHub)
 	lastNights = nights
 	for _, player in choosers do
 		player:SetAttribute(PlayerAttr.EndChoice, "")
@@ -239,6 +244,12 @@ end
 function HubLink.init()
 	PlaceFinder.init("Museum") -- место хаба ищется в фоне; строка [PlaceFinder] в Output
 	GameState.set(Attr.HubArrival, false)
+	Teleporter.onFailed(function(player: Player, message: string)
+		sentToHub[player] = nil
+		if player.Parent then
+			Remotes.get(Remotes.Names.Banner):FireClient(player, message, "danger")
+		end
+	end)
 	Remotes.get(Remotes.Names.GameOverChoice).OnServerEvent:Connect(onChoice)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	for _, player in Players:GetPlayers() do

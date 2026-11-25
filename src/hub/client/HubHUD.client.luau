@@ -132,6 +132,7 @@ local banner = Theme.label({
 	TextColor3 = Colors.Gold,
 	MaxTextSize = 48,
 	Visible = false,
+	ZIndex = 20,
 	Parent = gui,
 })
 Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 3, Parent = banner })

@@ -43,6 +43,7 @@ type Tourist = {
 	admireUntil: number,
 	visitsLeft: number,
 	computing: boolean,
+	pathToken: number,
 	walkStarted: number,
 }
 
@@ -168,15 +169,17 @@ local function goTo(tourist: Tourist, target: Vector3)
 	tourist.waypoints = {}
 	tourist.waypointIndex = 1
 	tourist.computing = true
+	tourist.pathToken += 1
+	local token = tourist.pathToken
 	task.spawn(function()
 		local path = PathfindingService:CreatePath({ AgentRadius = 1.5, AgentHeight = 5, AgentCanJump = false, WaypointSpacing = 4 })
 		local ok = pcall(function()
 			path:ComputeAsync(tourist.root.Position, target)
 		end)
-		tourist.computing = false
-		if not tourists[tourist.model] then
+		if not tourists[tourist.model] or tourist.pathToken ~= token then
 			return
 		end
+		tourist.computing = false
 		if ok and path.Status == Enum.PathStatus.Success then
 			tourist.waypoints = path:GetWaypoints()
 			tourist.waypointIndex = 2
@@ -316,6 +319,7 @@ local function spawnTourist(): boolean
 		admireUntil = 0,
 		visitsLeft = random:NextInteger(TouristConfig.VisitsMin, TouristConfig.VisitsMax),
 		computing = false,
+		pathToken = 0,
 		walkStarted = now(),
 	}
 	tourists[model] = tourist

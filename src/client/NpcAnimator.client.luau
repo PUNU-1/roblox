@@ -855,6 +855,7 @@ for _, folderName in { MapSchema.Thieves, MapSchema.Tourists } do
 	folder.ChildRemoved:Connect(function(child)
 		if child:IsA("Model") then
 			rigs[child] = nil
+			shotAt[child] = nil
 		end
 	end)
 	for _, child in folder:GetChildren() do
