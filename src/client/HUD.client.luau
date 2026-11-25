@@ -101,7 +101,11 @@ local CLASS_KEYS = {
 }
 
 local function canChooseClass(): boolean
-	return GameState.phase() == Phase.Lobby or localPlayer:GetAttribute(PlayerAttr.InRound) ~= true
+	local phase = GameState.phase()
+	if phase == Phase.Results or GameState.get(Attr.HubArrival) == true then
+		return false
+	end
+	return phase == Phase.Lobby or localPlayer:GetAttribute(PlayerAttr.InRound) ~= true
 end
 
 -- Сервер сам проверит, можно ли сейчас менять класс; тут только не шлём лишнего.

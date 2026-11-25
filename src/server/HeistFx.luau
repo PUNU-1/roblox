@@ -104,7 +104,8 @@ local function addCase(model: Model)
 	local glass = findGlass(model)
 	local pivot = model:GetPivot()
 	local _, size = model:GetBoundingBox()
-	local front = pivot.Position + pivot.LookVector * (size.Z / 2 + Heist.CaseStandOffset)
+	local halfDepth = if math.abs(pivot.LookVector.X) > math.abs(pivot.LookVector.Z) then size.X / 2 else size.Z / 2
+	local front = pivot.Position + pivot.LookVector * (halfDepth + Heist.CaseStandOffset)
 	local stand = Vector3.new(front.X, pivot.Position.Y + 3, front.Z)
 	local area, hall = HeistFx.areaAt(stand)
 	table.insert(cases, {

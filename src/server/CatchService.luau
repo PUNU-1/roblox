@@ -112,6 +112,11 @@ local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt, 
 	if not RoleService.canAct(player) then
 		return -- смотрит камеры, лежит после удара Громилы или без сил
 	end
+	local entry = holdStarted[player]
+	holdStarted[player] = nil
+	if not entry or entry.prompt ~= prompt or Workspace:GetServerTimeNow() - entry.at < Config.Catch.HoldSeconds - 0.3 then
+		return
+	end
 	local character = player.Character
 	local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
 	local thiefRoot = model:FindFirstChild("HumanoidRootPart")
@@ -149,6 +154,21 @@ end
 local ThiefAttr = GameState.ThiefAttr
 local CHECK_PROMPT = "CheckIdPrompt"
 local checkActive = false
+local holdStarted: { [Player]: { prompt: ProximityPrompt, at: number } } = {}
+
+local function hookHold(prompt: ProximityPrompt)
+	prompt.PromptButtonHoldBegan:Connect(function(player)
+		if RoleService.canAct(player) then
+			holdStarted[player] = { prompt = prompt, at = Workspace:GetServerTimeNow() }
+		end
+	end)
+	prompt.PromptButtonHoldEnded:Connect(function(player)
+		local entry = holdStarted[player]
+		if entry and entry.prompt == prompt then
+			holdStarted[player] = nil
+		end
+	end)
+end
 
 -- Подпись кнопки на воре: у Фальшивого охранника — как у настоящего («Check ID» и ник), пока он не схватил экспонат.
 local function labelArrestPrompt(model: Model, prompt: ProximityPrompt)
@@ -178,6 +198,7 @@ local function onThiefSpawned(model: Model)
 	prompt.KeyboardKeyCode = Config.Keys.Action
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = root
+	hookHold(prompt)
 	prompt.Triggered:Connect(function(player)
 		tryArrest(player, model, prompt)
 	end)
@@ -202,6 +223,7 @@ local function onRobberSpawned(model: Model)
 	model:GetAttributeChangedSignal(RobberService.ArrestableAttr):Connect(function()
 		prompt.Enabled = model:GetAttribute(RobberService.ArrestableAttr) == true
 	end)
+	hookHold(prompt)
 	prompt.Triggered:Connect(function(player)
 		tryArrest(player, model, prompt, true)
 	end)
@@ -303,6 +325,9 @@ function CatchService.init()
 	ThiefService.Spawned.Event:Connect(onThiefSpawned)
 	RobberService.Spawned.Event:Connect(onRobberSpawned)
 	Players.PlayerAdded:Connect(watchPlayer)
+	Players.PlayerRemoving:Connect(function(player)
+		holdStarted[player] = nil
+	end)
 	for _, player in Players:GetPlayers() do
 		watchPlayer(player)
 	end

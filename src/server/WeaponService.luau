@@ -322,7 +322,8 @@ local function fire(player: Player, weapon: string, origin: Vector3, direction: 
 	-- Точка выстрела — у головы стрелка, направление — туда, куда он смотрит (с запасом на задержку сети)
 	local head = headPosition(player)
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if not head or not (root and root:IsA("BasePart")) or (origin - head).Magnitude > Weapons.OriginSlack then
+	local originDist = if head then (origin - head).Magnitude else math.huge
+	if not head or not (root and root:IsA("BasePart")) or originDist ~= originDist or originDist > Weapons.OriginSlack then
 		return
 	end
 	local length = direction.Magnitude

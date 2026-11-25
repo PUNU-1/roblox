@@ -714,6 +714,13 @@ end
 local lastMarkTime = 0
 
 local function tryMark(screenPosition: Vector2)
+	if noSignal.Visible then
+		return
+	end
+	local camera = Workspace.CurrentCamera
+	if camera and screenPosition.Y >= camera.ViewportSize.Y * (1 - PANEL_HEIGHT) then
+		return
+	end
 	local thief = thiefAt(screenPosition)
 	local time = os.clock()
 	-- Сервер всё равно проверит сам; тут только чтобы не обещать метку, которой не будет

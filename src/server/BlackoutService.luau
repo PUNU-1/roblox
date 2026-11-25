@@ -4,7 +4,9 @@
 --  • лампочка на щитке краснеет, у щитка появляется кнопка «Restore power» (держать F).
 -- Свет возвращается, когда кто-то удержит F у щитка, или утром. Фонарики охраны работают и в блэкаут.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -28,6 +30,7 @@ local fusePart: BasePart? = nil -- деталь щитка с кнопкой и 
 local fuseLamp: BasePart? = nil
 local prompt: ProximityPrompt? = nil
 local flickerToken = 0
+local holdStarted: { [Player]: number } = {}
 
 local bannerRemote = Remotes.get(Remotes.Names.Banner)
 
@@ -139,6 +142,7 @@ end
 -- Свет снова есть. announce — показать надпись (утром не показываем).
 function BlackoutService.restore(announce: boolean)
 	flickerToken += 1
+	table.clear(holdStarted)
 	local wasOut = BlackoutService.isOut()
 	GameState.set(GameState.Attr.Blackout, false)
 	setLights(true)
@@ -162,7 +166,12 @@ local function onRestore(player: Player)
 	if not BlackoutService.isOut() or GameState.phase() ~= GameState.Phase.Night then
 		return
 	end
-	if not RoleService.isParticipant(player) or RoleService.isKnocked(player) then
+	if not RoleService.canAct(player) then
+		return
+	end
+	local started = holdStarted[player]
+	holdStarted[player] = nil
+	if not started or Workspace:GetServerTimeNow() - started < Settings.RestoreHoldSeconds - 0.35 then
 		return
 	end
 	local character = player.Character
@@ -227,9 +236,20 @@ function BlackoutService.init(map: Instance)
 		created.RequiresLineOfSight = false
 		created.Enabled = false
 		created.Parent = part
+		created.PromptButtonHoldBegan:Connect(function(player)
+			if RoleService.canAct(player) then
+				holdStarted[player] = Workspace:GetServerTimeNow()
+			end
+		end)
+		created.PromptButtonHoldEnded:Connect(function(player)
+			holdStarted[player] = nil
+		end)
 		created.Triggered:Connect(onRestore)
 		prompt = created
 	end
+	Players.PlayerRemoving:Connect(function(player)
+		holdStarted[player] = nil
+	end)
 	GameState.set(GameState.Attr.Blackout, false)
 	setFuseLamp(false)
 end

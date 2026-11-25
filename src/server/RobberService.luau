@@ -546,6 +546,9 @@ end
 local function guardInReach(robber: Robber): Player?
 	local look = flat(robber.root.CFrame.LookVector)
 	for _, guard in guards() do
+		if math.abs(guard.root.Position.Y - robber.root.Position.Y) > 5 then
+			continue
+		end
 		local offset = flat(guard.root.Position - robber.root.Position)
 		if offset.Magnitude <= Settings.BatonRange and (offset.Magnitude < 0.5 or look.Unit:Dot(offset.Unit) > 0.2) then
 			return guard.player
@@ -656,12 +659,12 @@ local function updateGunner(robber: Robber)
 			face(robber, guard.root.Position)
 		end
 		if time >= robber.phaseUntil then
-			robber.peeking = not robber.peeking
-			robber.phaseUntil = time + (if robber.peeking then Settings.PeekSeconds else Settings.HideSeconds) * random:NextNumber(0.8, 1.3)
-			robber.burstLeft = 0
 			if not robber.peeking and guard and visible and clearLine(guard.head.Position, eyeOf(robber)) then
 				robber.coverAt = time -- спрятался, а его всё равно видно: укрытие не работает — искать другое
 			end
+			robber.peeking = not robber.peeking
+			robber.phaseUntil = time + (if robber.peeking then Settings.PeekSeconds else Settings.HideSeconds) * random:NextNumber(0.8, 1.3)
+			robber.burstLeft = 0
 		end
 		-- Давно никого не видит — двигается ближе к охране
 		if time - robber.lastSeen > 6 and not visible then
@@ -1247,6 +1250,7 @@ local function surrenderAll()
 			stand(robber)
 			dropLoot(robber)
 			setCover(robber, nil)
+			model:SetAttribute(GameState.ThiefAttr.Surrendered, true)
 			setArrestable(robber, true)
 			syncAnim(robber)
 			task.delay(Raid.SurrenderSeconds, function()

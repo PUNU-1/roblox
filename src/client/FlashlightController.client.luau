@@ -106,8 +106,8 @@ end)
 RunService:BindToRenderStep("Flashlight", Enum.RenderPriority.Camera.Value + 1, function()
 	local camera = Workspace.CurrentCamera
 	local on = onShift(localPlayer) and not viewingCameras()
-	ownLight.Enabled = on
-	if not on then
+	ownLight.Enabled = on and camera ~= nil
+	if not on or not camera then
 		return
 	end
 	if holder.Parent ~= camera then

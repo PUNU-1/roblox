@@ -151,7 +151,7 @@ local RIFLE: { Spec } = {
 	{ name = "Mag", size = Vector3.new(0.22, 0.05, 0.32), offset = at(0, -0.55, -0.76) * CFrame.Angles(-0.3, 0, 0), color = C.Polymer },
 	{ name = "Stock", size = Vector3.new(0.22, 0.32, 0.86), offset = at(0, 0.24, 0.64), color = C.Polymer },
 	{ name = "StockPad", size = Vector3.new(0.25, 0.52, 0.1), offset = at(0, 0.16, 1.1), color = C.Black, material = M.Rubber },
-	{ name = "Charge", size = Vector3.new(0.16, 0.06, 0.14), offset = at(0, 0.51, 0.16), color = C.Black },
+	{ name = "Slide", size = Vector3.new(0.16, 0.06, 0.14), offset = at(0, 0.51, 0.16), color = C.Black },
 	{ name = "Guard", size = Vector3.new(0.06, 0.04, 0.32), offset = at(0, 0.07, -0.18), color = C.Polymer },
 	{ name = "Trigger", size = Vector3.new(0.04, 0.12, 0.04), offset = at(0, 0.14, -0.16), color = C.Black },
 	{ name = "Accent", size = Vector3.new(0.31, 0.04, 0.5), offset = at(0, 0.2, -1.42), color = C.Gold, material = M.Metal },

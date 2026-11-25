@@ -253,7 +253,11 @@ end
 -- Класс можно выбрать в лобби или пока игрок ждёт в комнате охраны (опоздавший). На смене класс не меняется
 -- до конца забега (блок 5).
 function RoleService.canChooseClass(player: Player): boolean
-	return GameState.phase() == Phase.Lobby or not RoleService.isParticipant(player)
+	local phase = GameState.phase()
+	if phase == Phase.Results or GameState.get(GameState.Attr.HubArrival) == true then
+		return false
+	end
+	return phase == Phase.Lobby or not RoleService.isParticipant(player)
 end
 
 -- На смену идёт команда из круга START SHIFT (LobbyService.takeTeam). Остальные ждут в комнате охраны,

@@ -17,6 +17,7 @@ local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
 
 local Phase = GameState.Phase
 local Colors = Theme.Colors
+local localPlayer = Players.LocalPlayer
 
 local gui = Theme.screenGui("Comms", 3)
 local keyboard = UserInputService.KeyboardEnabled
@@ -194,7 +195,7 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 	accumulator = 0
 	local phase = GameState.phase()
-	local show = phase == Phase.Day or phase == Phase.Night
+	local show = localPlayer:GetAttribute(GameState.PlayerAttr.InRound) == true and (phase == Phase.Day or phase == Phase.Night)
 	toggleButton.Visible = show
 	setToggleBound(show)
 	if not show then

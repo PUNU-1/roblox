@@ -313,7 +313,7 @@ local function setupRepair(map: Instance)
 	prompt.Enabled = false
 	prompt.Parent = switch
 	prompt.Triggered:Connect(function(player)
-		if not RoleService.isParticipant(player) then
+		if not RoleService.canAct(player) then
 			return
 		end
 		local character = player.Character

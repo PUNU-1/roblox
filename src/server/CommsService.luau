@@ -2,6 +2,7 @@
 -- Метка — красная стрелка над вором, видна всем сквозь стены и держится несколько секунд.
 -- Сервер проверяет: игрок правда смотрит камеры, это правда вор, вор виден с какой-то камеры.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -26,14 +27,46 @@ local function now(): number
 	return Workspace:GetServerTimeNow()
 end
 
-local function visibleFromSomeCamera(position: Vector3): boolean
+local function cameraRayParams(): RaycastParams
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.RespectCanCollide = true
+	local ignore: { Instance } = {}
+	for _, name in { MapSchema.Thieves, MapSchema.Tourists, MapSchema.Dogs, MapSchema.Sensors } do
+		local found = Workspace:FindFirstChild(name)
+		if found then
+			table.insert(ignore, found)
+		end
+	end
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(ignore, player.Character)
+		end
+	end
+	params.FilterDescendantsInstances = ignore
+	return params
+end
+
+local function visibleFromSomeCamera(thief: Model, position: Vector3): boolean
 	if GameState.get(GameState.Attr.Blackout) == true then
 		return false -- блэкаут: камеры не работают
 	end
+	local head = thief:FindFirstChild("Head")
+	local aim = if head and head:IsA("BasePart") then head.Position else position
+	local params = cameraRayParams()
 	for _, point in cameraPoints do
-		local working = point:GetAttribute(GameState.CameraAttr.Owned) == true and point:GetAttribute(GameState.CameraAttr.Broken) ~= true
-		if working and (point.Position - position).Magnitude <= Config.Comms.MarkMaxDistance then
-			return true
+		local working = point:GetAttribute(GameState.CameraAttr.Owned) == true
+			and point:GetAttribute(GameState.CameraAttr.Broken) ~= true
+			and GameState.isHallOpen(point:GetAttribute(GameState.CameraAttr.Hall))
+		if working then
+			local offset = aim - point.Position
+			local dist = offset.Magnitude
+			if dist <= Config.Comms.MarkMaxDistance and (dist < 1 or point.CFrame.LookVector:Dot(offset.Unit) > 0.2) then
+				local origin = point.Position + point.CFrame.LookVector * 0.6
+				if Workspace:Raycast(origin, aim - origin, params) == nil then
+					return true
+				end
+			end
 		end
 	end
 	return false
@@ -93,7 +126,7 @@ local function onMarkThief(player: Player, thief: any)
 		return
 	end
 	local root = thief:FindFirstChild("HumanoidRootPart")
-	if not (root and root:IsA("BasePart")) or not visibleFromSomeCamera(root.Position) then
+	if not (root and root:IsA("BasePart")) or not visibleFromSomeCamera(thief, root.Position) then
 		return
 	end
 	lastMark[player] = time
@@ -101,6 +134,10 @@ local function onMarkThief(player: Player, thief: any)
 end
 
 local function onQuickPhrase(player: Player, index: any)
+	local phase = GameState.phase()
+	if (phase ~= GameState.Phase.Day and phase ~= GameState.Phase.Night) or not RoleService.isParticipant(player) then
+		return
+	end
 	if typeof(index) ~= "number" or index ~= math.floor(index) then
 		return
 	end
@@ -126,7 +163,7 @@ function CommsService.init(map: Instance)
 	end
 	Remotes.get(Remotes.Names.MarkThief).OnServerEvent:Connect(onMarkThief)
 	Remotes.get(Remotes.Names.QuickPhrase).OnServerEvent:Connect(onQuickPhrase)
-	game:GetService("Players").PlayerRemoving:Connect(function(player)
+	Players.PlayerRemoving:Connect(function(player)
 		lastMark[player] = nil
 		lastPhrase[player] = nil
 	end)

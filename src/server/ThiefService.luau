@@ -1236,7 +1236,7 @@ end
 -- Возвращает true, если арест получился.
 function ThiefService.arrest(model: Model): boolean
 	local thief = thieves[model]
-	if not thief or thief.state == "Arrested" then
+	if not thief or thief.state == "Arrested" or thief.state == "Escaped" then
 		return false
 	end
 	thief.state = "Arrested"
