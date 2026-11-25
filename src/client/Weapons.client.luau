@@ -73,6 +73,10 @@ local function knocked(): boolean
 	return number(PlayerAttr.KnockedUntil) > now()
 end
 
+local function reviving(): boolean
+	return number(PlayerAttr.ReviveTarget) ~= 0
+end
+
 local function smooth(t: number): number
 	local x = math.clamp(t, 0, 1)
 	return x * x * (3 - 2 * x)
@@ -307,7 +311,7 @@ local function shoot(kind: string)
 		end
 	end
 	if stunning then
-		taserReadyLocal = now() + info.Cooldown
+		taserReadyLocal = now() + 1
 		recoilKick = math.min(1.2, recoilKick + 0.5)
 	else
 		Fx.muzzleFlash(muzzle, if kind == "Shotgun" then 1.4 elseif kind == "Rifle" then 1.1 else 0.9)
@@ -323,7 +327,7 @@ local function shoot(kind: string)
 	Fx.shotSound(kind, nil)
 	lastShotAt = now()
 	lastShotKind = kind
-	nextShotAt = now() + info.Interval
+	nextShotAt = now() + (info.Interval or 0)
 	fireRemote:FireServer(kind, origin, direction)
 end
 
@@ -338,12 +342,15 @@ end
 local function tryFire()
 	local kind = equipped()
 	if kind == "Medkit" then
+		if not onShift() or downed() or viewing() or knocked() or reviving() then
+			return
+		end
 		medkitRemote:FireServer()
 		triggerHeld = false
 		return
 	end
 	local info = (Weapons :: any)[kind]
-	if not info or kind ~= shownKind or not onShift() or downed() or viewing() or knocked() then
+	if not info or kind ~= shownKind or not onShift() or downed() or viewing() or knocked() or reviving() then
 		return
 	end
 	if GameState.phase() ~= GameState.Phase.Night then
@@ -744,8 +751,12 @@ local function setBound(shift: boolean, holding: boolean)
 			ContextActionService:UnbindAction(CROUCH_ACTION)
 			ContextActionService:UnbindAction(LEAN_LEFT_ACTION)
 			ContextActionService:UnbindAction(LEAN_RIGHT_ACTION)
+			if sentCrouch or sentLean ~= 0 then
+				stanceRemote:FireServer(false, 0)
+			end
 			wantCrouch, leanLeftHeld, leanRightHeld = false, false, false
 			sentCrouch, sentLean = false, 0
+			taserReadyLocal = 0
 		end
 	end
 	-- На телефоне — большая кнопка «огонь», пока в руках оружие или аптечка (на геймпаде — правый курок)
@@ -969,7 +980,7 @@ end
 
 local function syncView()
 	local kind = equipped()
-	local show = onShift() and not viewing() and not downed() and kind ~= ""
+	local show = onShift() and not viewing() and not downed() and not reviving() and kind ~= ""
 	local wanted = if show then kind else ""
 	if wanted ~= shownKind then
 		shownKind = wanted

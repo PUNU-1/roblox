@@ -139,6 +139,7 @@ local Config = {
 		Order = { "Rifle", "Shotgun", "Pistol", "Taser" },
 		Taser = {
 			Title = "TASER",
+			Interval = 0.5,
 			Range = 30, -- дальность выстрела
 			StunThief = 10, -- обычный вор лежит столько секунд (его можно арестовать)
 			StunRobber = 5, -- грабитель — меньше (решил Claude)

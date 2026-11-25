@@ -77,10 +77,42 @@ end
 local function clearReviver(reviver: Player)
 	local entry = holdStarted[reviver]
 	holdStarted[reviver] = nil
-	reviver:SetAttribute(PlayerAttr.ReviveTarget, 0)
-	if entry and entry.target:GetAttribute(PlayerAttr.RevivedBy) == reviver.UserId then
-		entry.target:SetAttribute(PlayerAttr.RevivedBy, 0)
-		entry.target:SetAttribute(PlayerAttr.ReviveStartedAt, 0)
+	if reviver.Parent then
+		reviver:SetAttribute(PlayerAttr.ReviveTarget, 0)
+	end
+	if entry and entry.target.Parent and entry.target:GetAttribute(PlayerAttr.RevivedBy) == reviver.UserId then
+		local nextReviver: Player? = nil
+		local nextAt = 0
+		for other, otherEntry in holdStarted do
+			if otherEntry.target == entry.target and other.Parent then
+				nextReviver = other
+				nextAt = otherEntry.at
+				break
+			end
+		end
+		if nextReviver then
+			entry.target:SetAttribute(PlayerAttr.RevivedBy, nextReviver.UserId)
+			entry.target:SetAttribute(PlayerAttr.ReviveStartedAt, nextAt)
+		else
+			entry.target:SetAttribute(PlayerAttr.RevivedBy, 0)
+			entry.target:SetAttribute(PlayerAttr.ReviveStartedAt, 0)
+		end
+	end
+end
+
+local function clearReviversOf(target: Player)
+	local list = {}
+	for reviver, entry in holdStarted do
+		if entry.target == target then
+			table.insert(list, reviver)
+		end
+	end
+	for _, reviver in list do
+		clearReviver(reviver)
+	end
+	if target.Parent then
+		target:SetAttribute(PlayerAttr.RevivedBy, 0)
+		target:SetAttribute(PlayerAttr.ReviveStartedAt, 0)
 	end
 end
 
@@ -100,6 +132,7 @@ local function revive(target: Player, reviver: Player?)
 	if not RoleService.isDowned(target) then
 		return
 	end
+	clearReviversOf(target)
 	removePrompt(target)
 	target:SetAttribute(PlayerAttr.Downed, false)
 	target:SetAttribute(PlayerAttr.RevivedAt, now())
@@ -139,8 +172,10 @@ local function addPrompt(target: Player)
 		end
 		holdStarted[reviver] = { target = target, at = now() }
 		reviver:SetAttribute(PlayerAttr.ReviveTarget, target.UserId)
-		target:SetAttribute(PlayerAttr.RevivedBy, reviver.UserId)
-		target:SetAttribute(PlayerAttr.ReviveStartedAt, now())
+		if (tonumber(target:GetAttribute(PlayerAttr.RevivedBy)) or 0) == 0 then
+			target:SetAttribute(PlayerAttr.RevivedBy, reviver.UserId)
+			target:SetAttribute(PlayerAttr.ReviveStartedAt, now())
+		end
 	end)
 	prompt.PromptButtonHoldEnded:Connect(function(reviver)
 		clearReviver(reviver)
@@ -228,6 +263,9 @@ function HealthService.healEffect(player: Player, amount: number)
 end
 
 local function goDown(player: Player)
+	if holdStarted[player] then
+		clearReviver(player)
+	end
 	player:SetAttribute(PlayerAttr.Health, 0)
 	player:SetAttribute(PlayerAttr.Downed, true)
 	player:SetAttribute(PlayerAttr.DownedAt, now())
@@ -328,6 +366,7 @@ local function resetPlayer(player: Player)
 	if holdStarted[player] then
 		clearReviver(player)
 	end
+	clearReviversOf(player)
 	removePrompt(player)
 	local max = GameState.maxHealthFor(player)
 	player:SetAttribute(PlayerAttr.MaxHealth, max)
@@ -369,6 +408,7 @@ local function onPlayerAdded(player: Player)
 		player.CharacterAdded:Connect(function(character)
 			character:WaitForChild("HumanoidRootPart", 10)
 			if RoleService.isDowned(player) then
+				clearReviversOf(player)
 				addPrompt(player)
 			end
 		end),
@@ -380,11 +420,7 @@ local function onPlayerRemoving(player: Player)
 		clearReviver(player)
 	end
 	-- Кого-то поднимали этим игроком — полоска у лежащего гаснет
-	for reviver, entry in holdStarted do
-		if entry.target == player then
-			clearReviver(reviver)
-		end
-	end
+	clearReviversOf(player)
 	local list = connections[player]
 	if list then
 		for _, connection in list do

@@ -206,18 +206,25 @@ local Api = {}
 function Api.spawn(ctx: Ctx, options: ThiefService.Options, delay: number?): Handle
 	options.plan = options.plan or ctx.planName
 	if ctx.lure and options.task == nil and options.hold == nil and options.disguise == nil then
+		local kind = options.kind or "Pickpocket"
+		local info = typeInfo(kind)
+		local nonDoor = info ~= nil and info.Door == false
+		local canBeLure = not nonDoor and kind ~= "Breaker" and kind ~= "Cutter"
 		local lure = ctx.lureHandle
 		if not lure then
-			options.task = "Lure"
-			local handle = enqueue(options, delay)
-			ctx.lureHandle = handle
-			return handle
+			if canBeLure then
+				options.task = "Lure"
+				local handle = enqueue(options, delay)
+				ctx.lureHandle = handle
+				return handle
+			end
+		elseif not nonDoor then
+			options.target = options.target or "Main"
+			options.hold = function()
+				return lureDone(lure) and paintingClear()
+			end
+			options.holdTimeout = options.holdTimeout or Smart.HoldTimeout
 		end
-		options.target = options.target or "Main"
-		options.hold = function()
-			return lureDone(lure) and paintingClear()
-		end
-		options.holdTimeout = options.holdTimeout or Smart.HoldTimeout
 	end
 	return enqueue(options, delay)
 end

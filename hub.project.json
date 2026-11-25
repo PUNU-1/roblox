@@ -51,7 +51,8 @@
         "Client": {
           "$path": "src/hub/client",
           "UI": { "$path": "src/client/UI" },
-          "DogAnimator": { "$path": "src/client/DogAnimator.luau" }
+          "DogAnimator": { "$path": "src/client/DogAnimator.luau" },
+          "FirstPerson": { "$path": "src/client/FirstPerson.client.luau" }
         }
       }
     }

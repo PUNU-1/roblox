@@ -98,7 +98,7 @@ function GameState.padTeam(pad: Instance): { number }
 	local ids = {}
 	local text = pad:GetAttribute(GameState.PadAttr.Team)
 	if typeof(text) == "string" then
-		for piece in string.gmatch(text, "%d+") do
+		for piece in string.gmatch(text, "-?%d+") do
 			table.insert(ids, tonumber(piece) :: number)
 		end
 	end

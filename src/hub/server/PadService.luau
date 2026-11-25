@@ -83,7 +83,9 @@ local function isFriend(creator: Player, player: Player): boolean
 			if not ok then
 				warn(("[PadService] Не удалось проверить дружбу %s и %s: %s"):format(creator.Name, player.Name, tostring(result)))
 			end
-			friendCache[key] = ok and result == true
+			if ok and creator.Parent and player.Parent then
+				friendCache[key] = result == true
+			end
 		end)
 	end
 	return false
@@ -156,6 +158,7 @@ end
 
 local function reopen(pad: Pad)
 	pad.state = PadState.Open
+	pad.friendsOnly = false
 	pad.message = ""
 	pad.stateUntil = 0
 	pad.endsAt = 0
@@ -257,7 +260,7 @@ local function onPadAction(player: Player, action: any, value: any)
 		return -- только создатель своего круга
 	end
 	if action == "Start" then
-		if pad.state == PadState.Open then
+		if pad.state == PadState.Open and isInside(player, pad.part.Position) then
 			pad.endsAt = now() -- старт сейчас, отсчёт до конца не ждём
 			update(pad)
 		end
@@ -298,13 +301,16 @@ function PadService.init(parts: { BasePart })
 			local index = table.find(pad.members, player)
 			if index then
 				table.remove(pad.members, index) -- ушёл с сервера (или улетел) — место свободно сразу
+				if index == 1 then
+					pad.friendsOnly = false
+				end
 			end
 			publish(pad)
 		end
 		-- Ответы «друг ли» с этим игроком больше не нужны
 		local id = tostring(player.UserId)
 		for key in friendCache do
-			local a, b = string.match(key, "^(%d+):(%d+)$")
+			local a, b = string.match(key, "^(-?%d+):(-?%d+)$")
 			if a == id or b == id then
 				friendCache[key] = nil
 			end

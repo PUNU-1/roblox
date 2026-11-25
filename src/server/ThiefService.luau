@@ -802,7 +802,7 @@ end
 -- Состояния, в которых вор замечает охранника и убегает.
 local FLEE_STATES = { Approach = true, GoTask = true, Hold = true }
 -- Состояния, из которых вор бросается загораживать того, кто несёт Мону Лизу.
-local BLOCK_STATES = { Approach = true, GoTask = true, Hold = true, Flee = true }
+local BLOCK_STATES = { Approach = true, GoTask = true, Hold = true, Flee = true, Block = true }
 
 local function updateThief(thief: Thief)
 	if thief.state == "Arrested" or thief.state == "Escaped" then
@@ -910,6 +910,9 @@ local function updateThief(thief: Thief)
 		local target = thief.target
 		if not target or not ExhibitService.isFree(target, model) then
 			target = ExhibitService.pickTarget(model, thief.options.target, ThiefService.guardPositions())
+			if not target and thief.options.target ~= nil then
+				target = ExhibitService.pickTarget(model, nil, ThiefService.guardPositions())
+			end
 			thief.target = target
 		end
 		local near = target ~= nil and flatDistance(position, target.stand) < ThiefConfig.StealReachDistance
@@ -1005,6 +1008,9 @@ local function setupMiner(thief: Thief): boolean
 		end
 	end
 	local target = ExhibitService.pickTarget(nil, thief.options.target, guards, avoid)
+	if not target and #avoid > 0 then
+		target = ExhibitService.pickTarget(nil, thief.options.target, guards)
+	end
 	if not target then
 		return false
 	end

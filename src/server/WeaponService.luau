@@ -52,6 +52,7 @@ local GEAR_NAME = "Gear"
 
 local targets: { Targets } = {}
 local states: { [Player]: State } = {}
+local pendingStance: { [Player]: { crouch: boolean, lean: number } } = {}
 local random = Random.new()
 
 local shotRemote = Remotes.get(Remotes.Names.ShotFx)
@@ -335,7 +336,7 @@ local function fire(player: Player, weapon: string, origin: Vector3, direction: 
 		return
 	end
 
-	state.nextShot = math.max(time, state.nextShot) + weaponInfo.Interval
+	state.nextShot = math.max(time, state.nextShot) + (weaponInfo.Interval or 0)
 	if stunning then
 		player:SetAttribute(PlayerAttr.TaserReadyAt, time + weaponInfo.Cooldown)
 	else
@@ -576,24 +577,42 @@ local function setupRemotes()
 	end)
 	-- Присед и наклон (блок 4.4): только на смене и не лёжа; чаще 15 раз в секунду не принимаем
 	local stanceAt: { [Player]: number } = {}
-	Remotes.get(Remotes.Names.SetStance).OnServerEvent:Connect(function(player, crouch, lean)
-		if typeof(crouch) ~= "boolean" or typeof(lean) ~= "number" or (lean ~= -1 and lean ~= 0 and lean ~= 1) then
-			return
-		end
-		local time = os.clock()
-		if time - (stanceAt[player] or 0) < 1 / 15 then
-			return
-		end
-		stanceAt[player] = time
+	local function applyStance(player: Player, crouch: boolean, lean: number)
 		if not RoleService.isParticipant(player) or RoleService.isDowned(player) or not roundPhase() then
 			crouch, lean = false, 0
 		end
 		player:SetAttribute(PlayerAttr.Crouch, crouch)
 		player:SetAttribute(PlayerAttr.Lean, lean)
 		RoleService.refreshMovement(player)
+	end
+	Remotes.get(Remotes.Names.SetStance).OnServerEvent:Connect(function(player, crouch, lean)
+		if typeof(crouch) ~= "boolean" or typeof(lean) ~= "number" or (lean ~= -1 and lean ~= 0 and lean ~= 1) then
+			return
+		end
+		local time = os.clock()
+		local elapsed = time - (stanceAt[player] or 0)
+		if elapsed < 1 / 15 then
+			local wasQueued = pendingStance[player] ~= nil
+			pendingStance[player] = { crouch = crouch, lean = lean }
+			if not wasQueued then
+				task.delay(1 / 15 - elapsed + 0.005, function()
+					local queued = pendingStance[player]
+					pendingStance[player] = nil
+					if queued and player.Parent then
+						stanceAt[player] = os.clock()
+						applyStance(player, queued.crouch, queued.lean)
+					end
+				end)
+			end
+			return
+		end
+		pendingStance[player] = nil
+		stanceAt[player] = time
+		applyStance(player, crouch, lean)
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		stanceAt[player] = nil
+		pendingStance[player] = nil
 	end)
 	Remotes.get(Remotes.Names.Reload).OnServerEvent:Connect(reload)
 	Remotes.get(Remotes.Names.UseMedkit).OnServerEvent:Connect(useMedkit)
@@ -624,6 +643,12 @@ end
 function WeaponService.endNight()
 	for _, player in Players:GetPlayers() do
 		holster(player, false)
+		pendingStance[player] = nil
+		if player:GetAttribute(PlayerAttr.Crouch) == true or (tonumber(player:GetAttribute(PlayerAttr.Lean)) or 0) ~= 0 then
+			player:SetAttribute(PlayerAttr.Crouch, false)
+			player:SetAttribute(PlayerAttr.Lean, 0)
+			RoleService.refreshMovement(player)
+		end
 	end
 end
 

@@ -164,10 +164,14 @@ function RoleService.isDowned(player: Player): boolean
 	return player:GetAttribute(PlayerAttr.Downed) == true
 end
 
--- Охранник может действовать: на смене, не смотрит камеры, не сбит Громилой и не лежит без сил.
+function RoleService.isReviving(player: Player): boolean
+	return (tonumber(player:GetAttribute(PlayerAttr.ReviveTarget)) or 0) ~= 0
+end
+
+-- Охранник может действовать: на смене, не смотрит камеры, не сбит Громилой, не лежит без сил и не поднимает друга.
 function RoleService.canAct(player: Player): boolean
 	return RoleService.isParticipant(player) and not RoleService.isViewing(player) and not knockedNow(player)
-		and not RoleService.isDowned(player)
+		and not RoleService.isDowned(player) and not RoleService.isReviving(player)
 end
 
 -- Пересчитать скорость (после смены стойки, падения, подъёма).
