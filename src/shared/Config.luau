@@ -533,7 +533,10 @@ local Config = {
 		NightExposure = 3.5, -- ночное видение: камеры видят в темноте (яркость картинки ×2^3.5)
 		ConsoleHoldSeconds = 0.5, -- сколько держать F у пульта
 		ConsolePromptDistance = 8,
-		RepairHoldSeconds = 2, -- сколько держать F у рубильника рядом с пультом, чтобы перезапустить сломанные камеры
+		RepairHoldSeconds = 2, -- сколько держать F у рубильника рядом с пультом (все камеры) или у таблички CAMERA SPOT под сломанной камерой (только она); у техника — сразу
+		FixPromptName = "CameraFixPrompt", -- имя кнопки ремонта на табличке (её ищет Abilities.client у техника)
+		RepairPromptDistance = 10, -- с какого расстояния видно кнопку «Repair camera» на табличке CAMERA SPOT (табличка на высоте 5)
+		PlaqueBrokenColor = Color3.fromHex("FF5A5A"), -- табличка под сломанной камерой: «CAM 3 / NO SIGNAL»
 		-- Рубильник «перезапуск камер» справа от пульта: у него своя кнопка F, на пульте — «Watch cameras»
 		-- (на одну клавишу Roblox показывает одну ближайшую кнопку)
 		ResetSwitchGap = 0.6, -- от правого края пульта

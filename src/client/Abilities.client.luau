@@ -865,25 +865,45 @@ end)
 
 ---------------------------------------------------------------- техник: камеры перезапускаются мгновенно
 
--- Рубильник CAMERA RESET у пульта: у техника кнопка срабатывает сразу, у остальных — удержание
--- (сервер не проверяет время удержания этой кнопки, поэтому меняем его только у себя).
-local repairPrompt: ProximityPrompt? = nil
+-- Рубильник CAMERA RESET у пульта и кнопки «Repair camera» на табличках CAMERA SPOT (этап 5, блок E):
+-- у техника срабатывают сразу, у остальных — удержание (сервер не проверяет время удержания этих кнопок,
+-- поэтому меняем его только у себя).
+local repairPrompts: { ProximityPrompt } = {}
+
+local function findRepairPrompts()
+	local map = Workspace:FindFirstChild(MapSchema.Root)
+	if not map then
+		return
+	end
+	local list = {}
+	local switch = map:FindFirstChild("CameraResetSwitch", true)
+	local reset = switch and switch:FindFirstChild("RepairPrompt")
+	if reset and reset:IsA("ProximityPrompt") then
+		table.insert(list, reset)
+	end
+	local spots = map:FindFirstChild(MapSchema.CameraSpots)
+	if spots then
+		for _, descendant in spots:GetDescendants() do
+			if descendant:IsA("ProximityPrompt") and descendant.Name == Config.Cameras.FixPromptName then
+				table.insert(list, descendant)
+			end
+		end
+	end
+	if reset and #list > 1 then -- всё уже пришло с сервера: дальше не ищем
+		repairPrompts = list
+	end
+end
 
 local function refreshRepairPrompt()
-	if not repairPrompt then
-		local map = Workspace:FindFirstChild(MapSchema.Root)
-		local switch = map and map:FindFirstChild("CameraResetSwitch", true)
-		local prompt = switch and switch:FindFirstChild("RepairPrompt")
-		if not (prompt and prompt:IsA("ProximityPrompt")) then
-			return
-		end
-		repairPrompt = prompt
+	if #repairPrompts == 0 then
+		findRepairPrompts()
 	end
-	local prompt = repairPrompt :: ProximityPrompt
 	local instant = GameState.roleOf(localPlayer) == Role.Technician and Classes.Technician.InstantCameraReset
 	local hold = if instant then 0 else Config.Cameras.RepairHoldSeconds
-	if prompt.HoldDuration ~= hold then
-		prompt.HoldDuration = hold
+	for _, prompt in repairPrompts do
+		if prompt.HoldDuration ~= hold then
+			prompt.HoldDuration = hold
+		end
 	end
 end
 

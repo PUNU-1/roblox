@@ -5,6 +5,9 @@
 --  • Поломка: вор-взломщик ломает купленную камеру (атрибут Broken — клиенты показывают «NO SIGNAL»),
 --    игрок перезапускает все камеры рубильником CAMERA RESET справа от пульта на балконе (держать F).
 --    Пока есть сломанные камеры, лампа на рубильнике горит красным.
+--  • Ремонт одной камеры (этап 5, блок E): на табличке CAMERA SPOT под сломанной камерой — кнопка F «Repair camera»
+--    (держать RepairHoldSeconds, у техника сразу); чинится только эта камера. Сервер проверяет, что камера сломана,
+--    игрок может действовать (RoleService.canAct) и стоит рядом.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -33,6 +36,7 @@ type Camera = {
 	plaque: BasePart?, -- табличка CAMERA SPOT: на ней кнопка покупки
 	label: TextLabel?,
 	prompt: ProximityPrompt?,
+	fixPrompt: ProximityPrompt?, -- «Repair camera» на табличке, пока камера сломана
 	model: PVInstance?, -- купленная камера на кронштейне
 	paid: number,
 	free: boolean,
@@ -63,17 +67,22 @@ end
 
 local function refreshCamera(camera: Camera)
 	local owned = isOwned(camera.point)
+	local broken = owned and camera.point:GetAttribute(Attr.Broken) == true
+	if camera.fixPrompt then
+		camera.fixPrompt.Enabled = broken
+	end
 	if camera.prompt then
 		camera.prompt.Enabled = dayActive and not owned and GameState.isHallOpen(camera.point:GetAttribute(Attr.Hall))
 		camera.prompt.ObjectText = Purchase.progressText(("Camera %d"):format(camera.index), camera.paid, Cameras.Price)
 		Purchase.setProgress(camera.prompt, camera.paid, Cameras.Price)
 	end
 	if camera.label then
-		camera.label.Text = if owned
-			then ("CAM %d"):format(camera.index)
+		camera.label.Text = if broken
+			then ("CAM %d\nNO SIGNAL"):format(camera.index)
+			elseif owned then ("CAM %d"):format(camera.index)
 			elseif camera.paid > 0 then ("CAMERA SPOT\n$%d / $%d"):format(camera.paid, Cameras.Price)
 			else ("CAMERA SPOT\nCAM %d"):format(camera.index)
-		camera.label.TextColor3 = if owned then Cameras.PlaqueOwnedColor else Cameras.PlaqueColor
+		camera.label.TextColor3 = if broken then Cameras.PlaqueBrokenColor elseif owned then Cameras.PlaqueOwnedColor else Cameras.PlaqueColor
 	end
 end
 
@@ -160,6 +169,7 @@ local function refreshRepair()
 	if repairLamp then
 		repairLamp.Color = if broken then Cameras.ResetLampOnColor else Cameras.ResetLampOffColor
 	end
+	refreshAll() -- кнопки «Repair camera» и надписи на табличках
 end
 
 -- Рубильник справа от пульта (если смотреть на пульт с юга, с балкона).
@@ -261,6 +271,25 @@ function CameraService.breakCamera(point: BasePart)
 	refreshRepair()
 end
 
+-- Починить одну камеру (кнопка на табличке CAMERA SPOT под ней).
+local function repairOne(camera: Camera, player: Player)
+	local plaque = camera.plaque
+	if not plaque or not isOwned(camera.point) or not CameraService.isBroken(camera.point) or not RoleService.canAct(player) then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not (root and root:IsA("BasePart")) then
+		return
+	end
+	if (root.Position - plaque.Position).Magnitude > Cameras.RepairPromptDistance + Config.Catch.ServerDistanceSlack then
+		return
+	end
+	camera.point:SetAttribute(Attr.Broken, false)
+	refreshRepair()
+	Remotes.get(Remotes.Names.Banner):FireAllClients(("CAM %d IS BACK ONLINE"):format(camera.index), "info")
+end
+
 function CameraService.repairAll()
 	for _, point in points do
 		point:SetAttribute(Attr.Broken, false)
@@ -341,6 +370,7 @@ local function setupCamera(point: BasePart, index: number, spotsFolder: Instance
 		plaque = nil,
 		label = nil,
 		prompt = nil,
+		fixPrompt = nil,
 		model = nil,
 		paid = 0,
 		free = table.find(Cameras.FreeIndices, index) ~= nil,
@@ -358,6 +388,22 @@ local function setupCamera(point: BasePart, index: number, spotsFolder: Instance
 			contribute(camera, player)
 		end)
 		camera.prompt = prompt
+		-- Ремонт этой камеры (этап 5, блок E): видна, только пока камера сломана. У техника удержание
+		-- обнуляет его клиент (Abilities), как у рубильника.
+		local fix = Instance.new("ProximityPrompt")
+		fix.Name = Cameras.FixPromptName
+		fix.ActionText = "Repair camera"
+		fix.ObjectText = ("CAM %d - no signal"):format(index)
+		fix.KeyboardKeyCode = Config.Keys.Action
+		fix.HoldDuration = Cameras.RepairHoldSeconds
+		fix.MaxActivationDistance = Cameras.RepairPromptDistance
+		fix.RequiresLineOfSight = false
+		fix.Enabled = false
+		fix.Parent = plaque
+		fix.Triggered:Connect(function(player)
+			repairOne(camera, player)
+		end)
+		camera.fixPrompt = fix
 	end
 	table.insert(cameras, camera)
 end
