@@ -246,14 +246,16 @@ local ITEMS: { MenuItem } = {
 		icon = "Group",
 		label = "GROUP",
 		action = function()
-			comingSoon("GROUP", "Coming soon!")
+			-- Группы пока нет (Config.Rewards.GroupId = 0): награду за вступление сделаем, когда владелец пришлёт номер
+			comingSoon("COMING SOON!", "Join our Roblox group and get a gift. Coming soon!")
 		end,
 	},
 	{
 		icon = "Favorite",
 		label = "FAVORITE",
 		action = function()
-			comingSoon("FAVORITE", "Coming soon!")
+			-- Roblox не даёт проверить, добавил ли игрок игру в избранное, — награды не будет, позже только окно Roblox
+			comingSoon("COMING SOON!", "Add Night Guard: Museum to your favorites. Coming soon!")
 		end,
 	},
 }
