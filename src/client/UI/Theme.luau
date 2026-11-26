@@ -26,6 +26,35 @@ Theme.Colors = {
 Theme.Font = Enum.Font.FredokaOne
 Theme.BodyFont = Enum.Font.GothamBold
 
+-- Пиксельный шрифт (этап 5, блок A): Press Start 2P из шрифтов Roblox, если не вышло — Arcade.
+-- Ставится в FontFace (а не Font). Лучше всего смотрится размером, кратным 8.
+local okFont, pixelFont = pcall(Font.new, Config.PixelUI.Font)
+Theme.PixelFont = if okFont then pixelFont else Font.fromEnum(Enum.Font.Arcade)
+
+-- Надпись пиксельным шрифтом: белая с чёрной обводкой у самого текста (UIStroke на тексте, не на рамке).
+-- size — размер в пикселях (TextScaled не используем: пиксели должны быть ровными).
+function Theme.pixelLabel(props: { [string]: any }, size: number?, strokeThickness: number?): TextLabel
+	local defaults: { [string]: any } = {
+		BackgroundTransparency = 1,
+		FontFace = Theme.PixelFont,
+		TextColor3 = Theme.Colors.White,
+		TextSize = size or 16,
+		TextScaled = false,
+		Text = "",
+	}
+	for key, value in props do
+		defaults[key] = value
+	end
+	local label = Theme.new("TextLabel", defaults)
+	Theme.new("UIStroke", {
+		Color = Color3.new(0, 0, 0),
+		Thickness = strokeThickness or math.max(1, math.floor((size or 16) / 8)),
+		LineJoinMode = Enum.LineJoinMode.Miter,
+		Parent = label,
+	})
+	return label
+end
+
 -- Создаёт элемент: Theme.new("Frame", { Size = ..., Parent = ... }, { дочерние элементы })
 function Theme.new(className: string, props: { [string]: any }?, children: { Instance }?): any
 	local instance = Instance.new(className)
