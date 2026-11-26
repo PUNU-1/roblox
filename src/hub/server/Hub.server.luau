@@ -61,7 +61,11 @@ end)
 local connections: { [Player]: RBXScriptConnection } = {}
 
 local function onPlayerAdded(player: Player)
-	player.CameraMode = Enum.CameraMode.LockFirstPerson -- вид от первого лица, как в музее (решение 56)
+	-- Вид от третьего лица (решение 75): обычная камера Roblox, мышь свободна. В музее — от первого лица.
+	local camera = Config.Hub.Camera
+	player.CameraMode = Enum.CameraMode.Classic
+	player.CameraMinZoomDistance = camera.MinZoom
+	player.CameraMaxZoomDistance = camera.MaxZoom
 	player:SetAttribute(PlayerAttr.Role, Config.Classes.Default)
 	-- Форма охраны: в хабе все уже в смене (шапки и волосы остаются)
 	connections[player] = player.CharacterAppearanceLoaded:Connect(function(character)
