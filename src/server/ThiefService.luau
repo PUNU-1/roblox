@@ -27,6 +27,7 @@ local Audio = require(Server:WaitForChild("Audio"))
 local HeistFx = require(Server:WaitForChild("HeistFx"))
 local ThiefKinds = require(Server:WaitForChild("ThiefKinds"))
 local BlackoutService = require(Server:WaitForChild("BlackoutService"))
+local WingService = require(Server:WaitForChild("WingService"))
 
 local ThiefConfig = Config.Thief
 local Smart = Config.Smart
@@ -116,7 +117,6 @@ type Thief = {
 
 local thieves: { [Model]: Thief } = {}
 local folder: Folder
-local entrances: { BasePart } = {}
 local active = false
 local updateConnection: RBXScriptConnection? = nil
 local random = Random.new()
@@ -171,15 +171,9 @@ end
 
 ---------------------------------------------------------------- двери
 
--- Вход работает, только когда его зал открыт (все 4 двери музея — в главном зале, открыты всегда).
+-- Входы музея сейчас (этап 5, блок B): у закрытого крыла — дверь центра, у купленного — наружная дверь крыла.
 local function openEntrances(): { BasePart }
-	local list = {}
-	for _, entrance in entrances do
-		if GameState.isHallOpen(entrance:GetAttribute("Hall")) then
-			table.insert(list, entrance)
-		end
-	end
-	return list
+	return WingService.entrances()
 end
 
 function ThiefService.entrances(): { BasePart }
@@ -236,8 +230,11 @@ end
 -- Место ожидания во входном холле: чуть за дверью, немного вбок.
 local function holdPointFor(entrance: BasePart): Vector3
 	local cframe = entrance.CFrame
-	local point = cframe.Position + flat(cframe.LookVector).Unit * Smart.HoldInside
-		+ flat(cframe.RightVector).Unit * random:NextNumber(-Smart.HoldSpread, Smart.HoldSpread)
+	-- У двери центра свои числа: ждут в тамбуре, а не в самом центре (атрибуты точки входа)
+	local inside = tonumber(entrance:GetAttribute(GameState.EntranceAttr.HoldInside)) or Smart.HoldInside
+	local spread = tonumber(entrance:GetAttribute(GameState.EntranceAttr.HoldSpread)) or Smart.HoldSpread
+	local point = cframe.Position + flat(cframe.LookVector).Unit * inside
+		+ flat(cframe.RightVector).Unit * random:NextNumber(-spread, spread)
 	return Vector3.new(point.X, entrance.Position.Y, point.Z)
 end
 
@@ -1349,15 +1346,7 @@ function ThiefService.init(map: Instance)
 		created.Parent = Workspace
 		folder = created
 	end
-	local entranceFolder = map:FindFirstChild(MapSchema.Entrances)
-	if entranceFolder then
-		for _, child in entranceFolder:GetChildren() do
-			if child:IsA("BasePart") then
-				table.insert(entrances, child)
-			end
-		end
-	end
-	if #entrances == 0 then
+	if not map:FindFirstChild(MapSchema.Entrances) then
 		warn("[ThiefService] На карте нет входов для воров")
 	end
 end

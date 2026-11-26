@@ -1,4 +1,4 @@
--- Туристы днём: входят через одну из 4 дверей музея, платят за билет («+$10» над головой, деньги
+-- Туристы днём: входят через один из 4 входов музея (WingService.entrances: двери центра или наружные двери крыльев), платят за билет («+$10» над головой, деньги
 -- делятся поровну между игроками), гуляют от одного места к другому — смотрят, иногда
 -- фотографируют — и уходят через ближайшую дверь. Чем привлекательнее экспонаты, тем больше туристов за день.
 -- Движения рук и ног делает NpcAnimator на клиентах по атрибуту AnimState.
@@ -55,7 +55,6 @@ local PANTS = { "34495E", "2C3E50", "5D4037", "1F3A60", "4A4A4A" }
 local tourists: { [Model]: Tourist } = {}
 local floors: { BasePart } = {} -- полы залов (атрибут Hall), кроме служебных (Wander = false)
 local folder: Folder
-local entrances: { BasePart } = {} -- точки снаружи у 4 дверей
 local attractionsProvider: (() -> { Attraction })? = nil
 local updateConnection: RBXScriptConnection? = nil
 local spawnThread: thread? = nil
@@ -199,7 +198,7 @@ end
 -- Ближайшая дверь (по прямой) — через неё турист уходит.
 local function nearestEntrance(position: Vector3): BasePart?
 	local best, bestDistance = nil, math.huge
-	for _, marker in entrances do
+	for _, marker in WingService.entrances() do
 		local distance = flatDistance(marker.Position, position)
 		if distance < bestDistance then
 			best, bestDistance = marker, distance
@@ -285,6 +284,7 @@ local function createTourist(): Model?
 end
 
 local function spawnTourist(): boolean
+	local entrances = WingService.entrances() -- входы сейчас: двери центра или наружные двери купленных крыльев
 	if #entrances == 0 then
 		return false
 	end
@@ -302,7 +302,7 @@ local function spawnTourist(): boolean
 	ModelLibrary.setCollisionGroup(model, ModelLibrary.Groups.Tourists)
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	humanoid.WalkSpeed = TouristConfig.WalkSpeed
-	model:PivotTo(pick(entrances).CFrame) -- через любую из 4 дверей
+	model:PivotTo(pick(entrances).CFrame) -- через любой из 4 входов
 	model.Parent = folder
 	pcall(function()
 		root:SetNetworkOwner(nil)
@@ -442,15 +442,7 @@ function TouristService.init(map: Instance)
 			end
 		end
 	end
-	local entranceFolder = map:FindFirstChild(MapSchema.Entrances)
-	if entranceFolder then
-		for _, marker in entranceFolder:GetChildren() do
-			if marker:IsA("BasePart") then
-				table.insert(entrances, marker)
-			end
-		end
-	end
-	if #entrances == 0 then
+	if not map:FindFirstChild(MapSchema.Entrances) then
 		warn("[TouristService] На карте нет входов для туристов")
 	end
 end

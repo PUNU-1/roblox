@@ -58,8 +58,8 @@ end
 -- Где встаёт Светорез: перед щитком. nil — щитка на карте нет.
 function BlackoutService.standPoint(): Vector3?
 	local box = fuseBox
-	if not box then
-		return nil
+	if not box or not GameState.isHallOpen(box:GetAttribute("Hall")) then
+		return nil -- щиток в закрытом крыле (служебный коридор открывается вместе с южным крылом, этап 5, блок B)
 	end
 	local pivot = box:GetPivot()
 	local front = pivot.Position + pivot.LookVector * Settings.StandOffset

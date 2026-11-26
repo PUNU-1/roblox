@@ -1524,6 +1524,7 @@ local function buildStaffArea(doorsFolder: Folder)
 	-- Щиток POWER у северной стены коридора (для вора, который выключает свет, блок 3)
 	local fuse = placeModel(MapSchema.Models.FuseBox, CFrame.lookAt(Vector3.new(86, 0, 98), Vector3.new(86, 0, 99)), FUSEBOX_STUB)
 	fuse.Name = MapSchema.FuseBox
+	fuse:SetAttribute("Hall", main) -- Светорез приходит, только когда южное крыло открыто (BlackoutService)
 	wallSign(Vector3.new(86, 8.4, 98), Vector3.new(0, 0, 1), 3.6, 1, "⚡ POWER", hex("1E2A44"), hex("F2C230"))
 	wallSign(Vector3.new(100, 8, 102), Vector3.new(-1, 0, 0), 4, 1, "ARMORY", hex("FFFFFF"), COLORS.Red)
 	for _, z in { 99.2, 104.8 } do

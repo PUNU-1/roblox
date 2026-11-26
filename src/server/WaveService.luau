@@ -21,6 +21,7 @@ local ThiefService = require(Server:WaitForChild("ThiefService"))
 local ExhibitService = require(Server:WaitForChild("ExhibitService"))
 local RoleService = require(Server:WaitForChild("RoleService"))
 local RobberService = require(Server:WaitForChild("RobberService"))
+local BlackoutService = require(Server:WaitForChild("BlackoutService"))
 local Tactics = Server:WaitForChild("Tactics")
 local Basic = require(Tactics:WaitForChild("Basic"))
 
@@ -91,10 +92,19 @@ local function typeInfo(kind: string): any
 	return (Config.ThiefTypes :: any)[kind]
 end
 
+-- Светорезу нужен щиток POWER в служебном коридоре, а тот открывается вместе с южным крылом (этап 5, блок B):
+-- пока крыло закрыто, Светорез не приходит (и его план Blackout — тоже).
+local function available(kind: string): boolean
+	if kind == "Cutter" then
+		return BlackoutService.standPoint() ~= nil
+	end
+	return true
+end
+
 -- Вид вора уже приходит в эту ночь.
 local function unlocked(kind: string): boolean
 	local info = typeInfo(kind)
-	return info ~= nil and (Waves.TestUnlockAll or nightNumber >= info.FromNight)
+	return info ~= nil and (Waves.TestUnlockAll or nightNumber >= info.FromNight) and available(kind)
 end
 
 -- Случайный открытый вид для обычного вора волны (чаще — у кого больше Weight).
@@ -516,7 +526,7 @@ local function newKinds(night: number): { string }
 	end
 	for _, kind in Config.ThiefOrder do
 		local info = typeInfo(kind)
-		if info and info.FromNight == night and info.FromNight > 1 then
+		if info and info.FromNight == night and info.FromNight > 1 and available(kind) then
 			table.insert(list, kind)
 		end
 	end

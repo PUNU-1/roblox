@@ -30,7 +30,6 @@ local WeaponModels = require(Shared:WaitForChild("WeaponModels"))
 local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local ThiefKinds = require(Server:WaitForChild("ThiefKinds"))
-local ThiefService = require(Server:WaitForChild("ThiefService"))
 local ExhibitService = require(Server:WaitForChild("ExhibitService"))
 local RoleService = require(Server:WaitForChild("RoleService"))
 local HealthService = require(Server:WaitForChild("HealthService"))
@@ -38,6 +37,7 @@ local WeaponService = require(Server:WaitForChild("WeaponService"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
 local HeistFx = require(Server:WaitForChild("HeistFx"))
 local Audio = require(Server:WaitForChild("Audio"))
+local WingService = require(Server:WaitForChild("WingService"))
 
 local Raid = Config.Raid
 local Settings = Config.Robber
@@ -112,7 +112,6 @@ local reserved: { [Cover]: Robber } = {}
 local smokes: { Smoke } = {}
 local policeLights: { Instance } = {}
 local folder: Folder
-local entrances: { BasePart } = {}
 local active = false
 local raidIndex = 0 -- какой по счёту налёт в этом забеге (шанс попадания растёт)
 local spawningUntil = 0 -- пока грабители налёта ещё входят, налёт не может кончиться
@@ -1186,10 +1185,10 @@ local function clearPoliceLights()
 	table.clear(policeLights)
 end
 
--- Мигалки у всех дверей: красный и синий по очереди.
+-- Мигалки у всех входов (WingService.entrances): красный и синий по очереди.
 local function policeArrive()
 	clearPoliceLights()
-	for _, entrance in entrances do
+	for _, entrance in WingService.entrances() do
 		local base = entrance.CFrame * CFrame.new(0, 0, 6)
 		local bar = ModelLibrary.place("prop_police_lights_01", base, {
 			{ name = "Post", size = Vector3.new(0.4, 3, 0.4), offset = CFrame.new(0, 1.5, 0), color = Color3.fromHex("2B2F3A"), material = Enum.Material.Metal },
@@ -1274,7 +1273,7 @@ end
 
 -- Дверь налёта: дальняя от охраны.
 local function raidEntrance(): BasePart?
-	local open = ThiefService.entrances()
+	local open = WingService.entrances()
 	local best, bestDistance = nil, -1
 	for _, entrance in open do
 		local distance = math.huge
@@ -1413,14 +1412,6 @@ end
 
 function RobberService.init(map: Instance)
 	folder = Workspace:WaitForChild(MapSchema.Thieves) :: Folder
-	local entranceFolder = map:FindFirstChild(MapSchema.Entrances)
-	if entranceFolder then
-		for _, child in entranceFolder:GetChildren() do
-			if child:IsA("BasePart") then
-				table.insert(entrances, child)
-			end
-		end
-	end
 	buildCovers(map)
 	GameState.set(Attr.Raid, false)
 	GameState.set(Attr.PoliceAt, 0)
