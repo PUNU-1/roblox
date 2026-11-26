@@ -974,6 +974,48 @@ local function buildMonaLisaPainting(map: Folder, exhibits: Folder, markers: Fol
 	light.Parent = lamp
 end
 
+---------------------------------------------------------------- перегородки с картинами в центре
+
+-- Перегородки (этап 5, блок B): кольцо из 8 стен выше головы на полпути от дверей центра к Моне Лизе.
+-- 4 стоят поперёк прямого пути от каждой двери, 4 — по диагоналям; между ними проходы ~14 стадов (не уже 8 —
+-- воры, туристы и грабители проходят по PathfindingService). За перегородкой вора не видно ни охране, ни камерам.
+local PARTITION = {
+	length = 12, -- не длиннее 12: грабители считают её укрытием (RobberService)
+	height = 9,
+	axisRing = CENTER.maxZ / 2 + 2, -- на полпути от двери к картине
+	diagonalRing = CENTER.maxZ / 2 + 4,
+}
+
+-- Перегородка: тёмная подставка, бархатная стена, золотые края и верх. Низ по центру, вдоль оси X.
+local PARTITION_STUB: { ModelLibrary.StubPart } = {
+	{ name = "Plinth", size = Vector3.new(PARTITION.length + 0.6, 0.5, 2), offset = CFrame.new(0, 0.25, 0), color = COLORS.DarkWood, material = Enum.Material.Wood },
+	{ name = "PlinthTrim", size = Vector3.new(PARTITION.length + 0.7, 0.12, 2.1), offset = CFrame.new(0, 0.56, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Wall", size = Vector3.new(PARTITION.length, PARTITION.height, 1), offset = CFrame.new(0, 0.5 + PARTITION.height / 2, 0), color = COLORS.Velvet, material = Enum.Material.Fabric },
+	{ name = "Top", size = Vector3.new(PARTITION.length + 0.4, 0.4, 1.3), offset = CFrame.new(0, PARTITION.height + 0.7, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Edge", size = Vector3.new(0.4, PARTITION.height, 1.3), offset = CFrame.new(-PARTITION.length / 2 - 0.1, 0.5 + PARTITION.height / 2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Edge", size = Vector3.new(0.4, PARTITION.height, 1.3), offset = CFrame.new(PARTITION.length / 2 + 0.1, 0.5 + PARTITION.height / 2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+}
+
+local function buildPartitions()
+	local own = not ModelLibrary.has(MapSchema.Models.Partition)
+	for i = 0, 7 do
+		local angle = i * math.pi / 4
+		local ring = if i % 2 == 0 then PARTITION.axisRing else PARTITION.diagonalRing
+		local position = Vector3.new(math.sin(angle) * ring, 0, math.cos(angle) * ring)
+		local cframe = CFrame.lookAt(position, Vector3.zero) -- вдоль кольца, лицом к картине
+		local partition = placeModel(MapSchema.Models.Partition, cframe, PARTITION_STUB)
+		partition.Name = "Partition"
+		partition:SetAttribute("MapObstacle", true) -- на схеме оператора; грабители прячутся за ней
+		if own then
+			-- Картина с каждой стороны на высоте глаз (у модели друга картины свои)
+			for _, side in { -1, 1 } do
+				local facing = cframe.LookVector * -side
+				wallPainting(position + Vector3.new(0, 5.4, 0), facing, 7, 4.6)
+			end
+		end
+	end
+end
+
 ---------------------------------------------------------------- центр
 
 local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
@@ -1099,12 +1141,16 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 		placeModel(MapSchema.Models.Bench, CFrame.new(x, 0, 24), BENCH_STUB)
 	end
 	placeModel(MapSchema.Models.Bench, CFrame.new(0, 0, -16), BENCH_STUB)
-	-- Ковровая дорожка от южной двери к Моне Лизе
-	local carpetLength = CENTER.maxZ - 10
-	decorPart("Carpet", Vector3.new(4, 0.05, carpetLength), CFrame.new(0, 0.03, 10 + carpetLength / 2), COLORS.Red, Enum.Material.Fabric)
-	for _, x in { -2.1, 2.1 } do
-		decorPart("CarpetEdge", Vector3.new(0.3, 0.06, carpetLength), CFrame.new(x, 0.035, 10 + carpetLength / 2), COLORS.Gold, Enum.Material.Fabric)
+	-- Ковровая дорожка от южной двери к Моне Лизе (прерывается у перегородки на её пути)
+	for _, piece in { { 10, PARTITION.axisRing - 1.6 }, { PARTITION.axisRing + 1.6, CENTER.maxZ } } do
+		local length = piece[2] - piece[1]
+		local z = (piece[1] + piece[2]) / 2
+		decorPart("Carpet", Vector3.new(4, 0.05, length), CFrame.new(0, 0.03, z), COLORS.Red, Enum.Material.Fabric)
+		for _, x in { -2.1, 2.1 } do
+			decorPart("CarpetEdge", Vector3.new(0.3, 0.06, length), CFrame.new(x, 0.035, z), COLORS.Gold, Enum.Material.Fabric)
+		end
 	end
+	buildPartitions()
 
 	-- Картины, люстры, растения
 	local c = CENTER

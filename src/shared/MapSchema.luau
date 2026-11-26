@@ -75,6 +75,7 @@ local MapSchema = {
 		FuseBox = "prop_fusebox_01",
 		WeaponRack = "prop_weaponrack_01",
 		ShopCounter = "prop_shopcounter_01", -- касса SHOP (этап 4, блок 1b)
+		Partition = "prop_partition_01", -- перегородка с картинами в центре (этап 5, блок B)
 		TRexSkeleton = "prop_skeleton_trex_01",
 		LongneckSkeleton = "prop_skeleton_longneck_01",
 		Planet = "prop_planet_01",
