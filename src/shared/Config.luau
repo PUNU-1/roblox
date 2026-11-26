@@ -22,6 +22,7 @@ local Config = {
 		LeanRight = Enum.KeyCode.E, -- наклон вправо (держать)
 		Crouch = Enum.KeyCode.C, -- присесть / встать
 		Shop = Enum.KeyCode.B, -- окно магазина днём (этап 4, блок 1b)
+		SkipTutorial = Enum.KeyCode.K, -- пропустить обучение в этом забеге (этап 5, блок C; на телефоне — кнопка SKIP)
 		-- места с собой: 1 — основное (автомат или дробовик), 2 — пистолет, 3 — шокер, 4 — аптечка
 		Slots = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four },
 	},
@@ -1115,10 +1116,10 @@ local Config = {
 	--           открыто) | HasTaser | Info (без галочки)
 	-- Уже сделанное засчитывается сразу. Части: Phase + Night — в какую фазу какой ночи (Night = GameState NightNumber).
 	Tutorial = {
-		NearDistance = 12, -- «подойди к Моне Лизе» — ближе этого
+		NearDistance = 8, -- «подойди к Моне Лизе» — ближе этого (охрана появляется в ~13 от картины)
+		MinStepSeconds = 2, -- шаг висит хотя бы столько, даже если уже сделан (успеть прочитать)
 		NextDelay = 1, -- шаг выполнен: галочка, через столько секунд следующий
 		CompleteSeconds = 4, -- «Tutorial complete!» висит столько
-		SkipKey = "K", -- клавиша Skip (на телефоне — кнопка)
 		ToggleCooldown = 2, -- сервер: менять настройку не чаще раза за столько секунд
 		DoneSound = "rbxasset://sounds/electronicpingshort.wav", -- ВРЕМЕННЫЙ: стандартный звук Roblox — шаг выполнен
 		DoneVolume = 0.6,
@@ -1138,6 +1139,7 @@ local Config = {
 		Arrow = { -- большая прыгающая стрелка над целью, видна сквозь стены
 			Cell = 4, -- пикселей на клетку пиксельной стрелки (16 клеток = 64 пикселя)
 			Height = 7, -- стадов над целью
+			ThiefHeight = 4, -- над вором — ниже (над серединой тела)
 			Bounce = 1.2, -- прыгает на столько стадов
 			BounceSeconds = 0.8, -- период прыжка
 		},

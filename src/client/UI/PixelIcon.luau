@@ -1,4 +1,5 @@
--- Пиксельные иконки, нарисованные кодом (этап 5, блок A, решение 75). Общий модуль: хаб сейчас, музей — в блоке D.
+-- Пиксельные иконки, нарисованные кодом (этап 5, блок A, решение 75). Общий модуль: хаб, обучение в музее (блок C),
+-- кнопки музея — в блоке D.
 --
 -- Иконка — строки-картинка и палитра: каждая буква — клетка своего цвета, точка — пусто.
 --   { rows = { "..KK..", ".KooK.", ... }, palette = { K = "1E1E2E", o = "F2C14E" } }
@@ -394,6 +395,73 @@ local function mirror(icon: Icon): Icon
 end
 
 Icons.ArrowLeft = mirror(Icons.ArrowRight)
+
+-- Этап 5, блок C (обучение): большая стрелка вниз над целью, телефон оператора, датчик техника
+Icons.ArrowDown = {
+	rows = {
+		".....KKKKKK.....",
+		".....KyyyyK.....",
+		".....KyyyyK.....",
+		".....KyyyyK.....",
+		".....KyyyyK.....",
+		".....KyyyyK.....",
+		".....KyyyyK.....",
+		"KKKKKKyyyyKKKKKK",
+		"KyyyyyyyyyyyyyyK",
+		".KyyyyyyyyyyyyK.",
+		"..KyyyyyyyyyyK..",
+		"...KyyyyyyyyK...",
+		"....KyyyyyyK....",
+		".....KyyyyK.....",
+		"......KyyK......",
+		".......KK.......",
+	},
+	palette = { K = OUTLINE, y = "FFD23F" },
+}
+
+Icons.Phone = {
+	rows = {
+		"................",
+		"....KKKKKKKK....",
+		"...KddddddddK...",
+		"...KdKKKKKKdK...",
+		"...KdKbbbbKdK...",
+		"...KdKbrbbKdK...",
+		"...KdKbbbbKdK...",
+		"...KdKbbbbKdK...",
+		"...KdKKKKKKdK...",
+		"...KddddddddK...",
+		"...KdwdwdwddK...",
+		"...KddddddddK...",
+		"...KdwdwdwddK...",
+		"...KddddddddK...",
+		"....KKKKKKKK....",
+		"................",
+	},
+	palette = { K = OUTLINE, d = "3A3A4A", b = "3BC6C1", r = "E04040", w = "C8C8D0" },
+}
+
+Icons.Sensor = {
+	rows = {
+		"................",
+		"......KKKK......",
+		"....KK....KK....",
+		"...K..KKKK..K...",
+		"..K..K....K..K..",
+		".....K.KK.K.....",
+		"......KrrK......",
+		".....KKrrKK.....",
+		".....KggggK.....",
+		".....KggggK.....",
+		".....KggggK.....",
+		"....KggggggK....",
+		"...KggggggggK...",
+		"...KKKKKKKKKK...",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, r = "E04040", g = "8A93A6" },
+}
 
 PixelIcon.Icons = Icons
 
