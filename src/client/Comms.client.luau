@@ -13,6 +13,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
+local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelButton"))
 
 local Phase = GameState.Phase
 local Colors = Theme.Colors
@@ -26,22 +27,28 @@ local PICK_ACTION = "PickPhrase"
 local DIGIT_KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine }
 
 -- Слева посередине: внизу слева на телефоне джойстик движения
-local toggleButton = Theme.button({
-	Name = "PhrasesButton",
-	AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 16, 0.45, 0),
-	Size = UDim2.new(0, 120, 0, 50),
-	BackgroundColor3 = Colors.Navy,
-	Text = if keyboard then "💬 Say (T)" else "💬 Say",
-	Parent = gui,
+-- Пиксельная кнопка без рамки и фона, как в хабе (этап 5, блок D)
+local setListOpen: (boolean) -> ()
+local list: Frame
+local toggleButton = PixelButton.new({
+	icon = "Chat",
+	label = "SAY",
+	key = "T",
+	cell = Config.PixelUI.HudCell,
+	name = "PhrasesButton",
+	parent = gui,
+	onActivated = function()
+		setListOpen(not list.Visible)
+	end,
 })
-Theme.stroke(Colors.Gold, 2).Parent = toggleButton
+toggleButton.root.AnchorPoint = Vector2.new(0, 0.5)
+toggleButton.root.Position = UDim2.new(0, 16, 0.45, 0)
 
-local list = Theme.new("Frame", {
+list = Theme.new("Frame", {
 	Name = "PhraseList",
 	AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 146, 0.45, 0),
-	Size = UDim2.new(0, 260, 0, #Config.Comms.Phrases * 46),
+	Position = UDim2.new(0, 16 + toggleButton.width() + 10, 0.45, 0),
+	Size = UDim2.new(0, 280, 0, #Config.Comms.Phrases * 46),
 	BackgroundTransparency = 1,
 	Visible = false,
 	Parent = gui,
@@ -52,23 +59,20 @@ local function say(index: number)
 	Remotes.get(Remotes.Names.QuickPhrase):FireServer(index)
 end
 
-local setListOpen: (boolean) -> ()
-
 for index, phrase in Config.Comms.Phrases do
-	local button = Theme.button({
-		LayoutOrder = index,
-		Size = UDim2.new(1, 0, 0, 40),
-		BackgroundColor3 = Colors.NavyLight,
-		Font = Theme.BodyFont,
-		Text = if keyboard and DIGIT_KEYS[index] then ("%d  %s"):format(index, phrase) else phrase,
-		MaxTextSize = 20,
-		Modal = index == 1, -- пока список виден, курсор свободен
-		Parent = list,
+	local button = PixelButton.text({
+		text = string.upper(if keyboard and DIGIT_KEYS[index] then ("%d %s"):format(index, phrase) else phrase),
+		color = Colors.NavyLight,
+		textSize = 8,
+		size = UDim2.new(1, 0, 0, 40),
+		parent = list,
+		onActivated = function()
+			say(index)
+			setListOpen(false)
+		end,
 	})
-	button.Activated:Connect(function()
-		say(index)
-		setListOpen(false)
-	end)
+	button.root.LayoutOrder = index
+	button.root.Modal = index == 1 -- пока список виден, курсор свободен
 end
 
 -- Цифры выбирают фразу, только пока список открыт (иначе цифры переключают камеры)
@@ -101,9 +105,6 @@ setListOpen = function(open: boolean)
 	end
 end
 
-toggleButton.Activated:Connect(function()
-	setListOpen(not list.Visible)
-end)
 
 local toggleBound = false
 local function setToggleBound(bound: boolean)
@@ -195,7 +196,7 @@ RunService.Heartbeat:Connect(function(dt)
 	accumulator = 0
 	local phase = GameState.phase()
 	local show = localPlayer:GetAttribute(GameState.PlayerAttr.InRound) == true and (phase == Phase.Day or phase == Phase.Night)
-	toggleButton.Visible = show
+	toggleButton.root.Visible = show
 	setToggleBound(show)
 	if not show then
 		setListOpen(false)

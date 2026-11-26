@@ -23,6 +23,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local ClassCards = require(UI:WaitForChild("ClassCards"))
+local TouchButtons = require(UI:WaitForChild("TouchButtons"))
 local DogAnimator = require(script.Parent:WaitForChild("DogAnimator"))
 
 local PlayerAttr = GameState.PlayerAttr
@@ -90,7 +91,7 @@ local widget = Theme.new("Frame", {
 	Name = "Ability",
 	AnchorPoint = if touchOnly then Vector2.new(1, 0) else Vector2.new(1, 1),
 	-- компьютер: справа внизу над патронами; телефон: справа под деньгами и кнопкой SHOP (внизу справа — кнопки на экране)
-	Position = if touchOnly then UDim2.new(1, -12, 0, 110) else UDim2.new(1, -20, 1, -96),
+	Position = if touchOnly then UDim2.new(1, -12, 0, 136) else UDim2.new(1, -20, 1, -96),
 	Size = UDim2.fromOffset(SIZE + 40, SIZE + 30),
 	BackgroundTransparency = 1,
 	Visible = false,
@@ -353,43 +354,38 @@ local function onAbilityAction(_name: string, state: Enum.UserInputState)
 	return Enum.ContextActionResult.Sink
 end
 
--- На телефоне на кнопке умения тоже видна перезарядка (шторка поверх кнопки ContextActionService)
-local touchShade: Frame? = nil
-
-local function refreshTouchButton()
-	if not touchOnly then
-		return
-	end
-	local button = ContextActionService:GetButton(ABILITY_ACTION)
-	if not button then
-		touchShade = nil
-		return
-	end
-	if not touchShade or touchShade.Parent ~= button then
-		touchShade = Theme.new("Frame", {
-			Name = "Cooldown",
-			Size = UDim2.fromScale(1, 0),
-			BackgroundColor3 = Colors.Dark,
-			BackgroundTransparency = 0.35,
-			BorderSizePixel = 0,
-			ZIndex = 5,
-			Parent = button,
-		}, { Theme.new("UICorner", { CornerRadius = UDim.new(0.5, 0) }) })
-	end
-	local shade = touchShade :: Frame
-	local t = now()
-	local readyAt = number(localPlayer, PlayerAttr.AbilityReadyAt)
-	local fraction = 0
-	if myInfo().Ability == "Sensor" and number(localPlayer, PlayerAttr.AbilityCharges) <= 0 then
-		fraction = 1
-	elseif readyAt > t then
-		local total = if GameState.roleOf(localPlayer) == Role.Patrol then Classes.Patrol.SprintSeconds + Classes.Patrol.SprintCooldown else 1
-		fraction = math.clamp((readyAt - t) / total, 0, 1)
-	end
-	shade.Size = UDim2.fromScale(1, fraction)
+-- На телефоне — пиксельная кнопка умения справа внизу (этап 5, блок D; раньше — кнопка ContextActionService).
+-- На ней видна перезарядка: вместо названия — секунды, у датчика без зарядов — USED.
+local touchButton: TouchButtons.TouchButton? = nil
+if touchOnly then
+	touchButton = TouchButtons.new({
+		place = "Ability",
+		icon = "Dash",
+		label = "DASH",
+		onActivated = tryUse,
+	})
 end
 
 local boundRole: string? = nil
+
+local function refreshTouchButton()
+	local button = touchButton
+	if not button then
+		return
+	end
+	-- Открыт экран камер (пульт) — на этом месте кнопка CLOSE телефона (CameraController)
+	button.setVisible(boundRole ~= nil and localPlayer:GetAttribute(PlayerAttr.ViewingCameras) ~= true)
+	local info = myInfo()
+	local title = if info.Ability == "Dash" then "DASH" else "SENSOR"
+	local t = now()
+	local readyAt = number(localPlayer, PlayerAttr.AbilityReadyAt)
+	if info.Ability == "Sensor" and number(localPlayer, PlayerAttr.AbilityCharges) <= 0 then
+		title = "USED"
+	elseif readyAt > t then
+		title = ("%dS"):format(math.ceil(readyAt - t))
+	end
+	button.setLabel(title)
+end
 
 -- Клавиша умения работает только на смене и только у классов с клавишей (Patrol — Shift, Technician — G)
 local function refreshBinding()
@@ -400,15 +396,14 @@ local function refreshBinding()
 	end
 	if boundRole then
 		ContextActionService:UnbindAction(ABILITY_ACTION)
-		touchShade = nil
 	end
 	boundRole = want
 	if want then
-		ContextActionService:BindActionAtPriority(ABILITY_ACTION, onAbilityAction, touchOnly, Enum.ContextActionPriority.High.Value, table.unpack(info.Keys))
-		if touchOnly then
-			ContextActionService:SetTitle(ABILITY_ACTION, if info.Ability == "Dash" then "Dash" else "Sensor")
-			ContextActionService:SetPosition(ABILITY_ACTION, UDim2.new(1, -170, 1, -170))
-		end
+		ContextActionService:BindActionAtPriority(ABILITY_ACTION, onAbilityAction, false, Enum.ContextActionPriority.High.Value, table.unpack(info.Keys))
+	end
+	local button = touchButton
+	if button then
+		button.setIcon(if info.Ability == "Dash" then "Dash" else "Sensor")
 	end
 end
 

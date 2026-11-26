@@ -10,6 +10,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
+local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelButton"))
+local PixelWindow = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelWindow"))
 
 local Colors = Theme.Colors
 local keyboard = not Theme.touchOnly()
@@ -19,42 +21,63 @@ local gui = Theme.screenGui("Vote", 5)
 local panel = Theme.new("Frame", {
 	Name = "VotePanel",
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -12, 0, 112), -- под деньгами и кнопкой SHOP (этап 4, блок 1b)
+	Position = UDim2.new(1, -12, 0, 136), -- под деньгами и кнопкой SHOP (этап 4, блок 1b; пиксельная SHOP выше — блок D)
 	Size = UDim2.new(0, 300, 0, 120),
-	BackgroundColor3 = Colors.Navy,
-	BackgroundTransparency = 0.05,
+	BackgroundTransparency = 1,
 	Visible = false,
 	Parent = gui,
-}, { Theme.corner(14), Theme.stroke(Colors.Gold, 2), Theme.padding(10) })
-
-local question = Theme.label({
-	Size = UDim2.new(1, 0, 0.45, 0),
-	Font = Theme.BodyFont,
-	MaxTextSize = 22,
-	Text = "",
+})
+-- Пиксельная рамка, как у окон хаба (этап 5, блок D); всё содержимое — во внутренней части
+local inset = PixelWindow.box(panel)
+local content = Theme.new("Frame", {
+	Name = "Content",
+	Position = UDim2.fromOffset(inset + 4, inset + 4),
+	Size = UDim2.new(1, -2 * inset - 8, 1, -2 * inset - 8),
+	BackgroundTransparency = 1,
+	ZIndex = 3,
 	Parent = panel,
 })
-local timer = Theme.label({
+
+local question = Theme.pixelLabel({
+	Size = UDim2.new(1, -40, 0.45, 0),
+	TextWrapped = true,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 3,
+	Parent = content,
+}, 8)
+local timer = Theme.pixelLabel({
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, 0, 0, 0),
 	Size = UDim2.new(0, 40, 0, 20),
 	TextColor3 = Colors.Gold,
-	MaxTextSize = 18,
-	Parent = panel,
+	TextXAlignment = Enum.TextXAlignment.Right,
+	ZIndex = 3,
+	Parent = content,
+}, 16)
+local answer: (yes: boolean) -> ()
+PixelButton.text({
+	text = if keyboard then "YES (Y)" else "YES",
+	color = Colors.Green,
+	textSize = 8,
+	position = UDim2.new(0, 0, 0.5, 0),
+	size = UDim2.new(0.48, 0, 0.5, 0),
+	zIndex = 3,
+	parent = content,
+	onActivated = function()
+		answer(true)
+	end,
 })
-local yesButton = Theme.button({
-	Position = UDim2.new(0, 0, 0.55, 0),
-	Size = UDim2.new(0.48, 0, 0.45, 0),
-	BackgroundColor3 = Colors.Green,
-	Text = if keyboard then "YES (Y)" else "YES",
-	Parent = panel,
-})
-local noButton = Theme.button({
-	Position = UDim2.new(0.52, 0, 0.55, 0),
-	Size = UDim2.new(0.48, 0, 0.45, 0),
-	BackgroundColor3 = Colors.Red,
-	Text = if keyboard then "NO (N)" else "NO",
-	Parent = panel,
+PixelButton.text({
+	text = if keyboard then "NO (N)" else "NO",
+	color = Colors.Red,
+	textSize = 8,
+	position = UDim2.new(0.52, 0, 0.5, 0),
+	size = UDim2.new(0.48, 0, 0.5, 0),
+	zIndex = 3,
+	parent = content,
+	onActivated = function()
+		answer(false)
+	end,
 })
 
 local currentId: number? = nil
@@ -66,7 +89,7 @@ local function hidePanel()
 	ContextActionService:UnbindAction(VOTE_ACTION)
 end
 
-local function answer(yes: boolean)
+answer = function(yes: boolean)
 	if currentId then
 		Remotes.get(Remotes.Names.VoteCast):FireServer(currentId, yes)
 	end
@@ -81,12 +104,6 @@ local function onVoteKey(_name: string, state: Enum.UserInputState, input: Input
 	return Enum.ContextActionResult.Sink
 end
 
-yesButton.Activated:Connect(function()
-	answer(true)
-end)
-noButton.Activated:Connect(function()
-	answer(false)
-end)
 
 Remotes.get(Remotes.Names.VoteRequest).OnClientEvent:Connect(function(id, name, seconds)
 	if typeof(id) ~= "number" or typeof(name) ~= "string" or typeof(seconds) ~= "number" then

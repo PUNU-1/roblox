@@ -13,6 +13,7 @@ local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
 local ClassCards = require(script.Parent:WaitForChild("UI"):WaitForChild("ClassCards"))
+local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelButton"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -29,11 +30,10 @@ local topBar = Theme.new("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.5, 0, 0, 12),
 	Size = UDim2.new(0.5, 0, 0, 46),
-	BackgroundColor3 = Colors.Navy,
-	BackgroundTransparency = 0.15,
+	BackgroundTransparency = 1, -- без рамки и фона: пиксельный шрифт с чёрной обводкой (этап 5, блок D)
 	Parent = gui,
-}, { Theme.corner(12), Theme.stroke(Colors.Gold, 2) })
-local topLabel = Theme.label({ Size = UDim2.fromScale(1, 1), MaxTextSize = 28, Parent = topBar })
+})
+local topLabel = Theme.label({ Size = UDim2.fromScale(1, 1), MaxTextSize = 20, Parent = topBar })
 Theme.padding(6).Parent = topBar
 
 local moneyFrame = Theme.new("Frame", {
@@ -41,12 +41,12 @@ local moneyFrame = Theme.new("Frame", {
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, -12, 0, 12),
 	Size = UDim2.new(0, 150, 0, 46),
-	BackgroundColor3 = Colors.Navy,
-	BackgroundTransparency = 0.15,
+	BackgroundTransparency = 1,
 	Parent = gui,
-}, { Theme.corner(12), Theme.stroke(Colors.Gold, 2) })
-local moneyLabel = Theme.label({ Size = UDim2.fromScale(1, 1), TextColor3 = Colors.Gold, Text = "$0", Parent = moneyFrame })
+})
+local moneyLabel = Theme.label({ Size = UDim2.fromScale(1, 1), TextColor3 = Colors.Gold, Text = "$0", TextXAlignment = Enum.TextXAlignment.Right, MaxTextSize = 24, Parent = moneyFrame })
 Theme.padding(6).Parent = moneyFrame
+Theme.pixelize(topLabel, moneyLabel)
 
 ---------------------------------------------------------------- крупная надпись
 
@@ -220,30 +220,34 @@ local choiceBar = Theme.new("Frame", {
 	ZIndex = 6,
 	Parent = resultsFrame,
 }, { Theme.new("UISizeConstraint", { MinSize = Vector2.new(320, 0) }) })
-local againButton = Theme.button({
-	Name = "PlayAgain",
-	Size = UDim2.new(0.49, 0, 1, 0),
-	BackgroundColor3 = Colors.Green,
-	Text = if touchOnly then "PLAY AGAIN" else "PLAY AGAIN  [P]",
-	Modal = true, -- курсор свободен, пока кнопки на экране
-	ZIndex = 6,
-	Parent = choiceBar,
+-- Пиксельные кнопки с текстом, как в хабе (этап 5, блок D)
+local chooseEnd: (choice: string) -> ()
+local againButton = PixelButton.text({
+	name = "PlayAgain",
+	text = if touchOnly then "PLAY AGAIN" else "PLAY AGAIN [P]",
+	color = Colors.Green,
+	textSize = 16,
+	size = UDim2.new(0.49, 0, 1, 0),
+	zIndex = 6,
+	parent = choiceBar,
+	onActivated = function()
+		chooseEnd("PlayAgain")
+	end,
 })
-local lobbyButton = Theme.button({
-	Name = "Lobby",
-	Position = UDim2.new(0.51, 0, 0, 0),
-	Size = UDim2.new(0.49, 0, 1, 0),
-	BackgroundColor3 = Colors.NavyLight,
-	Text = if touchOnly then "LOBBY" else "LOBBY  [L]",
-	ZIndex = 6,
-	Parent = choiceBar,
+againButton.root.Modal = true -- курсор свободен, пока кнопки на экране
+local lobbyButton = PixelButton.text({
+	name = "Lobby",
+	text = if touchOnly then "LOBBY" else "LOBBY [L]",
+	color = Colors.NavyLight,
+	textSize = 16,
+	position = UDim2.new(0.51, 0, 0, 0),
+	size = UDim2.new(0.49, 0, 1, 0),
+	zIndex = 6,
+	parent = choiceBar,
+	onActivated = function()
+		chooseEnd("Lobby")
+	end,
 })
-local againStroke = Theme.stroke(Colors.Gold, 3)
-againStroke.Enabled = false
-againStroke.Parent = againButton
-local lobbyStroke = Theme.stroke(Colors.Gold, 3)
-lobbyStroke.Enabled = false
-lobbyStroke.Parent = lobbyButton
 local choiceHint = Theme.label({
 	Position = UDim2.new(0, 0, 1, 6),
 	Size = UDim2.new(1, 0, 0, 22),
@@ -260,19 +264,13 @@ local function myChoice(): string
 	return if typeof(value) == "string" then value else ""
 end
 
-local function chooseEnd(choice: string)
+chooseEnd = function(choice: string)
 	if not choiceOpen or myChoice() ~= "" then
 		return
 	end
 	Remotes.get(Remotes.Names.GameOverChoice):FireServer(choice)
 end
 
-againButton.Activated:Connect(function()
-	chooseEnd("PlayAgain")
-end)
-lobbyButton.Activated:Connect(function()
-	chooseEnd("Lobby")
-end)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed or not choiceOpen then
 		return
@@ -286,13 +284,12 @@ end)
 
 local function refreshChoice()
 	local chosen = myChoice()
-	againStroke.Enabled = chosen == "PlayAgain"
-	lobbyStroke.Enabled = chosen == "Lobby"
 	local locked = chosen ~= ""
-	againButton.AutoButtonColor = not locked
-	lobbyButton.AutoButtonColor = not locked
-	againButton.BackgroundTransparency = if locked and chosen ~= "PlayAgain" then 0.6 else 0
-	lobbyButton.BackgroundTransparency = if locked and chosen ~= "Lobby" then 0.6 else 0
+	-- Выбранная — золотая, другая после выбора бледнеет
+	againButton.setColor(if chosen == "PlayAgain" then Colors.Gold else Colors.Green)
+	lobbyButton.setColor(if chosen == "Lobby" then Colors.Gold else Colors.NavyLight)
+	againButton.setEnabled(not locked or chosen == "PlayAgain")
+	lobbyButton.setEnabled(not locked or chosen == "Lobby")
 	if chosen == "PlayAgain" then
 		choiceHint.Text = "Waiting for the others — a new run starts soon"
 	elseif chosen == "Lobby" then
@@ -462,7 +459,7 @@ RunService.Heartbeat:Connect(function(dt)
 
 	local phase = GameState.phase()
 	topBar.Visible = phase ~= Phase.Results
-	topLabel.Text = topBarText(phase)
+	topLabel.Text = Theme.pixelText(topBarText(phase))
 	moneyLabel.Text = "$" .. tostring(localPlayer:GetAttribute(PlayerAttr.Money) or 0)
 
 	-- Класс из хаба уже выбран: пока команда прилетает, карточек нет

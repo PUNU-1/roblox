@@ -20,6 +20,8 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local WeaponModels = require(Shared:WaitForChild("WeaponModels"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
+local TouchButtons = require(script.Parent:WaitForChild("UI"):WaitForChild("TouchButtons"))
+local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelButton"))
 local Fx = require(script.Parent:WaitForChild("Fx"))
 
 local PlayerAttr = GameState.PlayerAttr
@@ -388,11 +390,16 @@ end
 
 local gui = Theme.screenGui("Weapons", 2)
 
+-- Места 1–4 — пиксельные кнопки без рамки и фона (этап 5, блок D): иконка оружия, под ней патроны / READY / × 2.
+-- Пустые места не видны. Выбранное — иконка выше и подпись золотом. На телефоне — в самом низу по центру
+-- (справа внизу — кнопки FIRE, RELOAD, CROUCH, слева — джойстик).
+local HOTBAR_CELL = Config.PixelUI.HudCell
+local SLOT_WIDTH = 16 * HOTBAR_CELL + 40
 local hotbar = Theme.new("Frame", {
 	Name = "Hotbar",
 	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -66),
-	Size = UDim2.new(0, 4 * 92 + 3 * 8, 0, 74),
+	Position = if touchOnly then UDim2.new(0.5, 0, 1, -6) else UDim2.new(0.5, 0, 1, -40),
+	Size = UDim2.new(0, 4 * SLOT_WIDTH + 3 * 6, 0, 16 * HOTBAR_CELL + 40),
 	BackgroundTransparency = 1,
 	Visible = false,
 	Parent = gui,
@@ -400,46 +407,32 @@ local hotbar = Theme.new("Frame", {
 Theme.new("UIListLayout", {
 	FillDirection = Enum.FillDirection.Horizontal,
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
-	Padding = UDim.new(0, 8),
+	VerticalAlignment = Enum.VerticalAlignment.Bottom,
+	Padding = UDim.new(0, 6),
 	SortOrder = Enum.SortOrder.LayoutOrder,
 	Parent = hotbar,
 })
 
-type Slot = { button: TextButton, name: TextLabel, info: TextLabel, cooldown: Frame, stroke: UIStroke }
+local SLOT_ICONS = { "Rifle", "Pistol", "Taser", "Medkit" }
+type Slot = { button: PixelButton.IconButton, icon: string }
 local slots: { Slot } = {}
 
 for index = 1, 4 do
-	local button = Theme.new("TextButton", {
-		Name = "Slot" .. index,
-		LayoutOrder = index,
-		Size = UDim2.new(0, 92, 1, 0),
-		BackgroundColor3 = Colors.Navy,
-		BackgroundTransparency = 0.2,
-		AutoButtonColor = true,
-		Text = "",
-		Parent = hotbar,
-	}, { Theme.corner(10) })
-	local stroke = Theme.stroke(Colors.Gray, 2)
-	stroke.Parent = button
-	local cooldown = Theme.new("Frame", {
-		Name = "Cooldown",
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.fromScale(0, 1),
-		Size = UDim2.fromScale(1, 0),
-		BackgroundColor3 = Colors.Dark,
-		BackgroundTransparency = 0.35,
-		ZIndex = 2,
-		Parent = button,
-	}, { Theme.corner(10) })
-	if not touchOnly then
-		Theme.label({ Position = UDim2.fromOffset(6, 3), Size = UDim2.fromOffset(18, 18), Text = tostring(index), TextColor3 = Colors.Gold, MaxTextSize = 16, ZIndex = 3, Parent = button })
-	end
-	local name = Theme.label({ Position = UDim2.fromScale(0.05, 0.22), Size = UDim2.fromScale(0.9, 0.36), MaxTextSize = 18, ZIndex = 3, Parent = button })
-	local infoLabel = Theme.label({ Position = UDim2.fromScale(0.05, 0.6), Size = UDim2.fromScale(0.9, 0.3), Font = Theme.BodyFont, TextColor3 = Colors.Marble, MaxTextSize = 14, ZIndex = 3, Parent = button })
-	button.Activated:Connect(function()
-		equipRemote:FireServer(index)
-	end)
-	slots[index] = { button = button, name = name, info = infoLabel, cooldown = cooldown, stroke = stroke }
+	local button = PixelButton.new({
+		icon = SLOT_ICONS[index],
+		label = "",
+		key = tostring(index),
+		cell = HOTBAR_CELL,
+		width = SLOT_WIDTH,
+		name = "Slot" .. index,
+		layoutOrder = index,
+		parent = hotbar,
+		onActivated = function()
+			equipRemote:FireServer(index)
+		end,
+	})
+	button.root.Visible = false
+	slots[index] = { button = button, icon = SLOT_ICONS[index] }
 end
 
 local toast = Theme.label({
@@ -457,8 +450,8 @@ Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = toast })
 
 local ammoPanel = Theme.new("Frame", {
 	Name = "Ammo",
-	AnchorPoint = Vector2.new(1, 1),
-	Position = if touchOnly then UDim2.new(0.5, 4 * 50 + 30, 1, -70) else UDim2.new(1, -20, 1, -20),
+	AnchorPoint = if touchOnly then Vector2.new(0.5, 1) else Vector2.new(1, 1),
+	Position = if touchOnly then UDim2.new(0.5, 0, 1, -100) else UDim2.new(1, -20, 1, -20), -- телефон: над местами 1–4
 	Size = UDim2.new(0, 170, 0, 64),
 	BackgroundTransparency = 1,
 	Visible = false,
@@ -470,6 +463,7 @@ local ammoSmall = Theme.label({ Position = UDim2.fromScale(0.58, 0.4), Size = UD
 Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = ammoSmall })
 local ammoTitle = Theme.label({ Position = UDim2.fromScale(0.58, 0.05), Size = UDim2.fromScale(0.42, 0.35), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Colors.Gold, Font = Theme.BodyFont, MaxTextSize = 14, Parent = ammoPanel })
 Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 1.5, Parent = ammoTitle })
+Theme.pixelize(ammoBig, ammoSmall, ammoTitle)
 
 -- Прицел: 4 чёрточки, расходятся от отдачи; попадание — крестик
 local crosshair = Theme.new("Frame", {
@@ -554,30 +548,30 @@ local function refreshHud()
 		local weapon = slotWeapon(index)
 		any = any or weapon ~= nil
 		local selected = weapon ~= nil and weapon == current
-		slot.stroke.Color = if selected then Colors.Gold else Colors.Gray
-		slot.stroke.Thickness = if selected then 3 else 2
-		slot.button.BackgroundTransparency = if weapon then 0.15 else 0.55
-		slot.cooldown.Size = UDim2.fromScale(1, 0)
-		if not weapon then
-			slot.name.Text = SLOT_TITLES[index]
-			slot.name.TextColor3 = Colors.Gray
-			slot.info.Text = "—"
-		else
-			slot.name.TextColor3 = Colors.White
-			local info = (Weapons :: any)[weapon]
-			slot.name.Text = if info and info.Title then info.Title else string.upper(weapon)
+		local button = slot.button
+		button.root.Visible = weapon ~= nil
+		if weapon then
+			if index == 1 and weapon ~= slot.icon then
+				slot.icon = weapon
+				button.setIcon(weapon) -- автомат или дробовик
+			end
+			local text
 			if FIREARMS[weapon] then
-				slot.info.Text = if raidActive() then ("%d | %d"):format(predictedAmmo(weapon), reserveOf(weapon)) else "🔒 raid only"
+				text = if raidActive() then ("%d|%d"):format(predictedAmmo(weapon), reserveOf(weapon)) else "RAID"
 			elseif weapon == "Taser" then
 				local left = math.max(taserReadyLocal, number(PlayerAttr.TaserReadyAt)) - now()
-				if left > 0 then
-					slot.info.Text = ("%ds"):format(math.ceil(left))
-					slot.cooldown.Size = UDim2.fromScale(1, math.clamp(left / Weapons.Taser.Cooldown, 0, 1))
-				else
-					slot.info.Text = "READY"
-				end
+				text = if left > 0 then ("%dS"):format(math.ceil(left)) else "READY"
 			else
-				slot.info.Text = ("× %d"):format(number(PlayerAttr.Medkits))
+				text = ("X%d"):format(number(PlayerAttr.Medkits))
+			end
+			button.setLabel(text)
+			local label = button.label
+			if label then
+				label.TextColor3 = if selected then Colors.Gold elseif FIREARMS[weapon] and not raidActive() then Colors.Gray else Colors.White
+			end
+			local holder = button.root:FindFirstChild("IconHolder") :: Frame?
+			if holder then
+				holder.Position = UDim2.new(0.5, 0, 0, 8 * HOTBAR_CELL - (if selected then 2 * HOTBAR_CELL else 0))
 			end
 		end
 	end
@@ -586,7 +580,7 @@ local function refreshHud()
 	ammoPanel.Visible = showAmmo
 	if showAmmo then
 		local info = (Weapons :: any)[current]
-		ammoTitle.Text = if reloading() then "RELOADING…" else info.Title
+		ammoTitle.Text = if reloading() then "RELOADING" else info.Title
 		ammoBig.Text = tostring(predictedAmmo(current))
 		ammoBig.TextColor3 = if predictedAmmo(current) == 0 then Colors.Red else Colors.White
 		ammoSmall.Text = "/ " .. tostring(reserveOf(current))
@@ -725,26 +719,52 @@ end
 local bound = false
 local fireBound = false
 
+-- Кнопки на телефоне (этап 5, блок D): пиксельные, справа внизу, вместо круглых кнопок ContextActionService.
+-- Нажатие вызывает те же функции, что и клавиши (как будто пришло Begin / End).
+local touch: { [string]: TouchButtons.TouchButton } = {}
+if touchOnly then
+	local function begin(handler: (string, Enum.UserInputState, InputObject?) -> any, action: string): () -> ()
+		return function()
+			handler(action, Enum.UserInputState.Begin, nil)
+		end
+	end
+	touch.Reload = TouchButtons.new({ place = "Reload", icon = "Reload", label = "RELOAD", onActivated = begin(onReloadAction, RELOAD_ACTION) })
+	touch.Crouch = TouchButtons.new({ place = "Crouch", icon = "Crouch", label = "CROUCH", onActivated = begin(onCrouchAction, CROUCH_ACTION) })
+	touch.LeanLeft = TouchButtons.new({ place = "LeanLeft", icon = "ArrowLeft", label = "LEAN", onActivated = begin(onLeanAction, LEAN_LEFT_ACTION) })
+	touch.LeanRight = TouchButtons.new({ place = "LeanRight", icon = "ArrowRight", label = "LEAN", onActivated = begin(onLeanAction, LEAN_RIGHT_ACTION) })
+	touch.Fire = TouchButtons.new({
+		place = "Fire",
+		icon = "Fire",
+		label = "FIRE",
+		big = true,
+		onPress = function()
+			onFireAction(FIRE_ACTION, Enum.UserInputState.Begin)
+		end,
+		onRelease = function()
+			onFireAction(FIRE_ACTION, Enum.UserInputState.End)
+		end,
+	})
+end
+
+local function showTouch(names: { string }, visible: boolean)
+	for _, name in names do
+		local button = touch[name]
+		if button then
+			button.setVisible(visible)
+		end
+	end
+end
+
 -- Клавиши оружия работают только на смене (в лобби 1 / 2 — выбор роли)
 local function setBound(shift: boolean, holding: boolean)
 	if shift ~= bound then
 		bound = shift
 		if shift then
 			ContextActionService:BindAction(SLOT_ACTION, onSlotAction, false, table.unpack(Keys.Slots))
-			ContextActionService:BindAction(RELOAD_ACTION, onReloadAction, touchOnly, Keys.Reload)
-			ContextActionService:BindAction(CROUCH_ACTION, onCrouchAction, touchOnly, Keys.Crouch, Enum.KeyCode.ButtonB)
-			ContextActionService:BindAction(LEAN_LEFT_ACTION, onLeanAction, touchOnly, Keys.LeanLeft, Enum.KeyCode.ButtonL1)
-			ContextActionService:BindAction(LEAN_RIGHT_ACTION, onLeanAction, touchOnly, Keys.LeanRight, Enum.KeyCode.ButtonR1)
-			if touchOnly then
-				ContextActionService:SetTitle(RELOAD_ACTION, "Reload")
-				ContextActionService:SetPosition(RELOAD_ACTION, UDim2.new(1, -180, 1, -250))
-				ContextActionService:SetTitle(CROUCH_ACTION, "Crouch")
-				ContextActionService:SetPosition(CROUCH_ACTION, UDim2.new(1, -250, 1, -170))
-				ContextActionService:SetTitle(LEAN_LEFT_ACTION, "◀ Lean")
-				ContextActionService:SetPosition(LEAN_LEFT_ACTION, UDim2.new(1, -340, 1, -250))
-				ContextActionService:SetTitle(LEAN_RIGHT_ACTION, "Lean ▶")
-				ContextActionService:SetPosition(LEAN_RIGHT_ACTION, UDim2.new(1, -260, 1, -250))
-			end
+			ContextActionService:BindAction(RELOAD_ACTION, onReloadAction, false, Keys.Reload)
+			ContextActionService:BindAction(CROUCH_ACTION, onCrouchAction, false, Keys.Crouch, Enum.KeyCode.ButtonB)
+			ContextActionService:BindAction(LEAN_LEFT_ACTION, onLeanAction, false, Keys.LeanLeft, Enum.KeyCode.ButtonL1)
+			ContextActionService:BindAction(LEAN_RIGHT_ACTION, onLeanAction, false, Keys.LeanRight, Enum.KeyCode.ButtonR1)
 		else
 			ContextActionService:UnbindAction(SLOT_ACTION)
 			ContextActionService:UnbindAction(RELOAD_ACTION)
@@ -764,16 +784,16 @@ local function setBound(shift: boolean, holding: boolean)
 	if wantFire ~= fireBound then
 		fireBound = wantFire
 		if wantFire then
-			ContextActionService:BindAction(FIRE_ACTION, onFireAction, touchOnly, Enum.KeyCode.ButtonR2)
-			if touchOnly then
-				ContextActionService:SetTitle(FIRE_ACTION, "FIRE")
-				ContextActionService:SetPosition(FIRE_ACTION, UDim2.new(1, -100, 1, -250))
-			end
+			ContextActionService:BindAction(FIRE_ACTION, onFireAction, false, Enum.KeyCode.ButtonR2)
 		else
 			ContextActionService:UnbindAction(FIRE_ACTION)
 			triggerHeld = false
 		end
 	end
+	local show = shift and not viewing() and not downed()
+	showTouch({ "Crouch", "LeanLeft", "LeanRight" }, show)
+	showTouch({ "Reload" }, show and FIREARMS[equipped()] == true)
+	showTouch({ "Fire" }, show and wantFire)
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)

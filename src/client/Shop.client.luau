@@ -22,6 +22,7 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local ClassCards = require(UI:WaitForChild("ClassCards"))
+local PixelButton = require(UI:WaitForChild("PixelButton"))
 
 local Colors = Theme.Colors
 local Phase = GameState.Phase
@@ -55,20 +56,22 @@ end
 
 local gui = Theme.screenGui("Shop", 4)
 
--- Под деньгами справа вверху (на телефоне тоже: кнопка умения и голосование ниже неё)
-local shopButton = Theme.button({
-	Name = "ShopButton",
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -12, 0, 64),
-	Size = UDim2.fromOffset(150, 38),
-	BackgroundColor3 = Colors.Gold,
-	TextColor3 = Colors.Navy,
-	Text = if touchOnly then "🛒 SHOP" else "🛒 SHOP  [B]",
-	MaxTextSize = 20,
-	Visible = false,
-	Parent = gui,
+-- Под деньгами справа вверху (на телефоне тоже). Пиксельная, без рамки и фона, как кнопки хаба (этап 5, блок D).
+local toggle: () -> ()
+local shopButton = PixelButton.new({
+	icon = "Shop",
+	label = "SHOP",
+	key = "B",
+	cell = Config.PixelUI.HudCell,
+	name = "ShopButton",
+	parent = gui,
+	onActivated = function()
+		toggle()
+	end,
 })
-Theme.stroke(Colors.Navy, 2).Parent = shopButton
+shopButton.root.AnchorPoint = Vector2.new(1, 0)
+shopButton.root.Position = UDim2.new(1, -12, 0, 62)
+shopButton.root.Visible = false
 
 -- Короткая надпись внизу экрана: «Shop opens in the morning»
 local toast = Theme.label({
@@ -754,7 +757,7 @@ local function close()
 	rescale()
 end
 
-local function toggle()
+toggle = function()
 	if openFlag then
 		close()
 	else
@@ -763,7 +766,6 @@ local function toggle()
 end
 
 closeButton.Activated:Connect(close)
-shopButton.Activated:Connect(toggle)
 
 -- Касса SHOP у Моны Лизы: F «Open shop» (днём кнопку включает сервер)
 task.spawn(function()
@@ -839,10 +841,12 @@ RunService.Heartbeat:Connect(function(dt)
 	accumulator = 0
 	-- Кнопка SHOP: видна, пока игрок на смене; серая, когда магазин закрыт (ночью — «Shop opens in the morning»)
 	local onShift = localPlayer:GetAttribute(PlayerAttr.InRound) == true
-	shopButton.Visible = onShift
+	shopButton.root.Visible = onShift
 	local available = canShop()
-	shopButton.BackgroundColor3 = if available then Colors.Gold else Colors.Gray
-	shopButton.BackgroundTransparency = if available then 0 else 0.35
+	local shopLabel = shopButton.label
+	if shopLabel then
+		shopLabel.TextColor3 = if available then Colors.White else Colors.Gray
+	end
 	if openFlag and not available then
 		close()
 	elseif openFlag then

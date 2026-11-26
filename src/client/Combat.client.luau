@@ -75,6 +75,7 @@ end
 
 local armorBack, armorFill, armorLabel = bar("Armor", 0, Color3.fromHex("4A90E2"))
 local _healthBack, healthFill, healthLabel = bar("HealthBar", 0.54, Colors.Green)
+Theme.pixelize(armorLabel, healthLabel) -- пиксельный шрифт, как весь интерфейс (этап 5, блок D)
 
 local function healthColor(fraction: number): Color3
 	if fraction > 0.5 then

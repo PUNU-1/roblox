@@ -57,6 +57,8 @@ export type IconButton = {
 	setCell: (cell: number) -> (),
 	setDot: (on: boolean) -> (),
 	setLabel: (text: string) -> (),
+	setIcon: (icon: string) -> (),
+	label: TextLabel?,
 	height: () -> number,
 	width: () -> number,
 }
@@ -70,7 +72,11 @@ export type IconProps = {
 	layoutOrder: number?,
 	zIndex: number?,
 	parent: Instance?,
-	onActivated: () -> (),
+	width: number?, -- своя ширина кнопки (кнопки на телефоне стоят плотно и не должны перекрываться)
+	onActivated: (() -> ())?,
+	-- Для кнопок «держать» (FIRE): палец или мышь нажали / отпустили (отпустили — даже если палец ушёл с кнопки)
+	onPress: (() -> ())?,
+	onRelease: (() -> ())?,
 }
 
 -- Размер подписи для клетки cell: Press Start 2P ровный при чётных размерах, не меньше 8.
@@ -107,6 +113,7 @@ function PixelButton.new(props: IconProps): IconButton
 	local icon = PixelIcon.new(props.icon, true, z + 1)
 	icon.Size = UDim2.fromScale(1, 1)
 	icon.Parent = holder
+	local iconName = props.icon
 
 	local label: TextLabel? = nil
 	if props.label then
@@ -152,6 +159,9 @@ function PixelButton.new(props: IconProps): IconButton
 		return 16 * currentCell
 	end
 	local function width(): number
+		if props.width then
+			return props.width
+		end
 		local w = iconPixels() + 2 * currentCell
 		if label then
 			w = math.max(w, 12 * labelSize(currentCell))
@@ -231,15 +241,50 @@ function PixelButton.new(props: IconProps): IconButton
 		stopRock()
 		settle()
 	end)
+	local holding: InputObject? = nil
+	local function release()
+		if holding then
+			holding = nil
+			if props.onRelease then
+				props.onRelease()
+			end
+		end
+	end
 	root.InputBegan:Connect(function(input)
 		if isPress(input) then
 			pressed = true
 			settle()
+			if props.onPress and not holding then
+				holding = input
+				PixelButton.click()
+				local onPress = props.onPress :: () -> ()
+				onPress()
+				-- Отпустили палец где угодно на экране — кнопка отпущена (InputEnded кнопки может не прийти)
+				local watch: RBXScriptConnection? = nil
+				watch = input:GetPropertyChangedSignal("UserInputState"):Connect(function()
+					if input.UserInputState == Enum.UserInputState.End or input.UserInputState == Enum.UserInputState.Cancel then
+						if watch then
+							watch:Disconnect()
+						end
+						if holding == input then
+							release()
+						end
+					end
+				end)
+			end
+		end
+	end)
+	root:GetPropertyChangedSignal("Visible"):Connect(function()
+		if not root.Visible then
+			release()
 		end
 	end)
 	root.InputEnded:Connect(function(input)
 		if isPress(input) then
 			pressed = false
+			if holding == input then
+				release()
+			end
 			if input.UserInputType == Enum.UserInputType.Touch then
 				hovered = false -- у пальца нет «наведения»
 				stopRock()
@@ -248,8 +293,11 @@ function PixelButton.new(props: IconProps): IconButton
 		end
 	end)
 	root.Activated:Connect(function()
-		PixelButton.click()
-		props.onActivated()
+		local activated = props.onActivated
+		if activated then
+			PixelButton.click()
+			activated()
+		end
 	end)
 
 	if props.parent then
@@ -258,6 +306,17 @@ function PixelButton.new(props: IconProps): IconButton
 
 	return {
 		root = root,
+		label = label,
+		setIcon = function(name: string)
+			if name == iconName then
+				return
+			end
+			iconName = name
+			icon:Destroy()
+			icon = PixelIcon.new(name, true, z + 1)
+			icon.Size = UDim2.fromScale(1, 1)
+			icon.Parent = holder
+		end,
 		setCell = setCell,
 		setDot = function(on: boolean)
 			if dot.Visible == on then

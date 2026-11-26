@@ -463,6 +463,228 @@ Icons.Sensor = {
 	palette = { K = OUTLINE, r = "E04040", g = "8A93A6" },
 }
 
+-- Этап 5, блок D (кнопки музея): фразы, рывок, оружие, аптечка, патроны (перезарядка), присед, огонь.
+-- Наклон — ArrowLeft / ArrowRight, телефон и датчик — выше.
+Icons.Chat = {
+	rows = {
+		"................",
+		"................",
+		".KKKKKKKKKKKKKK.",
+		"KwwwwwwwwwwwwwwK",
+		"KwwwwwwwwwwwwwwK",
+		"KwwbbwwbbwwbbwwK",
+		"KwwbbwwbbwwbbwwK",
+		"KwwwwwwwwwwwwwwK",
+		"KggggggggggggggK",
+		".KKKKKggKKKKKKK.",
+		".....KgK........",
+		"....KgK.........",
+		"....KK..........",
+		"................",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, w = WHITE, g = "C8C8D0", b = "3BC6C1" },
+}
+
+Icons.Dash = {
+	rows = {
+		"................",
+		"........KKKK....",
+		".......KyyyK....",
+		"......KyyyK.....",
+		".....KyyyK......",
+		"....KyyyKKKKK...",
+		"...KyyyyyyyyK...",
+		"...KKKKKyyyK....",
+		".......KyyK.....",
+		"......KyyK......",
+		".....KyyK.......",
+		"....KyyK........",
+		"....KyK.........",
+		"....KK..........",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, y = "FFD23F" },
+}
+
+Icons.Pistol = {
+	rows = {
+		"................",
+		"................",
+		"................",
+		"..KKKKKKKKKKKKK.",
+		"..KllllllllllllK",
+		"..KddddddddddddK",
+		"..KddddKKKKKKKK.",
+		"..KddddKbK......",
+		"..KddddKKK......",
+		"..KbbbbK........",
+		"..KbbbbK........",
+		"..KbbbbK........",
+		"..KKKKKK........",
+		"................",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, l = "B8BCC8", d = "6A6E7A", b = "6B4A2E" },
+}
+
+Icons.Rifle = {
+	rows = {
+		"................",
+		"................",
+		"................",
+		"....KKKKKKKK....",
+		"KKKKKddddddKKKKK",
+		"KbbbKddddddddddK",
+		"KbbbKddddddKKKKK",
+		"KbbKKdKKdKKK....",
+		"KKK.KdK.KdK.....",
+		"....KdK.KdK.....",
+		"....KKK.KdK.....",
+		"........KKK.....",
+		"................",
+		"................",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, d = "3A3E48", b = "6B4A2E" },
+}
+
+Icons.Shotgun = {
+	rows = {
+		"................",
+		"................",
+		"................",
+		"................",
+		"................",
+		"KKKKKKKKKKKKKKKK",
+		"KbbbbbKggggggggK",
+		"KbbbbbKKKKKKKKKK",
+		"KbbKKKKbbbbK....",
+		"KbbK...KKKKK....",
+		"KKKK............",
+		"................",
+		"................",
+		"................",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, b = "8B5A2B", g = "7A7E88" },
+}
+
+Icons.Taser = {
+	rows = {
+		"................",
+		"................",
+		"................",
+		"..KKKKKKKKK.....",
+		"..KyyyyyyyyKKK..",
+		"..KyyyyyyyyKbK..",
+		"..KyyyyyyyyKKK..",
+		"..KyyyKKKKKK....",
+		"..KdddK.........",
+		"..KdddK.........",
+		"..KdddK.........",
+		"..KKKKK.........",
+		"................",
+		"................",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, y = GOLD, d = "3A3A4A", b = "6FD3FF" },
+}
+
+Icons.Medkit = {
+	rows = {
+		"................",
+		".....KKKKKK.....",
+		"..KKKKKKKKKKKK..",
+		"..KwwwwwwwwwwK..",
+		"..KwwwwrrwwwwK..",
+		"..KwwwwrrwwwwK..",
+		"..KwwrrrrrrwwK..",
+		"..KwwrrrrrrwwK..",
+		"..KwwwwrrwwwwK..",
+		"..KwwwwrrwwwwK..",
+		"..KwwwwwwwwwwK..",
+		"..KggggggggggK..",
+		"..KKKKKKKKKKKK..",
+		"................",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, w = WHITE, r = "E04040", g = "C8C8D0" },
+}
+
+Icons.Reload = {
+	rows = {
+		"................",
+		"................",
+		"...KK...KK...KK.",
+		"..KyyK.KyyK.KyyK",
+		"..KyyK.KyyK.KyyK",
+		"..KKKK.KKKK.KKKK",
+		"..KooK.KooK.KooK",
+		"..KooK.KooK.KooK",
+		"..KooK.KooK.KooK",
+		"..KooK.KooK.KooK",
+		"..KooK.KooK.KooK",
+		"..KddK.KddK.KddK",
+		"..KKKK.KKKK.KKKK",
+		"................",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, y = "C87533", o = GOLD, d = GOLD_DARK },
+}
+
+Icons.Crouch = {
+	rows = {
+		"................",
+		"..KK........KK..",
+		"..KwK......KwK..",
+		"...KwK....KwK...",
+		"....KwK..KwK....",
+		".....KwKKwK.....",
+		"......KwwK......",
+		".......KK.......",
+		"..KK........KK..",
+		"..KwK......KwK..",
+		"...KwK....KwK...",
+		"....KwK..KwK....",
+		".....KwKKwK.....",
+		"......KwwK......",
+		".......KK.......",
+		"................",
+	},
+	palette = { K = OUTLINE, w = WHITE },
+}
+
+Icons.Fire = {
+	rows = {
+		"................",
+		"......KKKK......",
+		"....KKrrrrKK....",
+		"...KrrKKKKrrK...",
+		"..KrrK....KrrK..",
+		"..KrK..KK..KrK..",
+		".KrrK.KrrK.KrrK.",
+		".KrrK.KrrK.KrrK.",
+		"..KrK..KK..KrK..",
+		"..KrrK....KrrK..",
+		"...KrrKKKKrrK...",
+		"....KKrrrrKK....",
+		"......KKKK......",
+		"................",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, r = "FF4040" },
+}
+
 PixelIcon.Icons = Icons
 
 local function resolve(icon: Icon | string): Icon

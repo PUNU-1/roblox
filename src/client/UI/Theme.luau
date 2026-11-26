@@ -70,6 +70,22 @@ function Theme.touchOnly(): boolean
 	return UserInputService.TouchEnabled and not UserInputService.MouseEnabled
 end
 
+-- Переводит готовые надписи на пиксельный шрифт (этап 5, блок D: деньги, таймер, здоровье, патроны в музее).
+-- Надпись остаётся TextScaled; если у неё ещё нет обводки — добавляется чёрная.
+function Theme.pixelize(...: TextLabel)
+	for _, label in { ... } do
+		label.FontFace = Theme.PixelFont
+		if not label:FindFirstChildOfClass("UIStroke") then
+			Theme.new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 2, LineJoinMode = Enum.LineJoinMode.Miter, Parent = label })
+		end
+	end
+end
+
+-- В пиксельном шрифте нет «•», длинного тире, многоточия и 💎 — заменяем на то, что в нём есть.
+function Theme.pixelText(text: string): string
+	return (text:gsub("•", "|"):gsub("—", "-"):gsub("…", "..."):gsub("’", "'"):gsub("💎 ?", ""))
+end
+
 -- Создаёт элемент: Theme.new("Frame", { Size = ..., Parent = ... }, { дочерние элементы })
 function Theme.new(className: string, props: { [string]: any }?, children: { Instance }?): any
 	local instance = Instance.new(className)

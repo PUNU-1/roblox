@@ -22,6 +22,9 @@ local GameState = require(Shared:WaitForChild("GameState"))
 local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
+local TouchButtons = require(script.Parent:WaitForChild("UI"):WaitForChild("TouchButtons"))
+local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelButton"))
+local touchOnly = Theme.touchOnly()
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -226,16 +229,21 @@ local mapCanvas = Theme.new("Frame", {
 	Parent = mapFrame,
 })
 
-local closeButton = Theme.button({
-	AnchorPoint = Vector2.new(1, 0.5),
-	Position = UDim2.fromScale(1, 0.5),
-	Size = UDim2.fromScale(0.26, 0.5),
-	BackgroundColor3 = Colors.Red,
-	Text = "CLOSE (Tab)",
-	ZIndex = 2,
-	Modal = true, -- пока открыт экран камер, курсор свободен: можно нажимать на воров и кнопки
-	Parent = panel,
+-- Пиксельная кнопка с текстом (этап 5, блок D)
+local closeButton = PixelButton.text({
+	text = if touchOnly then "CLOSE" else "CLOSE (TAB)",
+	color = Colors.Red,
+	textSize = 8,
+	anchor = Vector2.new(1, 0.5),
+	position = UDim2.fromScale(1, 0.5),
+	size = UDim2.fromScale(0.26, 0.5),
+	zIndex = 2,
+	parent = panel,
+	onActivated = function()
+		requestCameras:FireServer(false)
+	end,
 })
+closeButton.root.Modal = true -- пока открыт экран камер, курсор свободен: можно нажимать на воров и кнопки
 
 ---------------------------------------------------------------- схема музея
 
@@ -604,9 +612,6 @@ for index, button in cameraButtons do
 	end)
 end
 
-closeButton.Activated:Connect(function()
-	requestCameras:FireServer(false)
-end)
 
 ---------------------------------------------------------------- метка на вора
 
@@ -868,18 +873,29 @@ local function onPhoneAction(_name: string, state: Enum.UserInputState)
 	return Enum.ContextActionResult.Sink
 end
 
+-- Кнопка телефона на экране (этап 5, блок D): пиксельная, справа внизу (там же, где кнопка умения у других классов).
+-- Только на телефоне: на компьютере — клавиша Tab. Открыт экран камер — на кнопке CLOSE.
+local phoneButton = TouchButtons.new({
+	place = "Ability",
+	icon = "Phone",
+	label = "PHONE",
+	onActivated = function()
+		requestCameras:FireServer(not viewing)
+	end,
+})
+
 local function refreshPhoneBinding()
 	-- Пульт закрывается той же кнопкой, поэтому она нужна и тому, кто смотрит с пульта
 	local shouldBind = canUsePhone() or viewing
 	if shouldBind and not phoneBound then
-		ContextActionService:BindAction(PHONE_ACTION, onPhoneAction, true, Enum.KeyCode.Tab)
-		ContextActionService:SetTitle(PHONE_ACTION, "Phone")
-		ContextActionService:SetPosition(PHONE_ACTION, UDim2.new(1, -170, 1, -170))
+		ContextActionService:BindAction(PHONE_ACTION, onPhoneAction, false, Enum.KeyCode.Tab)
 		phoneBound = true
 	elseif not shouldBind and phoneBound then
 		ContextActionService:UnbindAction(PHONE_ACTION)
 		phoneBound = false
 	end
+	phoneButton.setVisible(shouldBind and touchOnly)
+	phoneButton.setLabel(if viewing then "CLOSE" else "PHONE")
 end
 
 local function onStateChanged()
