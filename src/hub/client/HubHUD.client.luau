@@ -1,6 +1,12 @@
--- Экран хаба (блок 6): верхняя строка (что делать сейчас), карточки классов (клавиши 1–5, на телефоне — пальцем),
--- панель создателя команды (START — F, Friends only — G, на телефоне — кнопки), крупные надписи и затемнение
--- «Teleporting to the museum». Клиент только показывает и шлёт намерения; всё решает сервер (PadService).
+-- Экран хаба (блок 6; этап 5, блок A — «как в настоящих играх», решение 75). Чистый экран:
+--  • слева пиксельные кнопки без рамки и фона: SHOP, CLASSES, GIFTS, HOW TO PLAY, GROUP, FAVORITE — каждая
+--    открывает своё окно (на телефоне — двумя столбиками сверху, чтобы не мешать джойстику);
+--  • справа вверху — алмазы пиксельной иконкой и числом;
+--  • сверху по центру — свой класс и, если стоишь в круге, команда и отсчёт;
+--  • панель создателя команды (START — F, FRIENDS ONLY — G, на телефоне — кнопки) — только у создателя, пока он в круге;
+--  • крупные надписи и затемнение «Teleporting to the museum».
+-- Клавиши: B — магазин классов, C — окно классов (пока оно открыто — 1–5). Клиент только показывает и шлёт
+-- намерения; всё решает сервер (PadService, ProfileStore).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,8 +21,11 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
-local ClassCards = require(UI:WaitForChild("ClassCards"))
+local PixelIcon = require(UI:WaitForChild("PixelIcon"))
+local PixelButton = require(UI:WaitForChild("PixelButton"))
+local PixelWindow = require(UI:WaitForChild("PixelWindow"))
 local ClassShop = require(script.Parent:WaitForChild("ClassShop"))
+local ClassesWindow = require(script.Parent:WaitForChild("ClassesWindow"))
 
 local PadAttr = GameState.PadAttr
 local PadState = GameState.PadState
@@ -51,71 +60,65 @@ local function launching(): boolean
 	return pad ~= nil and pad:GetAttribute(PadAttr.State) == PadState.Launching
 end
 
----------------------------------------------------------------- верхняя строка
+---------------------------------------------------------------- сверху по центру: класс и команда
 
-local topBar = Theme.new("Frame", {
-	Name = "TopBar",
+local classLine = Theme.pixelLabel({
+	Name = "ClassLine",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 12),
-	Size = UDim2.new(0.55, 0, 0, 46),
-	BackgroundColor3 = Colors.Navy,
-	BackgroundTransparency = 0.15,
+	Position = UDim2.new(0.5, 0, 0, 14),
+	Size = UDim2.new(0.6, 0, 0, 20),
 	Parent = gui,
-}, { Theme.corner(12), Theme.stroke(Colors.Gold, 2), Theme.new("UISizeConstraint", { MinSize = Vector2.new(320, 0) }) })
-local topLabel = Theme.label({ Size = UDim2.fromScale(1, 1), MaxTextSize = 26, Parent = topBar })
-Theme.padding(6).Parent = topBar
+}, 16)
+local teamLine = Theme.pixelLabel({
+	Name = "TeamLine",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 42),
+	Size = UDim2.new(0.7, 0, 0, 20),
+	TextColor3 = Colors.Gold,
+	TextWrapped = true,
+	Parent = gui,
+}, 16)
 
 ---------------------------------------------------------------- алмазы 💎 (этап 4, блок 1)
--- Справа вверху: сколько алмазов (сохраняются навсегда). В Studio без доступа к API — пометка, что не сохраняются.
+-- Справа вверху: пиксельный алмаз и число (сохраняются навсегда). В Studio без доступа к API — пометка.
 
-local diamondFrame = Theme.new("Frame", {
+local diamondIcon = PixelIcon.new("Diamond", true, 2)
+diamondIcon.AnchorPoint = Vector2.new(1, 0)
+diamondIcon.Position = UDim2.new(1, -16, 0, 10)
+diamondIcon.Size = PixelIcon.size("Diamond", 3)
+diamondIcon.Parent = gui
+local diamondLabel = Theme.pixelLabel({
 	Name = "Diamonds",
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -12, 0, 12),
-	Size = UDim2.fromOffset(150, 46),
-	BackgroundColor3 = Colors.Navy,
-	BackgroundTransparency = 0.15,
+	Position = UDim2.new(1, -72, 0, 22),
+	Size = UDim2.fromOffset(200, 26),
+	Text = "0",
+	TextColor3 = Colors.Diamond,
+	TextXAlignment = Enum.TextXAlignment.Right,
 	Parent = gui,
-}, { Theme.corner(12), Theme.stroke(Colors.Diamond, 2) })
-local diamondLabel = Theme.label({ Size = UDim2.fromScale(1, 1), TextColor3 = Colors.Diamond, Text = "💎 0", MaxTextSize = 30, Parent = diamondFrame })
-Theme.padding(6).Parent = diamondFrame
--- Кнопка SHOP (клавиша B): окно магазина классов (ClassShop)
-local shopButton = Theme.button({
-	Name = "Shop",
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -12, 0, 64),
-	Size = UDim2.fromOffset(150, 40),
-	BackgroundColor3 = Colors.Gold,
-	TextColor3 = Colors.Navy,
-	Text = if touchOnly then "SHOP" else "SHOP  [B]",
-	MaxTextSize = 22,
-	Parent = gui,
-})
-local diamondNote = Theme.label({
+}, 24, 3)
+local diamondNote = Theme.pixelLabel({
 	Name = "DiamondNote",
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -12, 0, 110),
-	Size = UDim2.fromOffset(240, 18),
-	Font = Theme.BodyFont,
+	Position = UDim2.new(1, -16, 0, 62),
+	Size = UDim2.fromOffset(420, 12),
 	TextColor3 = Colors.Marble,
 	TextXAlignment = Enum.TextXAlignment.Right,
-	MaxTextSize = 14,
 	Visible = false,
 	Parent = gui,
-})
-Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 1.5, Parent = diamondNote })
+}, 8)
 
 local function refreshDiamonds()
 	local status = localPlayer:GetAttribute(PlayerAttr.ProfileStatus)
 	if status == ProfileStatus.Loading or status == nil then
-		diamondLabel.Text = "💎 ..."
+		diamondLabel.Text = "..."
 	else
-		diamondLabel.Text = "💎 " .. tostring(GameState.diamondsOf(localPlayer))
+		diamondLabel.Text = tostring(GameState.diamondsOf(localPlayer))
 	end
 	if status == ProfileStatus.Offline then
-		diamondNote.Text = "Diamonds are not saved in Studio"
+		diamondNote.Text = "DIAMONDS ARE NOT SAVED IN STUDIO"
 	elseif status == ProfileStatus.Error then
-		diamondNote.Text = "Diamonds are unavailable — trying again"
+		diamondNote.Text = "DIAMONDS ARE UNAVAILABLE - TRYING AGAIN"
 	else
 		diamondNote.Text = ""
 	end
@@ -124,24 +127,23 @@ end
 
 ---------------------------------------------------------------- крупная надпись
 
-local banner = Theme.label({
+local banner = Theme.pixelLabel({
 	Name = "Banner",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0.14, 0),
-	Size = UDim2.new(0.8, 0, 0, 60),
+	Position = UDim2.new(0.5, 0, 0.16, 0),
+	Size = UDim2.new(0.8, 0, 0, 64),
 	TextColor3 = Colors.Gold,
-	MaxTextSize = 48,
+	TextWrapped = true,
 	Visible = false,
 	ZIndex = 20,
 	Parent = gui,
-})
-Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 3, Parent = banner })
+}, if touchOnly then 16 else 24, 3)
 local bannerToken = 0
 
 local function showBanner(text: string, kind: string?)
 	bannerToken += 1
 	local token = bannerToken
-	banner.Text = text
+	banner.Text = string.upper(text)
 	banner.TextColor3 = if kind == "danger" then Colors.Red else Colors.Gold
 	banner.Visible = true
 	task.delay(Config.Effects.BannerSeconds + 1, function()
@@ -157,7 +159,7 @@ Remotes.get(Remotes.Names.Banner).OnClientEvent:Connect(function(text, kind)
 	end
 end)
 
----------------------------------------------------------------- карточки классов
+---------------------------------------------------------------- выбор класса (окно CLASSES)
 
 local CLASS_KEYS = {
 	{ Enum.KeyCode.One, Enum.KeyCode.KeypadOne },
@@ -169,63 +171,185 @@ local CLASS_KEYS = {
 
 -- Сервер сам проверит, можно ли сейчас менять класс; тут только не шлём лишнего
 local function chooseClass(role: string)
-	if launching() or GameState.roleOf(localPlayer) == role then
+	if launching() then
 		return
 	end
 	if not GameState.ownsClass(localPlayer, role) then
+		ClassesWindow.close()
 		ClassShop.open(role) -- некупленный класс — сразу в магазин на нём
 		return
 	end
-	Remotes.get(Remotes.Names.SetRole):FireServer(role)
+	if GameState.roleOf(localPlayer) ~= role then
+		Remotes.get(Remotes.Names.SetRole):FireServer(role)
+	end
+	ClassesWindow.close()
 end
 
-local classCards = ClassCards.new(gui, touchOnly, chooseClass)
+ClassesWindow.init(chooseClass)
+
+---------------------------------------------------------------- маленькое окно «Coming soon!»
+
+local soonWindow = PixelWindow.new({ name = "ComingSoon", title = "COMING SOON!", width = 480, height = 230 })
+local soonText = Theme.pixelLabel({
+	Name = "Text",
+	Position = UDim2.fromOffset(16, 10),
+	Size = UDim2.new(1, -32, 1, -20),
+	TextColor3 = Colors.Marble,
+	TextWrapped = true,
+	ZIndex = 3,
+	Parent = soonWindow.content,
+}, 12, 2)
+
+local function comingSoon(title: string, text: string)
+	soonWindow.setTitle(title)
+	soonText.Text = text
+	soonWindow.open()
+end
+
+---------------------------------------------------------------- кнопки слева
+
+local menu = Theme.new("Frame", {
+	Name = "Menu",
+	BackgroundTransparency = 1,
+	Parent = gui,
+})
+
+type MenuItem = { icon: string, label: string, key: string?, action: () -> () }
+
+local function openShop()
+	if not launching() then
+		if not ClassShop.isOpen() then
+			PixelWindow.closeAll()
+		end
+		ClassShop.toggle()
+	end
+end
+
+local function openClasses()
+	if not launching() then
+		ClassShop.close()
+		ClassesWindow.toggle()
+	end
+end
+
+local ITEMS: { MenuItem } = {
+	{ icon = "Shop", label = "SHOP", key = "B", action = openShop },
+	{ icon = "Classes", label = "CLASSES", key = "C", action = openClasses },
+	{
+		icon = "Gift",
+		label = "GIFTS",
+		action = function()
+			comingSoon("GIFTS", "Daily gifts are coming soon!")
+		end,
+	},
+	{
+		icon = "HowToPlay",
+		label = "HOW TO PLAY",
+		action = function()
+			comingSoon("HOW TO PLAY", "Coming soon!")
+		end,
+	},
+	{
+		icon = "Group",
+		label = "GROUP",
+		action = function()
+			comingSoon("GROUP", "Coming soon!")
+		end,
+	},
+	{
+		icon = "Favorite",
+		label = "FAVORITE",
+		action = function()
+			comingSoon("FAVORITE", "Coming soon!")
+		end,
+	},
+}
+
+local buttons: { [string]: PixelButton.IconButton } = {}
+local buttonList: { PixelButton.IconButton } = {}
+for index, item in ITEMS do
+	local button = PixelButton.new({
+		icon = item.icon,
+		label = item.label,
+		key = item.key,
+		layoutOrder = index,
+		parent = menu,
+		onActivated = item.action,
+	})
+	buttons[item.icon] = button
+	table.insert(buttonList, button)
+end
+
+-- Раскладка: на компьютере — столбик по центру высоты слева, на телефоне — 2 столбика сверху слева
+-- (внизу слева джойстик). Клетка иконки — целое число пикселей, на маленьком экране меньше.
+local COLUMNS = if touchOnly then 2 else 1
+local ROWS = math.ceil(#buttonList / COLUMNS)
+local function layoutMenu()
+	local camera = Workspace.CurrentCamera
+	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+	local room = if touchOnly then viewport.Y * 0.62 else viewport.Y * 0.86
+	local cell = Config.PixelUI.MinCell
+	for try = Config.PixelUI.Cell, Config.PixelUI.MinCell, -1 do
+		buttonList[1].setCell(try)
+		if ROWS * buttonList[1].height() + (ROWS - 1) * try <= room then
+			cell = try
+			break
+		end
+	end
+	local width, height = 0, 0
+	for _, button in buttonList do
+		button.setCell(cell)
+		width = math.max(width, button.width())
+		height = math.max(height, button.height())
+	end
+	for index, button in buttonList do
+		local column = (index - 1) % COLUMNS
+		local row = (index - 1) // COLUMNS
+		button.root.Position = UDim2.fromOffset(column * width, row * (height + cell))
+	end
+	menu.Size = UDim2.fromOffset(COLUMNS * width, ROWS * height + (ROWS - 1) * cell)
+	if touchOnly then
+		menu.AnchorPoint = Vector2.new(0, 0)
+		menu.Position = UDim2.fromOffset(8, 64)
+	else
+		menu.AnchorPoint = Vector2.new(0, 0.5)
+		menu.Position = UDim2.new(0, 12, 0.5, 0)
+	end
+end
+layoutMenu()
+if Workspace.CurrentCamera then
+	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layoutMenu)
+end
 
 ---------------------------------------------------------------- панель создателя команды
 
+local LEADER_W, LEADER_H = 300, 210
 local leader = Theme.new("Frame", {
 	Name = "LeaderPanel",
 	AnchorPoint = Vector2.new(1, 0.5),
-	Position = UDim2.new(1, -16, 0.42, 0),
-	Size = UDim2.fromOffset(250, 176),
-	BackgroundColor3 = Colors.Navy,
-	BackgroundTransparency = 0.1,
+	Position = UDim2.new(1, -16, 0.45, 0),
+	Size = UDim2.fromOffset(LEADER_W, LEADER_H),
+	BackgroundTransparency = 1,
 	Visible = false,
 	Parent = gui,
-}, { Theme.corner(16), Theme.stroke(Colors.Gold, 2), Theme.padding(12) })
-local leaderTitle = Theme.label({
-	Size = UDim2.new(1, 0, 0, 26),
+})
+local leaderInset = PixelWindow.box(leader)
+local leaderScale = Theme.new("UIScale", { Parent = leader })
+local leaderTitle = Theme.pixelLabel({
+	Position = UDim2.fromOffset(leaderInset, leaderInset + 6),
+	Size = UDim2.new(1, -2 * leaderInset, 0, 20),
 	TextColor3 = Colors.Gold,
-	MaxTextSize = 24,
+	ZIndex = 3,
 	Parent = leader,
-})
-Theme.label({
-	Position = UDim2.fromOffset(0, 28),
-	Size = UDim2.new(1, 0, 0, 18),
-	Font = Theme.BodyFont,
+}, 16)
+Theme.pixelLabel({
+	Position = UDim2.fromOffset(leaderInset, leaderInset + 34),
+	Size = UDim2.new(1, -2 * leaderInset, 0, 12),
 	TextColor3 = Colors.Marble,
-	Text = "You stepped in first — you lead",
-	MaxTextSize = 14,
+	Text = "YOU STEPPED IN FIRST - YOU LEAD",
+	ZIndex = 3,
 	Parent = leader,
-})
-local startButton = Theme.button({
-	Name = "Start",
-	Position = UDim2.fromOffset(0, 54),
-	Size = UDim2.new(1, 0, 0, 46),
-	BackgroundColor3 = Colors.Green,
-	Text = if touchOnly then "START NOW" else "START NOW  [F]",
-	MaxTextSize = 24,
-	Parent = leader,
-})
-local friendsButton = Theme.button({
-	Name = "FriendsOnly",
-	Position = UDim2.fromOffset(0, 108),
-	Size = UDim2.new(1, 0, 0, 42),
-	BackgroundColor3 = Colors.NavyLight,
-	MaxTextSize = 20,
-	Parent = leader,
-})
-Theme.stroke(Config.Hub.FriendsColor, 2).Parent = friendsButton
+}, 8)
 
 local function pressStart()
 	local pad = myPad()
@@ -241,8 +365,37 @@ local function toggleFriends()
 	end
 end
 
-startButton.Activated:Connect(pressStart)
-friendsButton.Activated:Connect(toggleFriends)
+local startButton = PixelButton.text({
+	name = "Start",
+	text = if touchOnly then "START NOW" else "START NOW [F]",
+	color = Colors.Green,
+	position = UDim2.fromOffset(leaderInset + 4, leaderInset + 60),
+	size = UDim2.new(1, -2 * leaderInset - 8, 0, 56),
+	zIndex = 3,
+	parent = leader,
+	onActivated = pressStart,
+})
+local friendsButton = PixelButton.text({
+	name = "FriendsOnly",
+	text = "FRIENDS ONLY: OFF",
+	color = Colors.NavyLight,
+	textSize = 12,
+	position = UDim2.fromOffset(leaderInset + 4, leaderInset + 124),
+	size = UDim2.new(1, -2 * leaderInset - 8, 0, 48),
+	zIndex = 3,
+	parent = leader,
+	onActivated = toggleFriends,
+})
+
+local function rescaleLeader()
+	local camera = Workspace.CurrentCamera
+	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+	leaderScale.Scale = math.clamp(math.min(viewport.X * 0.3 / LEADER_W, viewport.Y * 0.45 / LEADER_H), 0.5, 1)
+end
+rescaleLeader()
+if Workspace.CurrentCamera then
+	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescaleLeader)
+end
 
 ---------------------------------------------------------------- затемнение при телепорте
 
@@ -255,87 +408,77 @@ local overlay = Theme.new("Frame", {
 	ZIndex = 10,
 	Parent = gui,
 })
-Theme.label({
+Theme.pixelLabel({
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.45),
-	Size = UDim2.new(0.8, 0, 0, 64),
+	Size = UDim2.new(0.9, 0, 0, 40),
 	Text = "TELEPORTING TO THE MUSEUM...",
 	TextColor3 = Colors.Gold,
-	MaxTextSize = 52,
+	TextWrapped = true,
 	ZIndex = 10,
 	Parent = overlay,
-})
-local overlayHint = Theme.label({
+}, if touchOnly then 16 else 32, 3)
+local overlayHint = Theme.pixelLabel({
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.55),
-	Size = UDim2.new(0.7, 0, 0, 30),
-	Font = Theme.BodyFont,
+	Size = UDim2.new(0.8, 0, 0, 20),
 	TextColor3 = Colors.Marble,
-	MaxTextSize = 24,
 	ZIndex = 10,
 	Parent = overlay,
-})
+}, 16)
 
 ---------------------------------------------------------------- клавиши
-
-shopButton.Activated:Connect(function()
-	if not launching() then
-		ClassShop.toggle()
-	end
-end)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
-	if input.KeyCode == Enum.KeyCode.B then
-		if not launching() then
-			ClassShop.toggle()
+	if input.KeyCode == Config.Keys.Shop then
+		openShop()
+		return
+	elseif input.KeyCode == Enum.KeyCode.C then
+		openClasses()
+		return
+	end
+	if ClassesWindow.isOpen() then
+		for index, keys in CLASS_KEYS do
+			local role = Config.Classes.Order[index]
+			if role and table.find(keys, input.KeyCode) then
+				chooseClass(role)
+				return
+			end
 		end
 		return
 	end
-	if ClassShop.isOpen() then
-		return -- пока окно магазина открыто, клавиши хаба не работают
+	if PixelWindow.anyOpen() or ClassShop.isOpen() then
+		return -- пока открыто окно, клавиши хаба не работают
 	end
 	if input.KeyCode == Config.Keys.Action then
 		pressStart()
-		return
 	elseif input.KeyCode == Enum.KeyCode.G then
 		toggleFriends()
-		return
-	end
-	for index, keys in CLASS_KEYS do
-		local role = Config.Classes.Order[index]
-		if role and table.find(keys, input.KeyCode) then
-			chooseClass(role)
-			return
-		end
 	end
 end)
 
 ---------------------------------------------------------------- обновление
 
-local function topText(pad: BasePart?): string
+local function teamText(pad: BasePart?): string
 	if not pad then
-		return if touchOnly
-			then "Step into a glowing circle to start a team   •   Tap a card to pick your class"
-			else "Step into a glowing circle to start a team   •   Keys 1–5 — your class"
+		return ""
 	end
 	local index = tonumber(pad:GetAttribute(PadAttr.Index)) or 0
 	local ids = GameState.padTeam(pad)
 	local state = pad:GetAttribute(PadAttr.State)
 	local message = pad:GetAttribute(PadAttr.Message)
 	if state == PadState.Launching then
-		return "Teleporting to the museum..."
+		return "TELEPORTING TO THE MUSEUM..."
 	elseif state == PadState.Blocked and typeof(message) == "string" then
-		return message
+		return string.upper(message)
 	end
 	local endsAt = tonumber(pad:GetAttribute(PadAttr.EndsAt)) or 0
 	local left = Theme.formatTime(math.max(0, endsAt - Workspace:GetServerTimeNow()))
-	if isCreator(pad) then
-		return ("You lead Team %d (%d/%d)   •   Starting in %s"):format(index, #ids, Config.Players.Max, left)
-	end
-	return ("You're in Team %d (%d/%d)   •   Starting in %s"):format(index, #ids, Config.Players.Max, left)
+	local who = if isCreator(pad) then "YOU LEAD" else "YOU'RE IN"
+	return ("%s TEAM %d (%d/%d) - STARTING IN %s"):format(who, index, #ids, Config.Players.Max, left)
 end
 
 local accumulator = 0
@@ -348,33 +491,33 @@ RunService.Heartbeat:Connect(function(dt)
 
 	refreshDiamonds()
 	local pad = myPad()
-	topLabel.Text = topText(pad)
+	local info = GameState.classInfo(GameState.roleOf(localPlayer))
+	local className = string.upper(if info then tostring(info.Title) else "Patrol")
+	classLine.Text = "YOUR CLASS: " .. className
+	teamLine.Text = teamText(pad)
+
 	local flying = pad ~= nil and pad:GetAttribute(PadAttr.State) == PadState.Launching
 	overlay.Visible = flying
 	if flying then
-		local info = GameState.classInfo(GameState.roleOf(localPlayer))
-		overlayHint.Text = ("Your class: %s"):format(if info then tostring(info.Title) else "Patrol")
+		overlayHint.Text = "YOUR CLASS: " .. className
+		if PixelWindow.anyOpen() or ClassShop.isOpen() then
+			PixelWindow.closeAll() -- команда улетает — окна закрываем
+			ClassShop.close()
+		end
 	end
-
-	if flying and ClassShop.isOpen() then
-		ClassShop.close() -- команда улетает — окно магазина закрываем
-	end
-	shopButton.Visible = not flying
-	classCards.setVisible(not flying)
-	if not flying then
-		classCards.refresh(GameState.roleOf(localPlayer))
-	end
+	menu.Visible = not flying
+	ClassesWindow.refresh()
 
 	local leading = pad ~= nil and isCreator(pad) and not flying
 	leader.Visible = leading
 	if pad and leading then
-		leaderTitle.Text = ("TEAM %d — LEADER"):format(tonumber(pad:GetAttribute(PadAttr.Index)) or 0)
+		leaderTitle.Text = ("TEAM %d - LEADER"):format(tonumber(pad:GetAttribute(PadAttr.Index)) or 0)
 		local open = pad:GetAttribute(PadAttr.State) == PadState.Open
-		startButton.AutoButtonColor = open
-		startButton.BackgroundTransparency = if open then 0 else 0.5
+		startButton.setEnabled(open)
+		startButton.setColor(if open then Colors.Green else Colors.Gray)
 		local on = pad:GetAttribute(PadAttr.FriendsOnly) == true
-		local key = if touchOnly then "" else "  [G]"
-		friendsButton.Text = (if on then "FRIENDS ONLY: ON" else "FRIENDS ONLY: OFF") .. key
-		friendsButton.BackgroundColor3 = if on then Config.Hub.FriendsColor else Colors.NavyLight
+		local key = if touchOnly then "" else " [G]"
+		friendsButton.setText((if on then "FRIENDS ONLY: ON" else "FRIENDS ONLY: OFF") .. key)
+		friendsButton.setColor(if on then Config.Hub.FriendsColor else Colors.NavyLight)
 	end
 end)

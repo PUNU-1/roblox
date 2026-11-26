@@ -133,40 +133,54 @@ type Card = {
 	title: TextLabel,
 }
 
-function ClassCards.new(gui: ScreenGui, touchOnly: boolean, onChoose: (role: string) -> ()): Cards
+-- embedded (этап 5, блок A): карточки внутри окна (хаб, окно CLASSES) — по центру родителя и без своего UIScale
+-- (окно уменьшается целиком). Без него — внизу экрана, как в лобби музея.
+function ClassCards.new(gui: Instance, touchOnly: boolean, onChoose: (role: string) -> (), embedded: boolean?): Cards
 	local order = Classes.Order
 	local width = #order * CARD_W + (#order - 1) * GAP
 	local panel = Theme.new("Frame", {
 		Name = "ClassCards",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -14),
+		AnchorPoint = if embedded then Vector2.new(0.5, 0.5) else Vector2.new(0.5, 1),
+		Position = if embedded then UDim2.fromScale(0.5, 0.5) else UDim2.new(0.5, 0, 1, -14),
 		Size = UDim2.fromOffset(width, CARD_H + HEADER + LIFT),
 		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = gui,
 	})
-	local scale = Theme.new("UIScale", { Parent = panel })
-	local function rescale()
-		local camera = Workspace.CurrentCamera
-		local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
-		scale.Scale = math.clamp(math.min((viewport.X - 24) / width, (viewport.Y * 0.42) / (CARD_H + HEADER + LIFT)), 0.45, 1)
-	end
-	rescale()
-	if Workspace.CurrentCamera then
-		Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+	if not embedded then
+		local scale = Theme.new("UIScale", { Parent = panel })
+		local function rescale()
+			local camera = Workspace.CurrentCamera
+			local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+			scale.Scale = math.clamp(math.min((viewport.X - 24) / width, (viewport.Y * 0.42) / (CARD_H + HEADER + LIFT)), 0.45, 1)
+		end
+		rescale()
+		if Workspace.CurrentCamera then
+			Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+		end
 	end
 
-	local header = Theme.label({
-		Size = UDim2.new(1, 0, 0, HEADER - 6),
-		RichText = true,
-		Text = if touchOnly
-			then 'CHOOSE YOUR CLASS   <font color="#E8DCC4" size="16">tap a card</font>'
-			else 'CHOOSE YOUR CLASS   <font color="#E8DCC4" size="16">keys 1–5</font>',
-		TextColor3 = Colors.Gold,
-		MaxTextSize = 26,
-		Parent = panel,
-	})
-	Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = header })
+	if embedded then
+		-- В окне заголовок уже есть — только подсказка, как выбрать
+		Theme.pixelLabel({
+			Size = UDim2.new(1, 0, 0, HEADER - 10),
+			Text = if touchOnly then "TAP A CARD" else "CLICK A CARD OR PRESS 1-5",
+			TextColor3 = Colors.Marble,
+			Parent = panel,
+		}, 12)
+	else
+		local header = Theme.label({
+			Size = UDim2.new(1, 0, 0, HEADER - 6),
+			RichText = true,
+			Text = if touchOnly
+				then 'CHOOSE YOUR CLASS   <font color="#E8DCC4" size="16">tap a card</font>'
+				else 'CHOOSE YOUR CLASS   <font color="#E8DCC4" size="16">keys 1–5</font>',
+			TextColor3 = Colors.Gold,
+			MaxTextSize = 26,
+			Parent = panel,
+		})
+		Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = header })
+	end
 
 	local cards: { Card } = {}
 	for index, role in order do
