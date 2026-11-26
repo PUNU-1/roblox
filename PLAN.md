@@ -144,7 +144,7 @@
 
 ---
 
-## Блок D. Кнопки музея: пиксельный стиль и телефон
+## Блок D. Кнопки музея: пиксельный стиль и телефон — сделано (код, 26.11; в Studio и на телефоне не проверено, «Решил Claude» пункт 36)
 
 **Файлы:** `HUD.client.luau`, `Shop.client.luau`, `Abilities.client.luau`, `Weapons.client.luau`, `CameraController.client.luau`, `Comms.client.luau`, `Vote.client.luau`, `FirstPerson.client.luau`, `UI/Theme.luau`, `UI/PixelButton.luau` (из блока A).
 
