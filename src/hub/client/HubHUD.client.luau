@@ -26,6 +26,7 @@ local PixelButton = require(UI:WaitForChild("PixelButton"))
 local PixelWindow = require(UI:WaitForChild("PixelWindow"))
 local ClassShop = require(script.Parent:WaitForChild("ClassShop"))
 local ClassesWindow = require(script.Parent:WaitForChild("ClassesWindow"))
+local HowToPlay = require(script.Parent:WaitForChild("HowToPlay"))
 
 local PadAttr = GameState.PadAttr
 local PadState = GameState.PadState
@@ -175,8 +176,7 @@ local function chooseClass(role: string)
 		return
 	end
 	if not GameState.ownsClass(localPlayer, role) then
-		ClassesWindow.close()
-		ClassShop.open(role) -- некупленный класс — сразу в магазин на нём
+		ClassShop.open(role) -- некупленный класс — сразу в магазин на нём (окно классов закроется само)
 		return
 	end
 	if GameState.roleOf(localPlayer) ~= role then
@@ -218,16 +218,12 @@ type MenuItem = { icon: string, label: string, key: string?, action: () -> () }
 
 local function openShop()
 	if not launching() then
-		if not ClassShop.isOpen() then
-			PixelWindow.closeAll()
-		end
 		ClassShop.toggle()
 	end
 end
 
 local function openClasses()
 	if not launching() then
-		ClassShop.close()
 		ClassesWindow.toggle()
 	end
 end
@@ -245,9 +241,7 @@ local ITEMS: { MenuItem } = {
 	{
 		icon = "HowToPlay",
 		label = "HOW TO PLAY",
-		action = function()
-			comingSoon("HOW TO PLAY", "Coming soon!")
-		end,
+		action = HowToPlay.toggle,
 	},
 	{
 		icon = "Group",
@@ -450,7 +444,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		end
 		return
 	end
-	if PixelWindow.anyOpen() or ClassShop.isOpen() then
+	if PixelWindow.anyOpen() then
 		return -- пока открыто окно, клавиши хаба не работают
 	end
 	if input.KeyCode == Config.Keys.Action then
@@ -500,9 +494,8 @@ RunService.Heartbeat:Connect(function(dt)
 	overlay.Visible = flying
 	if flying then
 		overlayHint.Text = "YOUR CLASS: " .. className
-		if PixelWindow.anyOpen() or ClassShop.isOpen() then
+		if PixelWindow.anyOpen() then
 			PixelWindow.closeAll() -- команда улетает — окна закрываем
-			ClassShop.close()
 		end
 	end
 	menu.Visible = not flying

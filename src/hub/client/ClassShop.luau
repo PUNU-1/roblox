@@ -3,14 +3,13 @@
 -- Окно: клавиша B, кнопка SHOP под алмазами (HubHUD), F у подставки витрины или нажатие на серую карточку.
 -- 5 больших карточек — крутящаяся 3D-модель класса, умение, описание с числами из Config, цена и кнопка
 -- BUY 150 💎 / NEED 150 💎 / OWNED / FREE. Покупка — с подтверждением «Buy Technician for 150 💎?», потом Remote
--- BuyClass; сервер сам проверяет класс, цену и алмазы (ProfileStore) и отвечает ShopResult. Пока окно открыто,
--- курсор свободен (Modal), закрыть — B или крестик.
+-- BuyClass; сервер сам проверяет класс, цену и алмазы (ProfileStore) и отвечает ShopResult. Закрыть — B или крестик.
+-- Этап 5, блок A: окно в пиксельном стиле (UI/PixelWindow), кнопки BUY / OWNED / YES / NO — пиксельные.
 --
 -- Витрина: сервер строит подставки (HubBuilder), клиент ставит на каждую модель класса (те же 3D-картинки, что на
 -- карточках; собака сидит и машет хвостом) и пишет на табличке над ней название и цену или OWNED — у каждого своё.
 -- Модуль один на клиента: его берут HubHUD (кнопка SHOP, клавиша B, серые карточки) и он сам (кнопки F витрины).
 
-local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -27,6 +26,9 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local ClassCards = require(UI:WaitForChild("ClassCards"))
+local PixelIcon = require(UI:WaitForChild("PixelIcon"))
+local PixelButton = require(UI:WaitForChild("PixelButton"))
+local PixelWindow = require(UI:WaitForChild("PixelWindow"))
 local DogAnimator = require(script.Parent:WaitForChild("DogAnimator"))
 
 local Colors = Theme.Colors
@@ -54,81 +56,40 @@ end
 
 ---------------------------------------------------------------- окно
 
-local gui = Theme.screenGui("ClassShop", 5)
+local onWindowClose: () -> ()
+local onWindowOpen: () -> ()
 
-local overlay = Theme.new("Frame", {
-	Name = "Shop",
-	Size = UDim2.fromScale(1, 1),
-	BackgroundColor3 = Colors.Dark,
-	BackgroundTransparency = 0.35,
-	Active = true,
-	Visible = false,
-	Parent = gui,
+local window = PixelWindow.new({
+	name = "ClassShop",
+	title = "CLASS SHOP",
+	width = PANEL_W,
+	height = PANEL_H,
+	onOpen = function()
+		onWindowOpen()
+	end,
+	onClose = function()
+		onWindowClose()
+	end,
 })
+local gui = window.gui
+local panel = window.panel
 
-local panel = Theme.new("Frame", {
-	Name = "Panel",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromOffset(PANEL_W, PANEL_H),
-	BackgroundColor3 = Colors.Navy,
-	Active = true,
-	ClipsDescendants = true,
-	Parent = overlay,
-}, {
-	Theme.corner(20),
-	Theme.stroke(Colors.Gold, 3),
-	Theme.new("UIGradient", {
-		Rotation = 90,
-		Color = ColorSequence.new(Colors.Navy, Colors.Dark),
-	}),
-})
-local panelScale = Theme.new("UIScale", { Parent = panel })
-local function rescale()
-	local camera = Workspace.CurrentCamera
-	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
-	panelScale.Scale = math.clamp(math.min((viewport.X - 24) / PANEL_W, (viewport.Y - 24) / PANEL_H), 0.4, 1)
-end
-rescale()
-if Workspace.CurrentCamera then
-	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
-end
-
--- Заголовок: CLASS SHOP, свои алмазы, крестик
-local header = Theme.label({
-	Position = UDim2.fromOffset(28, 14),
-	Size = UDim2.fromOffset(360, 50),
-	Text = "CLASS SHOP",
-	TextColor3 = Colors.Gold,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	MaxTextSize = 46,
-	Parent = panel,
-})
-Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = header })
-
-local walletPill = Theme.new("Frame", {
+-- Свои алмазы справа в заголовке, левее крестика
+local walletIcon = PixelIcon.new("Diamond", true, 3)
+walletIcon.AnchorPoint = Vector2.new(1, 0)
+walletIcon.Position = UDim2.new(1, -window.inset - 72, 0, window.inset + 6)
+walletIcon.Size = PixelIcon.size("Diamond", 2)
+walletIcon.Parent = panel
+local walletLabel = Theme.pixelLabel({
 	Name = "Wallet",
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -84, 0, 18),
-	Size = UDim2.fromOffset(170, 44),
-	BackgroundColor3 = Colors.Dark,
-	BackgroundTransparency = 0.2,
+	Position = UDim2.new(1, -window.inset - 112, 0, window.inset + 14),
+	Size = UDim2.fromOffset(160, 20),
+	TextColor3 = Colors.Diamond,
+	TextXAlignment = Enum.TextXAlignment.Right,
+	ZIndex = 3,
 	Parent = panel,
-}, { Theme.corner(22), Theme.stroke(Colors.Diamond, 2) })
-local walletLabel = Theme.label({ Size = UDim2.fromScale(1, 1), TextColor3 = Colors.Diamond, MaxTextSize = 28, Parent = walletPill })
-Theme.padding(6).Parent = walletPill
-
-local closeButton = Theme.button({
-	Name = "Close",
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -20, 0, 18),
-	Size = UDim2.fromOffset(48, 44),
-	BackgroundColor3 = Colors.Red,
-	Text = "✕",
-	MaxTextSize = 26,
-	Modal = true, -- курсор свободен, пока окно открыто
-	Parent = panel,
-})
+}, 16, 2)
 
 local subLabel = Theme.label({
 	Position = UDim2.fromOffset(28, 66),
@@ -144,7 +105,7 @@ local subLabel = Theme.label({
 -- Строка ответа внизу: «Technician unlocked!» или почему не вышло
 local messageLabel = Theme.label({
 	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -14),
+	Position = UDim2.new(0.5, 0, 1, -window.inset - 6),
 	Size = UDim2.new(1, -56, 0, 30),
 	Font = Theme.BodyFont,
 	TextColor3 = Colors.Marble,
@@ -171,7 +132,7 @@ type ShopCard = {
 	role: string,
 	frame: Frame,
 	stroke: UIStroke,
-	button: TextButton,
+	button: PixelButton.TextButtonObject,
 	price: TextLabel,
 	owned: Frame,
 	lock: TextLabel,
@@ -306,18 +267,19 @@ for index, role in Classes.Order do
 		ZIndex = 2,
 		Parent = frame,
 	})
-	local button = Theme.button({
-		Name = "Buy",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -12),
-		Size = UDim2.new(1, -20, 0, 50),
-		MaxTextSize = 22,
-		ZIndex = 2,
-		Parent = frame,
+	local button = PixelButton.text({
+		name = "Buy",
+		text = "",
+		textSize = 12,
+		anchor = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -10),
+		size = UDim2.new(1, -16, 0, 52),
+		zIndex = 3,
+		parent = frame,
+		onActivated = function()
+			confirmOpen(role)
+		end,
 	})
-	button.Activated:Connect(function()
-		confirmOpen(role)
-	end)
 
 	table.insert(cards, {
 		role = role,
@@ -351,12 +313,13 @@ local confirm = Theme.new("Frame", {
 local confirmBox = Theme.new("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromOffset(460, 210),
-	BackgroundColor3 = Colors.Navy,
+	Size = UDim2.fromOffset(480, 220),
+	BackgroundTransparency = 1,
 	Active = true,
 	ZIndex = 20,
 	Parent = confirm,
-}, { Theme.corner(18), Theme.stroke(Colors.Gold, 3) })
+})
+PixelWindow.box(confirmBox)
 local confirmText = Theme.label({
 	Position = UDim2.fromOffset(20, 26),
 	Size = UDim2.new(1, -40, 0, 64),
@@ -375,26 +338,32 @@ local confirmHint = Theme.label({
 	ZIndex = 20,
 	Parent = confirmBox,
 })
-local yesButton = Theme.button({
-	Name = "Yes",
-	Position = UDim2.new(0, 24, 1, -76),
-	Size = UDim2.new(0.5, -36, 0, 52),
-	BackgroundColor3 = Colors.Green,
-	Text = "YES",
-	MaxTextSize = 26,
-	ZIndex = 20,
-	Parent = confirmBox,
+local confirmYes: () -> ()
+local confirmClose: () -> ()
+PixelButton.text({
+	name = "Yes",
+	text = "YES",
+	color = Colors.Green,
+	position = UDim2.new(0, 24, 1, -80),
+	size = UDim2.new(0.5, -36, 0, 56),
+	zIndex = 21,
+	parent = confirmBox,
+	onActivated = function()
+		confirmYes()
+	end,
 })
-local noButton = Theme.button({
-	Name = "No",
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -24, 1, -76),
-	Size = UDim2.new(0.5, -36, 0, 52),
-	BackgroundColor3 = Colors.NavyLight,
-	Text = "NO",
-	MaxTextSize = 26,
-	ZIndex = 20,
-	Parent = confirmBox,
+PixelButton.text({
+	name = "No",
+	text = "NO",
+	color = Colors.NavyLight,
+	anchor = Vector2.new(1, 0),
+	position = UDim2.new(1, -24, 1, -80),
+	size = UDim2.new(0.5, -36, 0, 56),
+	zIndex = 21,
+	parent = confirmBox,
+	onActivated = function()
+		confirmClose()
+	end,
 })
 
 -- Вспышка после покупки
@@ -448,7 +417,7 @@ end
 
 local function refresh()
 	local state = status()
-	walletLabel.Text = if state == ProfileStatus.Loading or state == nil then "💎 ..." else "💎 " .. tostring(GameState.diamondsOf(localPlayer))
+	walletLabel.Text = if state == ProfileStatus.Loading or state == nil then "..." else tostring(GameState.diamondsOf(localPlayer))
 	local sub = "Earn diamonds by surviving nights and catching thieves"
 	if state == ProfileStatus.Offline then
 		sub ..= '   <font color="#E8913A">Studio: all classes are open, diamonds are not saved</font>'
@@ -458,11 +427,9 @@ local function refresh()
 	subLabel.Text = sub
 	for _, card in cards do
 		local text, color, enabled = buttonState(card.role)
-		card.button.Text = text
-		card.button.BackgroundColor3 = color
-		card.button.TextColor3 = if color == Colors.Gold then Colors.Navy else Colors.White
-		card.button.AutoButtonColor = enabled
-		card.button.BackgroundTransparency = if enabled or text == "OWNED" or text == "FREE" then 0 else 0.35
+		card.button.setText((string.gsub(text, " 💎", "")))
+		card.button.setColor(color, if color == Colors.Gold then Colors.Navy else Colors.White)
+		card.button.setEnabled(enabled or text == "OWNED" or text == "FREE")
 		local cost = GameState.classPrice(card.role)
 		local has = GameState.ownsClass(localPlayer, card.role)
 		card.owned.Visible = has and cost > 0
@@ -493,12 +460,12 @@ function confirmOpen(role: string)
 	confirm.Visible = true
 end
 
-local function confirmClose()
+function confirmClose()
 	confirmRole = nil
 	confirm.Visible = false
 end
 
-yesButton.Activated:Connect(function()
+function confirmYes()
 	local role = confirmRole
 	confirmClose()
 	if role and not buying then
@@ -513,8 +480,7 @@ yesButton.Activated:Connect(function()
 			end
 		end)
 	end
-end)
-noButton.Activated:Connect(confirmClose)
+end
 
 local function celebrate(role: string)
 	flash.BackgroundTransparency = 0.25
@@ -553,51 +519,44 @@ end)
 
 ---------------------------------------------------------------- открыть / закрыть
 
-local openFlag = false
-
-function ClassShop.isOpen(): boolean
-	return openFlag
-end
-
-function ClassShop.open(role: string?)
-	focusRole = if role and GameState.classInfo(role) then role else nil
-	openFlag = true
-	overlay.Visible = true
+function onWindowOpen()
 	confirmClose()
 	unlockedLabel.Visible = false
 	messageLabel.Text = if touchOnly then "" else "B — close"
 	messageLabel.TextColor3 = Colors.Gray
 	refresh()
-	rescale()
-	local target = panelScale.Scale
-	panelScale.Scale = target * 0.92
-	TweenService:Create(panelScale, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = target }):Play()
+end
+
+function onWindowClose()
+	confirmClose()
+end
+
+function ClassShop.isOpen(): boolean
+	return window.isOpen()
+end
+
+-- Открыть на классе role (его карточка — в золотой рамке, модель крутится быстрее). Другое окно закроется.
+function ClassShop.open(role: string?)
+	focusRole = if role and GameState.classInfo(role) then role else nil
+	window.open()
+	refresh()
 end
 
 function ClassShop.close()
-	if not openFlag then
-		return
-	end
-	openFlag = false
-	overlay.Visible = false
-	confirmClose()
-	rescale()
+	window.close()
 end
 
 function ClassShop.toggle()
-	if openFlag then
-		ClassShop.close()
+	if window.isOpen() then
+		window.close()
 	else
 		ClassShop.open(nil)
 	end
 end
 
-closeButton.Activated:Connect(ClassShop.close)
-GuiService.MenuOpened:Connect(ClassShop.close)
-
 for _, name in { PlayerAttr.Diamonds, PlayerAttr.OwnedClasses, PlayerAttr.ProfileStatus } do
 	localPlayer:GetAttributeChangedSignal(name):Connect(function()
-		if openFlag then
+		if window.isOpen() then
 			refresh()
 		end
 	end)
@@ -736,7 +695,7 @@ RunService.RenderStepped:Connect(function(dt)
 			display.model:PivotTo(surface * CFrame.Angles(0, display.angle, 0))
 		end
 	end
-	if not openFlag then
+	if not window.isOpen() then
 		return
 	end
 	for _, card in cards do
