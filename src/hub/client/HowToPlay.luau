@@ -23,7 +23,7 @@ local PixelWindow = require(UI:WaitForChild("PixelWindow"))
 local ClassCards = require(UI:WaitForChild("ClassCards"))
 
 local Colors = Theme.Colors
-local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local touchOnly = Theme.touchOnly()
 
 local HowToPlay = {}
 

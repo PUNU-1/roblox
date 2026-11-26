@@ -15,7 +15,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -37,7 +36,7 @@ local PlayerAttr = GameState.PlayerAttr
 local ProfileStatus = GameState.ProfileStatus
 
 local localPlayer = Players.LocalPlayer
-local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local touchOnly = Theme.touchOnly()
 
 local ClassShop = {}
 

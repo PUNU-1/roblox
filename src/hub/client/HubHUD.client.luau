@@ -41,7 +41,7 @@ local padFolder = map:WaitForChild(MapSchema.TeamPads)
 local gui = Theme.screenGui("HubHUD", 1)
 
 -- На телефоне и планшете без клавиатуры вместо клавиш — кнопки на экране
-local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local touchOnly = Theme.touchOnly()
 
 -- Свой круг и его состояние (nil — не в команде).
 local function myPad(): BasePart?

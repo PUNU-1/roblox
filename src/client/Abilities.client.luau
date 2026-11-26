@@ -13,7 +13,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -32,7 +31,7 @@ local Classes = Config.Classes
 local Colors = Theme.Colors
 
 local localPlayer = Players.LocalPlayer
-local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local touchOnly = Theme.touchOnly()
 local useRemote = Remotes.get(Remotes.Names.UseAbility)
 
 local ABILITY_ACTION = "ClassAbility"

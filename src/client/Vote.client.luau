@@ -5,7 +5,6 @@
 local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameState = require(Shared:WaitForChild("GameState"))
@@ -13,7 +12,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
 
 local Colors = Theme.Colors
-local keyboard = UserInputService.KeyboardEnabled
+local keyboard = not Theme.touchOnly()
 local VOTE_ACTION = "VoteKeys"
 
 local gui = Theme.screenGui("Vote", 5)

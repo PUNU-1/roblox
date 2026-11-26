@@ -47,7 +47,7 @@ local PlayerAttr = GameState.PlayerAttr
 local Colors = Theme.Colors
 
 local localPlayer = Players.LocalPlayer
-local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local touchOnly = Theme.touchOnly()
 
 ---------------------------------------------------------------- плашка шага сверху
 

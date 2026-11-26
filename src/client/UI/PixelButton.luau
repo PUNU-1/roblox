@@ -13,7 +13,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -82,7 +81,7 @@ end
 function PixelButton.new(props: IconProps): IconButton
 	local cell = props.cell or Settings.Cell
 	local z = props.zIndex or 2
-	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local touchOnly = Theme.touchOnly()
 
 	local root = Theme.new("TextButton", {
 		Name = props.name or props.icon,

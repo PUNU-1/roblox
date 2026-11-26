@@ -7,7 +7,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TextChatService = game:GetService("TextChatService")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -20,7 +19,7 @@ local Colors = Theme.Colors
 local localPlayer = Players.LocalPlayer
 
 local gui = Theme.screenGui("Comms", 3)
-local keyboard = UserInputService.KeyboardEnabled
+local keyboard = not Theme.touchOnly()
 
 local TOGGLE_ACTION = "QuickPhrases"
 local PICK_ACTION = "PickPhrase"

@@ -155,7 +155,7 @@ local hintLabel = Theme.label({
 	Font = Theme.BodyFont,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	MaxTextSize = 18,
-	Text = if UserInputService.KeyboardEnabled
+	Text = if not Theme.touchOnly()
 		then "Tap a thief to mark him  •  1–9 or ← → switch cameras"
 		else "Tap a thief to mark him for everyone",
 	Parent = gui,
@@ -365,10 +365,10 @@ local noSignalTitle = Theme.label({
 	ZIndex = 1,
 	Parent = noSignal,
 })
-local NO_SIGNAL_HINT = if UserInputService.KeyboardEnabled
+local NO_SIGNAL_HINT = if not Theme.touchOnly()
 	then "Restart the cameras: red switch next to the console on the balcony (hold F)"
 	else "Restart the cameras: red switch next to the console on the balcony"
-local NO_POWER_HINT = if UserInputService.KeyboardEnabled
+local NO_POWER_HINT = if not Theme.touchOnly()
 	then "The power is out: POWER box in the staff corridor (hold F)"
 	else "The power is out: POWER box in the staff corridor"
 local noSignalHint = Theme.label({

@@ -28,7 +28,7 @@ local Keys = Config.Keys
 local Colors = Theme.Colors
 
 local localPlayer = Players.LocalPlayer
-local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local touchOnly = Theme.touchOnly()
 
 local equipRemote = Remotes.get(Remotes.Names.Equip)
 local fireRemote = Remotes.get(Remotes.Names.Fire)

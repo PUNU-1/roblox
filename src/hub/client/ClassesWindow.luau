@@ -5,16 +5,16 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameState = require(Shared:WaitForChild("GameState"))
 local UI = script.Parent:WaitForChild("UI")
+local Theme = require(UI:WaitForChild("Theme"))
 local ClassCards = require(UI:WaitForChild("ClassCards"))
 local PixelWindow = require(UI:WaitForChild("PixelWindow"))
 
 local localPlayer = Players.LocalPlayer
-local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local touchOnly = Theme.touchOnly()
 
 local ClassesWindow = {}
 

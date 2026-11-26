@@ -55,6 +55,21 @@ function Theme.pixelLabel(props: { [string]: any }, size: number?, strokeThickne
 	return label
 end
 
+-- Играет ли игрок пальцем (телефон, планшет без мыши) — тогда вместо клавиш кнопки на экране (этап 5, блок D).
+-- Раньше везде было «TouchEnabled and not KeyboardEnabled», но многие Android-телефоны говорят KeyboardEnabled = true
+-- (экранная клавиатура): тогда кнопки ContextActionService не появлялись, а кнопки F у предметов нельзя было нажать пальцем.
+-- Теперь: PreferredInput (новое свойство Roblox: Touch / KeyboardAndMouse / Gamepad), если его нет — «есть касание, нет мыши».
+function Theme.touchOnly(): boolean
+	local UserInputService = game:GetService("UserInputService")
+	local ok, preferred = pcall(function()
+		return (UserInputService :: any).PreferredInput
+	end)
+	if ok and typeof(preferred) == "EnumItem" then
+		return preferred.Name == "Touch"
+	end
+	return UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+end
+
 -- Создаёт элемент: Theme.new("Frame", { Size = ..., Parent = ... }, { дочерние элементы })
 function Theme.new(className: string, props: { [string]: any }?, children: { Instance }?): any
 	local instance = Instance.new(className)

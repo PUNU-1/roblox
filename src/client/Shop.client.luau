@@ -31,7 +31,7 @@ local ShopReply = GameState.ShopReply
 local ShopConfig = Config.Shop
 
 local localPlayer = Players.LocalPlayer
-local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local touchOnly = Theme.touchOnly()
 
 local PANEL_W, PANEL_H = 960, 640
 local CARD_W, CARD_H, GAP = 168, 236, 12

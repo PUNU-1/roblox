@@ -89,7 +89,7 @@ end)
 -- Класс выбирают в лобби и пока ждут в комнате охраны (опоздавший); на смене он не меняется (блок 5).
 
 -- На телефоне и планшете без клавиатуры вместо клавиш — кнопки на экране
-local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local touchOnly = Theme.touchOnly()
 
 local CLASS_KEYS = {
 	{ Enum.KeyCode.One, Enum.KeyCode.KeypadOne },
