@@ -105,6 +105,10 @@ local function showReward(model: Model)
 	}):Play()
 end
 
+-- Когда игрок начал держать F на кнопке ареста (сервер сам проверяет время удержания). Объявлено до tryArrest,
+-- иначе внутри tryArrest это была бы пустая глобальная переменная и арест падал бы с ошибкой.
+local holdStarted: { [Player]: { prompt: ProximityPrompt, at: number } } = {}
+
 local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt, robber: boolean?)
 	if GameState.phase() ~= GameState.Phase.Night then
 		return
@@ -154,7 +158,6 @@ end
 local ThiefAttr = GameState.ThiefAttr
 local CHECK_PROMPT = "CheckIdPrompt"
 local checkActive = false
-local holdStarted: { [Player]: { prompt: ProximityPrompt, at: number } } = {}
 
 local function hookHold(prompt: ProximityPrompt)
 	prompt.PromptButtonHoldBegan:Connect(function(player)
