@@ -188,6 +188,8 @@ GameState.EntranceAttr = {
 	UntilWing = "UntilWing", -- string, крыло: вход работает, пока оно закрыто (дверь центра)
 	HoldInside = "HoldInside", -- number, на сколько стадов за дверью воры ждут (иначе Config.Waves.Smart.HoldInside)
 	HoldSpread = "HoldSpread", -- number, разброс места ожидания вбок
+	DoorPoint = "DoorPoint", -- Vector3, середина двери этого входа на полу (этап 5, блок E: туристы уходят за неё)
+	DoorOutward = "DoorOutward", -- Vector3, направление из музея наружу через эту дверь (по полу, длина 1)
 }
 
 -- Работает ли сейчас вход (точка в Map.Entrances): его зал открыт, а крыло, пока закрыто которое он работает, — закрыто.

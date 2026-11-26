@@ -1,6 +1,8 @@
 -- Туристы днём: входят через один из 4 входов музея (WingService.entrances: двери центра или наружные двери крыльев), платят за билет («+$10» над головой, деньги
 -- делятся поровну между игроками), гуляют от одного места к другому — смотрят, иногда
 -- фотографируют — и уходят через ближайшую дверь. Чем привлекательнее экспонаты, тем больше туристов за день.
+-- Уход (этап 5, блок E): цель — точка снаружи за дверью входа; прошёл дверь — плавно тает. Уходящие расходятся
+-- по разным дверям. Застрял — путь пересчитывается, стоит долго — тает. За 1 сек до ночи тают все оставшиеся.
 -- Движения рук и ног делает NpcAnimator на клиентах по атрибуту AnimState.
 
 local Debris = game:GetService("Debris")
@@ -46,6 +48,10 @@ type Tourist = {
 	computing: boolean,
 	pathToken: number,
 	walkStarted: number,
+	exit: BasePart?, -- вход, через который уходит (state = Leave)
+	progressAt: number, -- когда последний раз заметно сдвинулся
+	progressPosition: Vector3,
+	repaths: number, -- сколько раз пересчитан путь с тех пор, как встал
 }
 
 local SKIN = { "F5CDA8", "E0AC7E", "C68642", "8D5524", "FFDBAC" }
@@ -53,6 +59,7 @@ local SHIRTS = { "E74C3C", "3498DB", "2ECC71", "F1C40F", "9B59B6", "E67E22", "1A
 local PANTS = { "34495E", "2C3E50", "5D4037", "1F3A60", "4A4A4A" }
 
 local tourists: { [Model]: Tourist } = {}
+local fading: { [Model]: true } = {} -- тают: уже не обновляются, исчезнут сами (или в endDay)
 local floors: { BasePart } = {} -- полы залов (атрибут Hall), кроме служебных (Wander = false)
 local folder: Folder
 local attractionsProvider: (() -> { Attraction })? = nil
@@ -187,21 +194,73 @@ local function goTo(tourist: Tourist, target: Vector3)
 	end)
 end
 
+-- Новая прогулка: счётчик застревания с нуля.
+local function walkTo(tourist: Tourist, target: Vector3)
+	tourist.progressAt = now()
+	tourist.progressPosition = tourist.root.Position
+	tourist.repaths = 0
+	goTo(tourist, target)
+end
+
 local function startVisit(tourist: Tourist)
 	local spot = nextAttraction()
 	tourist.state = "Walk"
 	tourist.look = spot.look
-	goTo(tourist, spot.stand)
+	walkTo(tourist, spot.stand)
 	setAnim(tourist, Anim.Stroll)
 end
 
--- Ближайшая дверь (по прямой) — через неё турист уходит.
-local function nearestEntrance(position: Vector3): BasePart?
-	local best, bestDistance = nil, math.huge
+-- Середина двери входа и направление наружу (атрибуты MapBuilder). У старой карты без них — сама точка входа.
+local function doorOf(marker: BasePart): (Vector3, Vector3?)
+	local point = marker:GetAttribute(GameState.EntranceAttr.DoorPoint)
+	local outward = marker:GetAttribute(GameState.EntranceAttr.DoorOutward)
+	if typeof(point) == "Vector3" and typeof(outward) == "Vector3" then
+		return point, outward
+	end
+	return marker.Position, nil
+end
+
+-- Куда идти, чтобы выйти: точка снаружи, на ExitBeyond стадов за дверью (а не створки и не тамбур за углом).
+local function exitPoint(marker: BasePart): Vector3
+	local point, outward = doorOf(marker)
+	if outward then
+		return Vector3.new(point.X, marker.Position.Y, point.Z) + outward * TouristConfig.ExitBeyond
+	end
+	return marker.Position
+end
+
+-- Прошёл ли турист дверь своего выхода (он уже снаружи).
+local function passedDoor(tourist: Tourist): boolean
+	local marker = tourist.exit
+	if not marker then
+		return false
+	end
+	local point, outward = doorOf(marker)
+	if not outward then
+		return false
+	end
+	local offset = tourist.root.Position - point
+	offset = Vector3.new(offset.X, 0, offset.Z)
+	local depth = offset:Dot(outward)
+	local lateral = (offset - outward * depth).Magnitude
+	return depth > TouristConfig.DoorPassDepth and lateral < TouristConfig.DoorPassLateral
+end
+
+-- Выход для туриста: ближайшая дверь (по прямой до середины двери), но к каждому, кто уже идёт к этой двери,
+-- прибавляется ExitCrowdPenalty стадов — туристы расходятся по разным входам, а не толпятся в одном.
+local function chooseExit(position: Vector3): BasePart?
+	local load: { [BasePart]: number } = {}
+	for _, other in tourists do
+		if other.state == "Leave" and other.exit then
+			load[other.exit] = (load[other.exit] or 0) + 1
+		end
+	end
+	local best, bestScore = nil, math.huge
 	for _, marker in WingService.entrances() do
-		local distance = flatDistance(marker.Position, position)
-		if distance < bestDistance then
-			best, bestDistance = marker, distance
+		local point = doorOf(marker)
+		local score = flatDistance(point, position) + (load[marker] or 0) * TouristConfig.ExitCrowdPenalty
+		if score < bestScore then
+			best, bestScore = marker, score
 		end
 	end
 	return best
@@ -213,17 +272,54 @@ local function startLeaving(tourist: Tourist)
 	end
 	tourist.state = "Leave"
 	setAnim(tourist, Anim.Stroll)
-	local exit = nearestEntrance(tourist.root.Position)
+	tourist.exit = nil -- чтобы сам себя не считал в толпе у двери
+	local exit = chooseExit(tourist.root.Position)
+	tourist.exit = exit
 	if exit then
-		goTo(tourist, exit.Position)
+		walkTo(tourist, exitPoint(exit))
 	end
 end
 
 ---------------------------------------------------------------- поведение
 
-local function remove(model: Model)
+-- Турист плавно тает (без облачка) и исчезает. Пока тает, идёт дальше, куда шёл.
+local function fadeOut(tourist: Tourist)
+	local model = tourist.model
+	if not tourists[model] then
+		return
+	end
 	tourists[model] = nil
-	model:Destroy()
+	fading[model] = true
+	local info = TweenInfo.new(TouristConfig.FadeSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	for _, item in model:GetDescendants() do
+		if (item:IsA("BasePart") or item:IsA("Decal")) and item.Transparency < 1 then
+			TweenService:Create(item, info, { Transparency = 1 }):Play()
+		end
+	end
+	task.delay(TouristConfig.FadeSeconds, function()
+		fading[model] = nil
+		model:Destroy()
+	end)
+end
+
+-- Застрял ли: не сдвинулся заметно за StuckSeconds — пересчитать путь; за GiveUpSeconds — сдаться.
+-- Возвращает true, если пора сдаваться.
+local function checkStuck(tourist: Tourist, position: Vector3): boolean
+	if flatDistance(position, tourist.progressPosition) > TouristConfig.StuckMoveDistance then
+		tourist.progressPosition = position
+		tourist.progressAt = now()
+		tourist.repaths = 0
+		return false
+	end
+	local still = now() - tourist.progressAt
+	if still >= TouristConfig.GiveUpSeconds then
+		return true
+	end
+	if still >= TouristConfig.StuckSeconds * (tourist.repaths + 1) then
+		tourist.repaths += 1
+		goTo(tourist, tourist.target) -- новый путь от того места, где стоит
+	end
+	return false
 end
 
 local function updateTourist(tourist: Tourist)
@@ -244,20 +340,33 @@ local function updateTourist(tourist: Tourist)
 		return
 	end
 
-	-- Walk или Leave: идём по точкам пути (если путь не нашёлся — просто к цели)
-	-- Дошёл — или застрял дольше WalkTimeout (тогда считаем, что дошёл)
-	local stuck = now() - tourist.walkStarted > TouristConfig.WalkTimeout
-	if flatDistance(position, tourist.target) < TouristConfig.ReachDistance or stuck then
-		if tourist.state == "Leave" then
-			remove(tourist.model)
+	if tourist.state == "Leave" then
+		-- Прошёл дверь или дошёл до точки снаружи — тает. Застрял надолго — тоже тает, где стоит.
+		if passedDoor(tourist) or flatDistance(position, tourist.target) < TouristConfig.ReachDistance or not tourist.exit then
+			fadeOut(tourist)
 			return
 		end
-		tourist.state = "Admire"
-		tourist.admireUntil = now() + random:NextNumber(TouristConfig.AdmireMin, TouristConfig.AdmireMax)
-		tourist.root.CFrame = CFrame.lookAt(position, Vector3.new(tourist.look.X, position.Y, tourist.look.Z))
-		setAnim(tourist, if random:NextNumber() < TouristConfig.PhotoChance then Anim.Photo else Anim.Admire)
-		tourist.humanoid:MoveTo(position)
-		return
+		if checkStuck(tourist, position) then
+			fadeOut(tourist)
+			return
+		end
+		if tourist.computing then
+			return -- путь пересчитывается
+		end
+	else
+		-- Walk: дошёл — или застрял (тогда смотрит, где стоит)
+		local stuck = checkStuck(tourist, position) or now() - tourist.walkStarted > TouristConfig.WalkTimeout
+		if flatDistance(position, tourist.target) < TouristConfig.ReachDistance or stuck then
+			tourist.state = "Admire"
+			tourist.admireUntil = now() + random:NextNumber(TouristConfig.AdmireMin, TouristConfig.AdmireMax)
+			tourist.root.CFrame = CFrame.lookAt(position, Vector3.new(tourist.look.X, position.Y, tourist.look.Z))
+			setAnim(tourist, if random:NextNumber() < TouristConfig.PhotoChance then Anim.Photo else Anim.Admire)
+			tourist.humanoid:MoveTo(position)
+			return
+		end
+		if tourist.computing then
+			return
+		end
 	end
 	local waypoint = tourist.waypoints[tourist.waypointIndex]
 	if waypoint and flatDistance(waypoint.Position, position) < 2.5 then
@@ -322,6 +431,10 @@ local function spawnTourist(): boolean
 		computing = false,
 		pathToken = 0,
 		walkStarted = now(),
+		exit = nil,
+		progressAt = now(),
+		progressPosition = root.Position,
+		repaths = 0,
 	}
 	tourists[model] = tourist
 	startVisit(tourist)
@@ -408,6 +521,22 @@ function TouristService.closeMuseum()
 	end
 end
 
+-- За секунду до ночи (FadeBeforeNightSeconds): все, кто ещё в музее, плавно тают — к ночи туристов нет.
+function TouristService.fadeAll()
+	closing = true
+	if spawnThread then
+		pcall(task.cancel, spawnThread)
+		spawnThread = nil
+	end
+	local list = {}
+	for _, tourist in tourists do
+		table.insert(list, tourist)
+	end
+	for _, tourist in list do
+		fadeOut(tourist)
+	end
+end
+
 -- Ночь: кто не успел выйти, уходит сразу (ночью музей закрыт).
 function TouristService.endDay()
 	if spawnThread then
@@ -422,6 +551,10 @@ function TouristService.endDay()
 		model:Destroy()
 	end
 	table.clear(tourists)
+	for model in fading do
+		model:Destroy()
+	end
+	table.clear(fading)
 end
 
 function TouristService.init(map: Instance)

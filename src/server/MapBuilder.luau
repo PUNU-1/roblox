@@ -1640,7 +1640,8 @@ end
 ---------------------------------------------------------------- точки входа и камер
 
 local function buildEntrances(entrances: Folder)
-	-- Точки снаружи у каждой двери: тут появляются воры и туристы, сюда убегают воры и уходят туристы.
+	-- Точки снаружи у каждой двери: тут появляются воры и туристы, сюда убегают воры. Туристы уходят за дверь
+	-- (атрибуты DoorPoint / DoorOutward) и тают, как только её прошли.
 	-- Какие из них сейчас входы — решает WingService.entrances() (у двери центра или в конце крыла).
 	for k = 0, 3 do
 		local T = turn(k)
@@ -1651,6 +1652,10 @@ local function buildEntrances(entrances: Folder)
 		local marker = newMarker(entrances, side, CFrame.lookAt(position, inside))
 		marker:SetAttribute("Hall", wing) -- наружная дверь — вход, когда крыло куплено
 		marker:SetAttribute("Side", side)
+		-- Где дверь и куда «наружу» (этап 5, блок E): турист пропадает, как только прошёл дверь
+		local outward = T:VectorToWorldSpace(Vector3.new(0, 0, 1))
+		marker:SetAttribute(GameState.EntranceAttr.DoorPoint, T * Vector3.new(0, 0, HALF))
+		marker:SetAttribute(GameState.EntranceAttr.DoorOutward, outward)
 		-- Дверь центра (этап 5, блок B): вход, пока крыло этой стороны закрыто. Точка — в тамбуре за дверью.
 		local inner = newMarker(entrances, side .. "Center", CFrame.lookAt(T * INNER_ENTRANCE, T * Vector3.new(0, 3, CENTER.maxZ - 6)))
 		inner:SetAttribute("Hall", GameState.Hall.Main)
@@ -1658,6 +1663,8 @@ local function buildEntrances(entrances: Folder)
 		inner:SetAttribute("Side", side)
 		inner:SetAttribute(GameState.EntranceAttr.HoldInside, 6) -- воры ждут в тамбуре, а не в центре
 		inner:SetAttribute(GameState.EntranceAttr.HoldSpread, 3)
+		inner:SetAttribute(GameState.EntranceAttr.DoorPoint, T * Vector3.new(0, 0, CENTER.maxZ + 1))
+		inner:SetAttribute(GameState.EntranceAttr.DoorOutward, outward)
 	end
 end
 

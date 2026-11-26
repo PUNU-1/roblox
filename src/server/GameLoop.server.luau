@@ -180,6 +180,7 @@ local function runDay(night: number): boolean
 	bannerRemote:FireAllClients(("DAY %d"):format(night), "info")
 	Audio.startMusic(Config.Sounds.DayMusic)
 	local closing = false
+	local touristsGone = false
 	while GameState.secondsLeft() > 0 do
 		if not anyoneLeft() then
 			return false
@@ -189,6 +190,11 @@ local function runDay(night: number): boolean
 			closing = true
 			TouristService.closeMuseum()
 			bannerRemote:FireAllClients("THE MUSEUM IS CLOSING", "info")
+		end
+		-- За секунду до ночи все, кто не успел выйти, плавно тают (этап 5, блок E): к ночи туристов нет
+		if not touristsGone and GameState.secondsLeft() <= Config.Tourists.FadeBeforeNightSeconds then
+			touristsGone = true
+			TouristService.fadeAll()
 		end
 		tick()
 	end
