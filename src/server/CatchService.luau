@@ -108,6 +108,7 @@ end
 -- Когда игрок начал держать F на кнопке ареста (сервер сам проверяет время удержания). Объявлено до tryArrest,
 -- иначе внутри tryArrest это была бы пустая глобальная переменная и арест падал бы с ошибкой.
 local holdStarted: { [Player]: { prompt: ProximityPrompt, at: number } } = {}
+local HOLD_GRACE = 0.5 -- сколько ещё помнить начало удержания после «отпустил» (Triggered может прийти позже)
 
 local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt, robber: boolean?)
 	if GameState.phase() ~= GameState.Phase.Night then
@@ -118,7 +119,9 @@ local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt, 
 	end
 	local entry = holdStarted[player]
 	holdStarted[player] = nil
-	if not entry or entry.prompt ~= prompt or Workspace:GetServerTimeNow() - entry.at < Config.Catch.HoldSeconds - 0.3 then
+	-- Начало удержания не дошло до сервера — пускаем, как раньше (держать F требует сам Roblox);
+	-- дошло — проверяем, что держал почти полную секунду
+	if entry and entry.prompt == prompt and Workspace:GetServerTimeNow() - entry.at < Config.Catch.HoldSeconds - 0.3 then
 		return
 	end
 	local character = player.Character
@@ -166,10 +169,13 @@ local function hookHold(prompt: ProximityPrompt)
 		end
 	end)
 	prompt.PromptButtonHoldEnded:Connect(function(player)
+		-- Додержал до конца — «отпустил» может прийти раньше Triggered: стираем не сразу
 		local entry = holdStarted[player]
-		if entry and entry.prompt == prompt then
-			holdStarted[player] = nil
-		end
+		task.delay(HOLD_GRACE, function()
+			if entry and holdStarted[player] == entry then
+				holdStarted[player] = nil
+			end
+		end)
 	end)
 end
 

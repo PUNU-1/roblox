@@ -178,7 +178,13 @@ local function addPrompt(target: Player)
 		end
 	end)
 	prompt.PromptButtonHoldEnded:Connect(function(reviver)
-		clearReviver(reviver)
+		-- Додержал до конца — «отпустил» может прийти раньше Triggered: стираем не сразу
+		local entry = holdStarted[reviver]
+		task.delay(0.5, function()
+			if entry and holdStarted[reviver] == entry then
+				clearReviver(reviver)
+			end
+		end)
 	end)
 	prompt.Triggered:Connect(function(reviver)
 		local entry = holdStarted[reviver]

@@ -171,7 +171,8 @@ local function onRestore(player: Player)
 	end
 	local started = holdStarted[player]
 	holdStarted[player] = nil
-	if not started or Workspace:GetServerTimeNow() - started < Settings.RestoreHoldSeconds - 0.35 then
+	-- Начало удержания не дошло до сервера — пускаем, как раньше; дошло — проверяем время
+	if started and Workspace:GetServerTimeNow() - started < Settings.RestoreHoldSeconds - 0.35 then
 		return
 	end
 	local character = player.Character
@@ -242,7 +243,13 @@ function BlackoutService.init(map: Instance)
 			end
 		end)
 		created.PromptButtonHoldEnded:Connect(function(player)
-			holdStarted[player] = nil
+			-- «Отпустил» может прийти раньше Triggered: стираем не сразу
+			local started = holdStarted[player]
+			task.delay(0.5, function()
+				if started and holdStarted[player] == started then
+					holdStarted[player] = nil
+				end
+			end)
 		end)
 		created.Triggered:Connect(onRestore)
 		prompt = created
