@@ -28,6 +28,7 @@ export type State = {
 	paid: number, -- сколько уже вложили вскладчину
 	owned: boolean, -- куплено (зал — открыт)
 	missing: string?, -- почему сейчас нельзя купить, кроме денег и зала: «NO EXHIBIT»
+	price: number?, -- цена сейчас, если она меняется (крылья дорожают с каждым купленным, этап 5, блок B)
 }
 
 export type Item = {
@@ -130,6 +131,9 @@ local function refreshEntry(entry: Entry)
 	folder:SetAttribute(ShopAttr.Paid, math.floor(current.paid))
 	folder:SetAttribute(ShopAttr.Owned, current.owned)
 	folder:SetAttribute(ShopAttr.Missing, current.missing or "")
+	if current.price then
+		folder:SetAttribute(ShopAttr.Price, current.price)
+	end
 end
 
 -- Добавить товар в окно магазина. Модель preview магазин забирает себе (не клонирует).

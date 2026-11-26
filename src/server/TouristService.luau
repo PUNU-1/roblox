@@ -19,6 +19,7 @@ local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
 local Audio = require(Server:WaitForChild("Audio"))
+local WingService = require(Server:WaitForChild("WingService"))
 
 local TouristConfig = Config.Tourists
 local Anim = GameState.TouristAnim
@@ -341,9 +342,9 @@ local function aliveCount(): number
 	return count
 end
 
--- Сколько туристов придёт сегодня: база + привлекательность экспонатов.
+-- Сколько туристов придёт сегодня: база + привлекательность экспонатов + за каждое открытое крыло (этап 5, блок B).
 local function touristsForDay(appeal: number): number
-	return TouristConfig.BasePerDay + math.floor(appeal * TouristConfig.PerAppeal)
+	return TouristConfig.BasePerDay + math.floor(appeal * TouristConfig.PerAppeal) + WingService.openCount() * Config.Wings.Tourists
 end
 
 ---------------------------------------------------------------- день

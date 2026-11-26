@@ -1,6 +1,6 @@
 -- Окно магазина в музее (этап 4, блок 1b): днём клавиша B, кнопка SHOP под деньгами или касса SHOP у Моны Лизы.
 -- Вкладки Exhibits, Halls, Security, Weapons, Gear. Карточка товара: крутящаяся 3D-картинка (модель Preview, её
--- кладёт сервер), название, строка описания, цена и кнопка BUY $X / PUT IN $X / NEED $X / OWNED / HALL CLOSED.
+-- кладёт сервер), название, строка описания, цена и кнопка BUY $X / PUT IN $X / NEED $X / OWNED / HALL CLOSED / WING CLOSED.
 -- Товары и их состояние сервер кладёт в ReplicatedStorage.Shop (ShopService), окно только читает и шлёт намерение
 -- ShopBuy(category, id); всё решает сервер (те же правила, что у кнопок F). Ответ — ShopReply: «Bought: Golden Vase».
 -- Пока окно открыто, курсор свободен (Modal). Закрыть — B, Esc (меню Roblox) или крестик. Ночью окно закрыто.
@@ -40,7 +40,7 @@ local GRID_TOP = 152
 -- Вкладки: подпись, цвет и строка под заголовком
 local TAB_LOOK: { [string]: { title: string, color: Color3, sub: string } } = {
 	Exhibits = { title = "EXHIBITS", color = Colors.Gold, sub = "Exhibits bring more tourists — and more money every day" },
-	Halls = { title = "HALLS", color = Colors.Marble, sub = "Open a hall to buy its exhibits and cameras" },
+	Halls = { title = "HALLS", color = Colors.Marble, sub = "A wing moves its entrance farther and brings tourists. A hall opens from its wing" },
 	Security = { title = "SECURITY", color = Colors.Turquoise, sub = "Laser grids slow thieves down, cameras show where they are" },
 	Weapons = { title = "WEAPONS", color = Colors.Red, sub = "Personal: every guard buys their own. Firearms work only during a raid" },
 	Gear = { title = "GEAR", color = Colors.Green, sub = "Personal: every guard buys their own" },
@@ -363,7 +363,8 @@ local function sharedState(card: Card): ButtonState
 	end
 	local hall = attrText(card, ShopAttr.Hall)
 	if hall ~= "" and not GameState.isHallOpen(hall) then
-		return { text = "HALL CLOSED", color = Colors.Gray, enabled = false, owned = false, dim = true }
+		local closed = if GameState.isWing(hall) then "WING CLOSED" else "HALL CLOSED"
+		return { text = closed, color = Colors.Gray, enabled = false, owned = false, dim = true }
 	end
 	local missing = attrText(card, ShopAttr.Missing)
 	if missing ~= "" then
@@ -441,10 +442,11 @@ local function press(card: Card)
 	if state.owned or state.text == "BUYING..." then
 		return
 	end
-	if state.text == "HALL CLOSED" then
+	if state.text == "HALL CLOSED" or state.text == "WING CLOSED" then
 		local hall = attrText(card, ShopAttr.Hall)
 		local settings = (Config.Halls :: any)[hall]
-		showMessage(("Open the %s first — Halls tab"):format(if settings then tostring(settings.Title) else "hall"), Colors.Red)
+		local title = if settings then tostring(settings.Title) else (Config.Wings.Titles :: any)[hall]
+		showMessage(("Open the %s first — Halls tab"):format(if title then tostring(title) else "hall"), Colors.Red)
 	elseif state.text == "NO EXHIBIT" then
 		showMessage("Buy this exhibit first — Exhibits tab", Colors.Red)
 	elseif string.sub(state.text, 1, 3) == "NO " then

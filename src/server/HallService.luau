@@ -2,6 +2,7 @@
 -- Днём игрок подходит к двери и держит F: хватает денег — покупает зал сразу, нет — все его деньги
 -- идут в полоску, остальное докладывают другие (Purchase.luau, у каждого свой кошелёк).
 -- Набрали цену — доски падают, зал открыт: его камеры работают, туристы и воры идут к его экспонатам.
+-- Этап 5, блок B: зал угла покупается, только когда открыто его крыло (GameState.HallWing), иначе — «WING CLOSED».
 -- Двери входов открываются сами (DoorService).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -45,6 +46,21 @@ local function hallSettings(hall: string): { Price: number, Title: string }?
 	return nil
 end
 
+-- Крыло, из которого вход в зал (этап 5, блок B), и открыто ли оно.
+local function wingOf(door: Door): string?
+	return (GameState.HallWing :: any)[door.hall]
+end
+
+local function wingOpen(door: Door): boolean
+	local wing = wingOf(door)
+	return wing == nil or GameState.isHallOpen(wing)
+end
+
+local function wingTitle(door: Door): string
+	local wing = wingOf(door)
+	return if wing then tostring((Config.Wings.Titles :: any)[wing] or wing) else "WING"
+end
+
 local function updateSign(door: Door)
 	local sign = door.model:FindFirstChild(MapSchema.HallDoorSign, true)
 	local gui = sign and sign:FindFirstChild("SignGui")
@@ -53,6 +69,9 @@ local function updateSign(door: Door)
 		label.Text = if door.paid > 0
 			then ("%s\n$%d / $%d"):format(door.title, door.paid, door.price)
 			else ("%s\n$%d"):format(door.title, door.price)
+		if not wingOpen(door) then
+			label.Text ..= "\nOPEN THE " .. wingTitle(door) .. " FIRST"
+		end
 	end
 	if door.prompt then
 		door.prompt.ObjectText = Purchase.progressText(door.title, door.paid, door.price)
@@ -62,7 +81,7 @@ end
 
 local function refreshPrompt(door: Door)
 	if door.prompt then
-		door.prompt.Enabled = dayActive and not GameState.isHallOpen(door.hall)
+		door.prompt.Enabled = dayActive and not GameState.isHallOpen(door.hall) and wingOpen(door)
 	end
 end
 
@@ -98,7 +117,7 @@ end
 -- Удержание F у двери (или покупка из окна магазина — fromShop, без проверки расстояния): остаток цены,
 -- если хватает денег, иначе всё, что есть (Purchase.take). Возвращает, сколько взяли.
 local function contribute(door: Door, player: Player, fromShop: boolean?): number
-	if not dayActive or GameState.isHallOpen(door.hall) then
+	if not dayActive or GameState.isHallOpen(door.hall) or not wingOpen(door) then
 		return 0
 	end
 	local panel = door.model:FindFirstChild(MapSchema.HallDoorPanel)
@@ -162,8 +181,9 @@ local function registerInShop(door: Door, spots: number)
 		id = door.hall,
 		title = door.title,
 		info = ("%d exhibit spots • more tourists"):format(spots),
-		order = table.find(GameState.PaidHalls, door.hall) or #GameState.PaidHalls + 1,
+		order = 10 + (table.find(GameState.PaidHalls, door.hall) or #GameState.PaidHalls + 1), -- после крыльев
 		price = door.price,
+		hall = wingOf(door), -- крыло закрыто — «WING CLOSED»
 		preview = ExhibitService.hallPreview(door.hall),
 		state = function(): ShopService.State
 			return { paid = door.paid, owned = GameState.isHallOpen(door.hall) }
@@ -171,6 +191,8 @@ local function registerInShop(door: Door, spots: number)
 		buy = function(player: Player): (string, string)
 			if GameState.isHallOpen(door.hall) then
 				return ShopService.fail(door.title .. " is already open")
+			elseif not wingOpen(door) then
+				return ShopService.fail(("Open the %s first"):format(wingTitle(door)))
 			end
 			local amount = contribute(door, player, true)
 			return ShopService.sharedResult(door.title, amount, door.paid, door.price)
@@ -202,6 +224,17 @@ function HallService.init(map: Instance)
 			end
 		end
 	end
+	-- Крыло купили или забег начался заново — у двери зала меняются надпись и кнопка
+	GameState.folder().AttributeChanged:Connect(function(attr)
+		if string.sub(attr, 1, #"HallOpen_Wing") == "HallOpen_Wing" then
+			for _, door in doors do
+				if not GameState.isHallOpen(door.hall) then
+					updateSign(door)
+					refreshPrompt(door)
+				end
+			end
+		end
+	end)
 	local pedestals = map:FindFirstChild(MapSchema.Pedestals)
 	for _, hall in GameState.PaidHalls do
 		local door = doors[hall]

@@ -172,6 +172,9 @@ GameState.Wings = {
 	East = "WingEast",
 }
 GameState.WingOrder = { "WingSouth", "WingWest", "WingNorth", "WingEast" }
+function GameState.isWing(name: any): boolean
+	return typeof(name) == "string" and table.find(GameState.WingOrder, name) ~= nil
+end
 -- Зал угла открывается только из своего крыла: купить зал можно, когда крыло открыто.
 GameState.HallWing = {
 	Sculptures = "WingSouth",
