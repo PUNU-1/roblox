@@ -61,6 +61,12 @@ function Purchase.setOpen(prompt: ProximityPrompt, open: boolean)
 	prompt.Enabled = open
 end
 
+-- Сколько игрок потратил за забег (этап 5, блок C): по этому обучение засчитывает шаг «купи».
+local function addSpent(player: Player, amount: number)
+	local attr = GameState.PlayerAttr.RunSpent
+	player:SetAttribute(attr, (tonumber(player:GetAttribute(attr)) or 0) + amount)
+end
+
 -- Игрок может сейчас платить: на смене, не лежит, есть персонаж. maxDistance — проверка расстояния до part
 -- (кнопка F); nil — без проверки (окно магазина, этап 4, блок 1b).
 local function canPay(player: Player, part: BasePart, maxDistance: number?): boolean
@@ -90,6 +96,7 @@ function Purchase.takeFull(player: Player, part: BasePart, price: number, fromSh
 		return false
 	end
 	player:SetAttribute(GameState.PlayerAttr.Money, money - price)
+	addSpent(player, price)
 	Audio.purchase(part)
 	return true
 end
@@ -116,6 +123,7 @@ function Purchase.take(player: Player, part: BasePart, paid: number, price: numb
 		return 0
 	end
 	player:SetAttribute(GameState.PlayerAttr.Money, money - amount)
+	addSpent(player, amount)
 	Audio.purchase(part)
 	return amount
 end

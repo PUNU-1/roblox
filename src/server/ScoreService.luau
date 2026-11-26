@@ -46,6 +46,9 @@ export type Results = {
 function ScoreService.beginRun(participants: { Player })
 	for _, player in participants do
 		player:SetAttribute(GameState.PlayerAttr.Money, 0)
+		-- Обучение (этап 5, блок C): траты и аресты считаются заново каждый забег
+		player:SetAttribute(GameState.PlayerAttr.RunSpent, 0)
+		player:SetAttribute(GameState.PlayerAttr.RunArrests, 0)
 	end
 	incomePool = 0
 	table.clear(diamondsRun)
@@ -106,6 +109,7 @@ function ScoreService.addCatch(player: Player)
 	local reward = Config.Money.PerArrest
 	arrestMoneyByUser[player.UserId] = (arrestMoneyByUser[player.UserId] or 0) + reward
 	player:SetAttribute(GameState.PlayerAttr.Money, (tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0) + reward)
+	player:SetAttribute(GameState.PlayerAttr.RunArrests, (tonumber(player:GetAttribute(GameState.PlayerAttr.RunArrests)) or 0) + 1)
 	GameState.set(GameState.Attr.Caught, caughtTotal)
 end
 

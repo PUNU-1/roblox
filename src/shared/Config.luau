@@ -2,6 +2,17 @@
 -- Все числа игры живут здесь. В логике чисел быть не должно.
 -- Числа баланса пока поставил Claude (помечены «баланс»). Друг предложит свои — см. TEAM_PLAN.md.
 
+-- Шаг обучения (этап 5, блок C): поля — в описании Config.Tutorial.
+export type TutorialStep = {
+	Text: string,
+	TouchText: string?,
+	Icon: string,
+	Target: string?,
+	Done: string,
+	Seconds: number?,
+	Role: string?,
+}
+
 local Config = {
 	Keys = { -- клавиши (решение 67, блок 4)
 		Action = Enum.KeyCode.F, -- все кнопки у предметов (ProximityPrompt): покупка, арест, пульт, поднять друга; геймпад — как было (X)
@@ -1087,6 +1098,118 @@ local Config = {
 
 	Hints = {
 		Rounds = 2, -- в скольких первых раундах игрок видит подсказки внизу экрана
+	},
+
+	-- Обучение со стрелками в каждом забеге (этап 5, блок C, решение 78; заменило подсказки новичку, решение 36).
+	-- Показывает клиент (client/Tutorial): плашка шага сверху, шевроны по полу по пути PathfindingService, прыгающая
+	-- стрелка над целью. Сервер только отмечает траты и аресты забега (атрибуты RunSpent, RunArrests) и хранит
+	-- настройку «выключено» в профиле (ProfileStore, TutorialOff).
+	--
+	-- Шаг: Text (на телефоне — TouchText, если есть), Icon — пиксельная иконка справа, Target — куда показывают стрелки,
+	-- Done — когда шаг выполнен, Seconds — шаг сам засчитывается через столько секунд (или, у Done = "Info", просто
+	-- исчезает), Role — шаг только у этого класса.
+	--   Target: MonaLisa | ShopCounter | FirstThief (первый вор 1-й ночи) | WingWall (ближайшая заколоченная стена
+	--           крыла) | TaserSeller (оружейная, если открыто южное крыло, иначе касса SHOP)
+	--   Done:   Near (ближе NearDistance к цели) | ShopOpened | Bought (любая покупка за забег) | PhoneOpened |
+	--           SensorPlaced | ThiefSeen (вор уже в музее) | Arrested (свой арест за забег) | WingOpen (любое крыло
+	--           открыто) | HasTaser | Info (без галочки)
+	-- Уже сделанное засчитывается сразу. Части: Phase + Night — в какую фазу какой ночи (Night = GameState NightNumber).
+	Tutorial = {
+		NearDistance = 12, -- «подойди к Моне Лизе» — ближе этого
+		NextDelay = 1, -- шаг выполнен: галочка, через столько секунд следующий
+		CompleteSeconds = 4, -- «Tutorial complete!» висит столько
+		SkipKey = "K", -- клавиша Skip (на телефоне — кнопка)
+		ToggleCooldown = 2, -- сервер: менять настройку не чаще раза за столько секунд
+		DoneSound = "rbxasset://sounds/electronicpingshort.wav", -- ВРЕМЕННЫЙ: стандартный звук Roblox — шаг выполнен
+		DoneVolume = 0.6,
+		Chevrons = { -- светящиеся шевроны по полу от игрока к цели (видит только сам игрок)
+			Count = 12, -- сколько штук (пул)
+			Spacing = 3.5, -- стадов между шевронами
+			Speed = 5, -- плывут вперёд, стадов в секунду
+			RepathSeconds = 0.5, -- путь пересчитывается так часто
+			ArmLength = 1.4, -- длина одной палочки «>»
+			ArmWidth = 0.35,
+			Height = 0.15, -- над полом
+			HideNear = 6, -- ближе к цели — шевронов нет
+			Color = Color3.fromHex("FFD23F"),
+			Transparency = 0.15,
+			AgentRadius = 2, -- как у воров: путь не прижимается к стенам
+		},
+		Arrow = { -- большая прыгающая стрелка над целью, видна сквозь стены
+			Cell = 4, -- пикселей на клетку пиксельной стрелки (16 клеток = 64 пикселя)
+			Height = 7, -- стадов над целью
+			Bounce = 1.2, -- прыгает на столько стадов
+			BounceSeconds = 0.8, -- период прыжка
+		},
+		CompleteText = "Tutorial complete! Good luck, guard",
+		SkippedText = "Tutorial skipped. Turn it on again: HOW TO PLAY in the lobby",
+		Segments = {
+			{
+				Phase = "Day",
+				Night = 1,
+				Steps = ({
+					{ Text = "Welcome, guard! Protect the Mona Lisa", Icon = "Painting", Target = "MonaLisa", Done = "Near" },
+					{
+						Text = "Tourists pay for tickets. Open the shop: press B",
+						TouchText = "Tourists pay for tickets. Open the shop: tap SHOP",
+						Icon = "Shop",
+						Target = "ShopCounter",
+						Done = "ShopOpened",
+					},
+					{ Text = "Buy a camera or an exhibit", Icon = "Shop", Done = "Bought", Seconds = 15 },
+					{
+						Role = "Operator",
+						Text = "Press Tab - your phone shows the cameras",
+						TouchText = "Tap the PHONE button - it shows the cameras",
+						Icon = "Phone",
+						Done = "PhoneOpened",
+					},
+					{
+						Role = "Technician",
+						Text = "Press G to place a motion sensor",
+						TouchText = "Tap the SENSOR button to place a motion sensor",
+						Icon = "Sensor",
+						Done = "SensorPlaced",
+					},
+					{ Text = "Night is coming - stay near the Mona Lisa", Icon = "Moon", Target = "MonaLisa", Done = "Info" },
+				} :: { TutorialStep }),
+			},
+			{
+				Phase = "Night",
+				Night = 1,
+				Steps = ({
+					{ Text = "Thieves come through the doors!", Icon = "Thief", Done = "ThiefSeen" },
+					{
+						Text = "Run to the thief and hold F to arrest him",
+						TouchText = "Run to the thief and hold the Arrest button",
+						Icon = "KeyF",
+						Target = "FirstThief",
+						Done = "Arrested",
+					},
+					{ Text = "Don't let them carry the Mona Lisa out!", Icon = "Painting", Done = "Info", Seconds = 6 },
+				} :: { TutorialStep }),
+			},
+			{
+				Phase = "Day",
+				Night = 2,
+				Steps = ({
+					{
+						Text = "Buy a wing - thieves will walk longer. Hold F at the boarded wall",
+						TouchText = "Buy a wing - thieves will walk longer. Hold the button at the boarded wall",
+						Icon = "Shop",
+						Target = "WingWall",
+						Done = "WingOpen",
+					},
+					{
+						Text = "Buy a taser: press B, Weapons tab",
+						TouchText = "Buy a taser: tap SHOP, Weapons tab",
+						Icon = "Shop",
+						Target = "TaserSeller",
+						Done = "HasTaser",
+					},
+				} :: { TutorialStep }),
+			},
+		},
 	},
 
 	Effects = {

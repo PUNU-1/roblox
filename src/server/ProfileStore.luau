@@ -3,13 +3,14 @@
 -- данные { diamonds = 120, ownedClasses = { Patrol = true, Operator = true }, giftDay = 20418, giftStreak = 3 }.
 -- Этап 5, блок A: ежедневный подарок (giftDay — номер дня UTC, когда забрал, giftStreak — день серии 1–7)
 -- забирается тоже внутри UpdateAsync, как покупка класса.
+-- Этап 5, блок C: настройка «обучение выключено» (tutorialOff) — Remote SetTutorial, хаб и музей.
 --
 -- Правило 5 из CLAUDE.md: только UpdateAsync в pcall с повтором (Retry). Каждое изменение сохраняется сразу:
 -- алмазы — разницей (pending), поэтому, даже если запись не удалась, ничего не теряется — она уйдёт со следующей
 -- попыткой (новое начисление, выход игрока, закрытие сервера). Покупка класса — тоже внутри UpdateAsync:
 -- цена и «уже куплен» проверяются по сохранённым данным, а не по кэшу.
 --
--- Клиенты видят профиль атрибутами игрока (Diamonds, OwnedClasses, ProfileStatus, GiftDay, GiftStreak), пишет их
+-- Клиенты видят профиль атрибутами игрока (Diamonds, OwnedClasses, ProfileStatus, GiftDay, GiftStreak, TutorialOff), пишет их
 -- только этот модуль.
 -- Studio без доступа к API: все классы открыты, алмазы считаются в памяти и не сохраняются (статус Offline).
 
@@ -21,6 +22,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
 local Retry = require(script.Parent:WaitForChild("Retry"))
 
 local Settings = Config.Diamonds
@@ -35,6 +37,7 @@ type Profile = {
 	owned: { [string]: boolean },
 	giftDay: number, -- номер дня UTC, когда последний раз забрал подарок (0 — никогда)
 	giftStreak: number, -- какой это был день серии (1–7)
+	tutorialOff: boolean, -- игрок выключил обучение (этап 5, блок C)
 	status: string, -- GameState.ProfileStatus
 	pending: number, -- алмазы, которые ещё не записаны в DataStore
 	busy: boolean, -- идёт запрос к DataStore (запросы одного игрока — по очереди)
@@ -44,6 +47,7 @@ local profiles: { [Player]: Profile } = {}
 local offline = false -- Studio без доступа к API: всё только в памяти
 local inflight = 0 -- сколько запросов к DataStore идёт сейчас (BindToClose ждёт их)
 local started = false
+local lastToggle: { [Player]: number } = {} -- когда игрок последний раз менял настройку обучения (SetTutorial)
 
 local function key(userId: number): string
 	return tostring(userId)
@@ -55,6 +59,7 @@ type Data = {
 	owned: { [string]: boolean },
 	giftDay: number,
 	giftStreak: number,
+	tutorialOff: boolean,
 }
 
 -- Данные из DataStore → алмазы, классы и подарки. Чужие и сломанные поля отбрасываются.
@@ -62,7 +67,9 @@ local function clean(data: any): Data
 	local diamonds = 0
 	local owned: { [string]: boolean } = {}
 	local giftDay, giftStreak = 0, 0
+	local tutorialOff = false
 	if typeof(data) == "table" then
+		tutorialOff = data.tutorialOff == true
 		diamonds = math.max(0, math.floor(tonumber(data.diamonds) or 0))
 		giftDay = math.max(0, math.floor(tonumber(data.giftDay) or 0))
 		giftStreak = math.clamp(math.floor(tonumber(data.giftStreak) or 0), 0, #Config.DailyGift.Rewards)
@@ -79,7 +86,7 @@ local function clean(data: any): Data
 			owned[name] = true -- бесплатные классы есть у всех
 		end
 	end
-	return { diamonds = diamonds, owned = owned, giftDay = giftDay, giftStreak = giftStreak }
+	return { diamonds = diamonds, owned = owned, giftDay = giftDay, giftStreak = giftStreak, tutorialOff = tutorialOff }
 end
 
 local function pack(data: Data): { [string]: any }
@@ -92,6 +99,7 @@ local function pack(data: Data): { [string]: any }
 		ownedClasses = classes,
 		giftDay = data.giftDay,
 		giftStreak = data.giftStreak,
+		tutorialOff = data.tutorialOff,
 	}
 end
 
@@ -110,6 +118,7 @@ local function publish(player: Player, profile: Profile)
 	player:SetAttribute(PlayerAttr.OwnedClasses, table.concat(names, ","))
 	player:SetAttribute(PlayerAttr.GiftDay, profile.giftDay)
 	player:SetAttribute(PlayerAttr.GiftStreak, profile.giftStreak)
+	player:SetAttribute(PlayerAttr.TutorialOff, profile.tutorialOff)
 	player:SetAttribute(PlayerAttr.ProfileStatus, profile.status)
 end
 
@@ -152,6 +161,7 @@ local function update(profile: Profile, change: ((data: Data) -> ())?): (boolean
 	profile.owned = data.owned
 	profile.giftDay = data.giftDay
 	profile.giftStreak = data.giftStreak
+	profile.tutorialOff = data.tutorialOff
 	profile.status = Status.Ready
 	return true, nil
 end
@@ -194,6 +204,7 @@ local function newProfile(player: Player): Profile
 		owned = data.owned,
 		giftDay = data.giftDay,
 		giftStreak = data.giftStreak,
+		tutorialOff = data.tutorialOff,
 		status = if offline then Status.Offline else Status.Loading,
 		pending = 0,
 		busy = false,
@@ -229,6 +240,7 @@ local function onPlayerRemoving(player: Player)
 	if profiles[player] == profile then
 		profiles[player] = nil
 	end
+	lastToggle[player] = nil
 end
 
 ---------------------------------------------------------------- для других сервисов
@@ -240,6 +252,18 @@ function ProfileStore.init()
 	started = true
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
+	-- Обучение вкл / выкл (этап 5, блок C): аргумент — только boolean, не чаще раза в ToggleCooldown сек
+	Remotes.get(Remotes.Names.SetTutorial).OnServerEvent:Connect(function(player: Player, on: any)
+		if typeof(on) ~= "boolean" then
+			return
+		end
+		local now = os.clock()
+		if lastToggle[player] and now - lastToggle[player] < Config.Tutorial.ToggleCooldown then
+			return
+		end
+		lastToggle[player] = now
+		ProfileStore.setTutorial(player, on)
+	end)
 	for _, player in Players:GetPlayers() do
 		task.spawn(onPlayerAdded, player)
 	end
@@ -425,6 +449,36 @@ function ProfileStore.claimGift(player: Player): (boolean, number, number, strin
 		return false, 0, profile.giftStreak, "Come back tomorrow for the next gift"
 	end
 	return true, reward, day, ("Day %d: +%d 💎"):format(day, reward)
+end
+
+-- Включить / выключить обучение навсегда (этап 5, блок C). Игрок видит сразу (атрибут TutorialOff), запись — в фоне.
+-- Профиль ещё не загрузился или Roblox не ответил — настройка действует только до выхода (это не деньги, повторять
+-- запись не стоит: игрок просто выключит ещё раз).
+function ProfileStore.setTutorial(player: Player, on: boolean)
+	local profile = profiles[player]
+	if not profile then
+		return
+	end
+	local off = not on
+	profile.tutorialOff = off
+	publish(player, profile)
+	if offline or profile.status == Status.Offline then
+		return -- Studio без доступа к API: только в памяти
+	end
+	task.spawn(function()
+		lock(profile)
+		if profile.status == Status.Ready then
+			local ok, err = update(profile, function(data: Data)
+				data.tutorialOff = off
+			end)
+			if not ok then
+				warn(("[ProfileStore] Не удалось сохранить настройку обучения %d: %s"):format(profile.userId, tostring(err)))
+			end
+		end
+		profile.tutorialOff = off -- последнее нажатие игрока важнее того, что пришло из DataStore
+		unlock(profile)
+		publish(player, profile)
+	end)
 end
 
 return ProfileStore

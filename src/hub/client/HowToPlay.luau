@@ -4,13 +4,17 @@
 --  2. Ночь: воры входят через двери, держи F, чтобы арестовать.
 --  3. Украли Мону Лизу — игра окончена.
 --  4. Классы и алмазы.
+-- Внизу справа — кнопка TUTORIAL: ON / OFF (этап 5, блок C): обучение со стрелками в музее, сохраняется в профиле.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local GameState = require(Shared:WaitForChild("GameState"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local PixelIcon = require(UI:WaitForChild("PixelIcon"))
@@ -184,6 +188,31 @@ local function arrow(icon: string, side: number, step: number)
 end
 arrow("ArrowLeft", 0, -1)
 arrow("ArrowRight", 1, 1)
+
+-- Обучение в музее вкл / выкл (этап 5, блок C). Решает и сохраняет сервер (ProfileStore), кнопка показывает атрибут.
+local localPlayer = Players.LocalPlayer
+local tutorialButton = PixelButton.text({
+	text = "TUTORIAL: ON",
+	name = "TutorialToggle",
+	color = Colors.Green,
+	textSize = 12,
+	size = UDim2.fromOffset(210, 40),
+	anchor = Vector2.new(1, 1),
+	position = UDim2.new(1, -4, 1, -4),
+	zIndex = 4,
+	parent = content,
+	onActivated = function()
+		local off = localPlayer:GetAttribute(GameState.PlayerAttr.TutorialOff) == true
+		Remotes.get(Remotes.Names.SetTutorial):FireServer(off) -- было выключено — включить
+	end,
+})
+local function refreshTutorial()
+	local off = localPlayer:GetAttribute(GameState.PlayerAttr.TutorialOff) == true
+	tutorialButton.setText(if off then "TUTORIAL: OFF" else "TUTORIAL: ON")
+	tutorialButton.setColor(if off then Colors.Gray else Colors.Green)
+end
+refreshTutorial()
+localPlayer:GetAttributeChangedSignal(GameState.PlayerAttr.TutorialOff):Connect(refreshTutorial)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed or not window.isOpen() then

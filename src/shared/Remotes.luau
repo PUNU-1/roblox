@@ -34,6 +34,8 @@ local NAMES: { [string]: string } = {
 	ShopBuy = "ShopBuy", -- (category: string, id: string) купить товар из окна; сервер проверяет товар, фазу, деньги, зал
 	-- этап 5, блок A: ежедневные подарки в хабе
 	ClaimGift = "ClaimGift", -- () забрать подарок дня; сервер сам проверяет день и серию по сохранённым данным
+	-- этап 5, блок C: обучение
+	SetTutorial = "SetTutorial", -- (on: boolean) включить / выключить обучение навсегда (профиль); хаб и музей
 
 	-- сервер -> клиенты
 	PhraseShown = "PhraseShown", -- (userId: number, index: number)

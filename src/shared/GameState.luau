@@ -349,6 +349,11 @@ GameState.PlayerAttr = {
 	-- этап 5, блок A: ежедневные подарки (пишет ProfileStore; сохраняется навсегда)
 	GiftDay = "GiftDay", -- number, номер дня (UTC), когда игрок последний раз забрал подарок (0 — никогда)
 	GiftStreak = "GiftStreak", -- number, какой это был день серии: 1–7
+	-- этап 5, блок C: обучение со стрелками
+	TutorialOff = "TutorialOff", -- boolean, игрок выключил обучение (пишет ProfileStore; сохраняется навсегда)
+	RunSpent = "RunSpent", -- number, сколько долларов игрок потратил за забег (пишет Purchase; шаг «купи»)
+	RunArrests = "RunArrests", -- number, сколько воров игрок арестовал за забег (пишет ScoreService; шаг «арестуй»)
+	ShopOpen = "ShopOpen", -- boolean, ТОЛЬКО НА КЛИЕНТЕ: открыто окно магазина (пишет Shop.client, читает Tutorial)
 }
 
 -- Профиль игрока (этап 4, блок 1): загружен ли он из DataStore.
