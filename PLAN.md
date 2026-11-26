@@ -94,7 +94,7 @@
 
 ---
 
-## Блок B. Музей растёт от центра
+## Блок B. Музей растёт от центра — сделано (код, 26.11; в Studio не проверено, «Решил Claude» пункт 34)
 
 **Файлы:** `src/server/MapBuilder.luau` (главное), `MapDecor.luau`, `HallService.luau` (по образцу — новый `WingService.luau`), `DoorService.luau`, `ThiefService.luau`, `TouristService.luau`, `RoleService.luau`, `CameraService.luau`, `ShopService.luau` (регистрация), `ExhibitService.luau`, `GameLoop.server.luau`, `Config.luau`, `MapSchema.luau`, `GameState.luau`.
 
