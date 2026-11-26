@@ -32,6 +32,8 @@ local NAMES: { [string]: string } = {
 	BuyClass = "BuyClass", -- (role: string) купить класс за алмазы; сервер проверяет класс, цену и алмазы
 	-- этап 4, блок 1b: окно магазина в музее
 	ShopBuy = "ShopBuy", -- (category: string, id: string) купить товар из окна; сервер проверяет товар, фазу, деньги, зал
+	-- этап 5, блок A: ежедневные подарки в хабе
+	ClaimGift = "ClaimGift", -- () забрать подарок дня; сервер сам проверяет день и серию по сохранённым данным
 
 	-- сервер -> клиенты
 	PhraseShown = "PhraseShown", -- (userId: number, index: number)
@@ -42,6 +44,7 @@ local NAMES: { [string]: string } = {
 	ShotFx = "ShotFx", -- (shooter: Instance, weapon: string, origin: Vector3, ends: { Vector3 }, hits: { boolean }) выстрел для картинки
 	ShopResult = "ShopResult", -- (ok: boolean, role: string, message: string) ответ на BuyClass
 	ShopReply = "ShopReply", -- (kind: string, category: string, id: string, text: string) ответ на ShopBuy, kind — GameState.ShopReply
+	GiftResult = "GiftResult", -- (ok: boolean, reward: number, day: number, message: string) ответ на ClaimGift
 	HitConfirm = "HitConfirm", -- (kind: string) стрелку: попал ("hit"), в голову ("head"), грабитель упал ("ko"), шокер ("stun")
 }
 Remotes.Names = NAMES

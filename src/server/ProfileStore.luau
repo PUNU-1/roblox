@@ -1,13 +1,16 @@
 -- Профиль игрока (этап 4, блок 1, решение 74): алмазы 💎 и купленные классы — навсегда. Общий для хаба и музея
 -- (hub.project.json подключает этот файл). DataStore Config.Diamonds.Store, ключ — UserId,
--- данные { diamonds = 120, ownedClasses = { Patrol = true, Operator = true } }.
+-- данные { diamonds = 120, ownedClasses = { Patrol = true, Operator = true }, giftDay = 20418, giftStreak = 3 }.
+-- Этап 5, блок A: ежедневный подарок (giftDay — номер дня UTC, когда забрал, giftStreak — день серии 1–7)
+-- забирается тоже внутри UpdateAsync, как покупка класса.
 --
 -- Правило 5 из CLAUDE.md: только UpdateAsync в pcall с повтором (Retry). Каждое изменение сохраняется сразу:
 -- алмазы — разницей (pending), поэтому, даже если запись не удалась, ничего не теряется — она уйдёт со следующей
 -- попыткой (новое начисление, выход игрока, закрытие сервера). Покупка класса — тоже внутри UpdateAsync:
 -- цена и «уже куплен» проверяются по сохранённым данным, а не по кэшу.
 --
--- Клиенты видят профиль атрибутами игрока (Diamonds, OwnedClasses, ProfileStatus), пишет их только этот модуль.
+-- Клиенты видят профиль атрибутами игрока (Diamonds, OwnedClasses, ProfileStatus, GiftDay, GiftStreak), пишет их
+-- только этот модуль.
 -- Studio без доступа к API: все классы открыты, алмазы считаются в памяти и не сохраняются (статус Offline).
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -30,6 +33,8 @@ type Profile = {
 	userId: number,
 	diamonds: number, -- сколько видит игрок (сохранённое + ещё не записанное)
 	owned: { [string]: boolean },
+	giftDay: number, -- номер дня UTC, когда последний раз забрал подарок (0 — никогда)
+	giftStreak: number, -- какой это был день серии (1–7)
 	status: string, -- GameState.ProfileStatus
 	pending: number, -- алмазы, которые ещё не записаны в DataStore
 	busy: boolean, -- идёт запрос к DataStore (запросы одного игрока — по очереди)
@@ -44,12 +49,23 @@ local function key(userId: number): string
 	return tostring(userId)
 end
 
--- Данные из DataStore → алмазы и классы. Чужие и сломанные поля отбрасываются.
-local function clean(data: any): (number, { [string]: boolean })
+-- Сохранённые данные профиля после проверки
+type Data = {
+	diamonds: number,
+	owned: { [string]: boolean },
+	giftDay: number,
+	giftStreak: number,
+}
+
+-- Данные из DataStore → алмазы, классы и подарки. Чужие и сломанные поля отбрасываются.
+local function clean(data: any): Data
 	local diamonds = 0
 	local owned: { [string]: boolean } = {}
+	local giftDay, giftStreak = 0, 0
 	if typeof(data) == "table" then
 		diamonds = math.max(0, math.floor(tonumber(data.diamonds) or 0))
+		giftDay = math.max(0, math.floor(tonumber(data.giftDay) or 0))
+		giftStreak = math.clamp(math.floor(tonumber(data.giftStreak) or 0), 0, #Config.DailyGift.Rewards)
 		if typeof(data.ownedClasses) == "table" then
 			for name, value in data.ownedClasses do
 				if value == true and GameState.classInfo(name) then
@@ -63,15 +79,20 @@ local function clean(data: any): (number, { [string]: boolean })
 			owned[name] = true -- бесплатные классы есть у всех
 		end
 	end
-	return diamonds, owned
+	return { diamonds = diamonds, owned = owned, giftDay = giftDay, giftStreak = giftStreak }
 end
 
-local function pack(diamonds: number, owned: { [string]: boolean }): { [string]: any }
+local function pack(data: Data): { [string]: any }
 	local classes = {}
-	for name in owned do
+	for name in data.owned do
 		classes[name] = true
 	end
-	return { diamonds = math.max(0, math.floor(diamonds)), ownedClasses = classes }
+	return {
+		diamonds = math.max(0, math.floor(data.diamonds)),
+		ownedClasses = classes,
+		giftDay = data.giftDay,
+		giftStreak = data.giftStreak,
+	}
 end
 
 -- Профиль → атрибуты игрока (их видят клиенты: алмазы вверху, замки на карточках, витрина).
@@ -87,6 +108,8 @@ local function publish(player: Player, profile: Profile)
 	end
 	player:SetAttribute(PlayerAttr.Diamonds, profile.diamonds)
 	player:SetAttribute(PlayerAttr.OwnedClasses, table.concat(names, ","))
+	player:SetAttribute(PlayerAttr.GiftDay, profile.giftDay)
+	player:SetAttribute(PlayerAttr.GiftStreak, profile.giftStreak)
 	player:SetAttribute(PlayerAttr.ProfileStatus, profile.status)
 end
 
@@ -106,27 +129,29 @@ end
 
 -- Один UpdateAsync: прибавляет ещё не записанные алмазы (pending) и, если надо, что-то меняет (change).
 -- После удачи кэш берётся из сохранённых данных. Возвращает, удалось ли.
-local function update(profile: Profile, change: ((diamonds: number, owned: { [string]: boolean }) -> (number, { [string]: boolean }))?): (boolean, string?)
+local function update(profile: Profile, change: ((data: Data) -> ())?): (boolean, string?)
 	local delta = profile.pending
 	local attempts = if RunService:IsStudio() then 1 else Settings.Retries -- в Studio без API ошибка сразу и навсегда
 	local ok, result = Retry.call(attempts, Settings.RetryDelay, function()
 		local store = DataStoreService:GetDataStore(Settings.Store)
 		return store:UpdateAsync(key(profile.userId), function(old: any): any
-			local diamonds, owned = clean(old)
-			diamonds = math.max(0, diamonds + delta)
+			local data = clean(old)
+			data.diamonds = math.max(0, data.diamonds + delta)
 			if change then
-				diamonds, owned = change(diamonds, owned)
+				change(data)
 			end
-			return pack(diamonds, owned)
+			return pack(data)
 		end)
 	end)
 	if not ok then
 		return false, tostring(result)
 	end
 	profile.pending -= delta
-	local diamonds, owned = clean(result)
-	profile.diamonds = diamonds + profile.pending
-	profile.owned = owned
+	local data = clean(result)
+	profile.diamonds = data.diamonds + profile.pending
+	profile.owned = data.owned
+	profile.giftDay = data.giftDay
+	profile.giftStreak = data.giftStreak
 	profile.status = Status.Ready
 	return true, nil
 end
@@ -162,11 +187,13 @@ local function sync(player: Player, profile: Profile)
 end
 
 local function newProfile(player: Player): Profile
-	local diamonds, owned = clean(nil)
+	local data = clean(nil)
 	return {
 		userId = player.UserId,
-		diamonds = diamonds,
-		owned = owned,
+		diamonds = data.diamonds,
+		owned = data.owned,
+		giftDay = data.giftDay,
+		giftStreak = data.giftStreak,
 		status = if offline then Status.Offline else Status.Loading,
 		pending = 0,
 		busy = false,
@@ -317,17 +344,17 @@ function ProfileStore.buyClass(player: Player, role: any): (boolean, string)
 
 	lock(profile)
 	local outcome = "error"
-	local ok = update(profile, function(diamonds: number, owned: { [string]: boolean })
-		if owned[role] then
+	local ok = update(profile, function(data: Data)
+		if data.owned[role] then
 			outcome = "owned"
-			return diamonds, owned
-		elseif diamonds < price then
+			return
+		elseif data.diamonds < price then
 			outcome = "poor"
-			return diamonds, owned
+			return
 		end
 		outcome = "bought"
-		owned[role] = true
-		return diamonds - price, owned
+		data.owned[role] = true
+		data.diamonds -= price
 	end)
 	unlock(profile)
 	publish(player, profile)
@@ -340,6 +367,64 @@ function ProfileStore.buyClass(player: Player, role: any): (boolean, string)
 		return false, ("You need %d more 💎"):format(math.max(1, price - profile.diamonds))
 	end
 	return true, title .. " unlocked!"
+end
+
+-- Забрать ежедневный подарок (этап 5, блок A). День и серия проверяются по сохранённым данным внутри UpdateAsync
+-- (не по кэшу): забрать дважды за день нельзя, даже с двух серверов сразу. День — по времени сервера (UTC).
+-- Возвращает (удалось, сколько алмазов, какой день серии, текст для игрока).
+function ProfileStore.claimGift(player: Player): (boolean, number, number, string)
+	local profile = profiles[player]
+	if not profile then
+		return false, 0, 0, "Try again in a moment"
+	end
+	local rewards = Config.DailyGift.Rewards
+	local today = GameState.dayNumber(os.time())
+
+	-- Studio без доступа к API: как алмазы — в памяти, не сохраняется
+	if offline or profile.status == Status.Offline then
+		local can, streak = GameState.giftNext(profile.giftDay, profile.giftStreak, today)
+		if not can then
+			return false, 0, profile.giftStreak, "Come back tomorrow for the next gift"
+		end
+		local reward = rewards[streak]
+		profile.giftDay = today
+		profile.giftStreak = streak
+		profile.diamonds += reward
+		publish(player, profile)
+		return true, reward, streak, ("Day %d: +%d 💎 (not saved in Studio)"):format(streak, reward)
+	end
+	if profile.status ~= Status.Ready then
+		return false, 0, 0, "Diamonds are loading — try again in a moment"
+	end
+	if not GameState.giftNext(profile.giftDay, profile.giftStreak, today) then
+		return false, 0, profile.giftStreak, "Come back tomorrow for the next gift"
+	end
+
+	lock(profile)
+	local outcome = "error"
+	local reward, day = 0, 0
+	local ok = update(profile, function(data: Data)
+		local can, streak = GameState.giftNext(data.giftDay, data.giftStreak, today)
+		if not can then
+			outcome = "claimed"
+			return
+		end
+		outcome = "gift"
+		reward = rewards[streak]
+		day = streak
+		data.diamonds += reward
+		data.giftDay = today
+		data.giftStreak = streak
+	end)
+	unlock(profile)
+	publish(player, profile)
+
+	if not ok then
+		return false, 0, 0, "Gifts are not responding — try again"
+	elseif outcome ~= "gift" then
+		return false, 0, profile.giftStreak, "Come back tomorrow for the next gift"
+	end
+	return true, reward, day, ("Day %d: +%d 💎"):format(day, reward)
 end
 
 return ProfileStore

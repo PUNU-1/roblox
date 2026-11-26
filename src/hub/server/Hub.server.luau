@@ -122,6 +122,25 @@ Players.PlayerRemoving:Connect(function(player)
 	buying[player] = nil
 end)
 
+-- Ежедневный подарок (этап 5, блок A): аргументов нет, день и серию проверяет ProfileStore по сохранённым
+-- данным; один запрос игрока за раз. Ответ — GiftResult.
+local giftResultRemote = Remotes.get(Remotes.Names.GiftResult)
+local claiming: { [Player]: boolean } = {}
+Remotes.get(Remotes.Names.ClaimGift).OnServerEvent:Connect(function(player)
+	if claiming[player] then
+		return
+	end
+	claiming[player] = true
+	local ok, reward, day, message = ProfileStore.claimGift(player)
+	claiming[player] = nil
+	if player.Parent then
+		giftResultRemote:FireClient(player, ok, reward, day, message)
+	end
+end)
+Players.PlayerRemoving:Connect(function(player)
+	claiming[player] = nil
+end)
+
 -- Класс (карточки, клавиши 1–5): любой купленный из Config.Classes.Order, пока команда игрока не улетает
 Remotes.get(Remotes.Names.SetRole).OnServerEvent:Connect(function(player, role)
 	if not GameState.classInfo(role) or PadService.isLaunching(player) or not ProfileStore.owns(player, role) then

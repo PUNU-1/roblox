@@ -27,6 +27,7 @@ local PixelWindow = require(UI:WaitForChild("PixelWindow"))
 local ClassShop = require(script.Parent:WaitForChild("ClassShop"))
 local ClassesWindow = require(script.Parent:WaitForChild("ClassesWindow"))
 local HowToPlay = require(script.Parent:WaitForChild("HowToPlay"))
+local Gifts = require(script.Parent:WaitForChild("Gifts"))
 
 local PadAttr = GameState.PadAttr
 local PadState = GameState.PadState
@@ -234,9 +235,7 @@ local ITEMS: { MenuItem } = {
 	{
 		icon = "Gift",
 		label = "GIFTS",
-		action = function()
-			comingSoon("GIFTS", "Daily gifts are coming soon!")
-		end,
+		action = Gifts.toggle,
 	},
 	{
 		icon = "HowToPlay",
@@ -500,6 +499,8 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 	menu.Visible = not flying
 	ClassesWindow.refresh()
+	-- Подарок можно забрать — красная точка на GIFTS (окно само не открываем)
+	buttons.Gift.setDot(Gifts.canClaim())
 
 	local leading = pad ~= nil and isCreator(pad) and not flying
 	leader.Visible = leading

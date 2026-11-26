@@ -309,6 +309,9 @@ GameState.PlayerAttr = {
 	Diamonds = "Diamonds", -- number, алмазы 💎
 	OwnedClasses = "OwnedClasses", -- string, купленные классы через запятую: "Patrol,Operator"
 	ProfileStatus = "ProfileStatus", -- string, GameState.ProfileStatus
+	-- этап 5, блок A: ежедневные подарки (пишет ProfileStore; сохраняется навсегда)
+	GiftDay = "GiftDay", -- number, номер дня (UTC), когда игрок последний раз забрал подарок (0 — никогда)
+	GiftStreak = "GiftStreak", -- number, какой это был день серии: 1–7
 }
 
 -- Профиль игрока (этап 4, блок 1): загружен ли он из DataStore.
@@ -347,6 +350,24 @@ function GameState.ownsClass(player: Player, role: any): boolean
 		end
 	end
 	return false
+end
+
+-- Номер дня по UTC для времени seconds (os.time() на сервере, workspace:GetServerTimeNow() на клиенте).
+function GameState.dayNumber(seconds: number): number
+	return math.floor(seconds / Config.DailyGift.DaySeconds)
+end
+
+-- Ежедневный подарок (этап 5, блок A): можно ли забрать сегодня и какой это будет день серии.
+-- Последний раз забрал вчера — серия +1 (после 7-го снова 1-й), раньше или никогда — снова 1-й.
+-- Сервер проверяет по сохранённым данным (ProfileStore), клиент — по атрибутам, чтобы показать окно.
+function GameState.giftNext(giftDay: number, giftStreak: number, today: number): (boolean, number)
+	if today <= giftDay then
+		return false, giftStreak
+	end
+	if today == giftDay + 1 and giftStreak >= 1 then
+		return true, (giftStreak % #Config.DailyGift.Rewards) + 1
+	end
+	return true, 1
 end
 
 -- Алмазы игрока (атрибут профиля).
