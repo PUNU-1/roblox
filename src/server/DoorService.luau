@@ -1,4 +1,4 @@
--- Двери, которые открываются сами (блок 2): 4 двери входов и дверь STAFF ONLY.
+-- Двери, которые открываются сами (блок 2): 4 двери входов, 4 двери центра (этап 5, блок B) и дверь STAFF ONLY.
 -- Сервер раз в CheckSeconds смотрит, есть ли рядом с дверью кто-нибудь (охрана, вор, турист),
 -- и пишет атрибут Open у модели двери. Створки плавно двигает каждый клиент (Doors.client).
 -- Створки не твёрдые: дверь всегда успевает открыться, а пути воров и туристов она не загораживает.
@@ -64,6 +64,10 @@ local function update()
 			end
 		end
 		local open = now - door.lastSeen < Settings.CloseDelay
+		local wing = door.model:GetAttribute(GameState.DoorAttr.Wing)
+		if typeof(wing) == "string" and GameState.isHallOpen(wing) then
+			open = true -- дверь центра купленного крыла — просто арка (этап 5, блок B)
+		end
 		if door.model:GetAttribute(OPEN) ~= open then
 			door.model:SetAttribute(OPEN, open)
 		end

@@ -163,6 +163,39 @@ GameState.Hall = {
 -- Залы за деньги по порядку цены (для подсказок и проверок).
 GameState.PaidHalls = { "Sculptures", "Dinosaurs", "Jewelry", "Space" }
 
+-- Крылья (этап 5, блок B): коридор + входной холл стороны. Покупаются (WingService); открыто ли — тот же атрибут
+-- «зал открыт» (HallOpen_WingSouth), поэтому пол, камеры и входы крыла работают через GameState.isHallOpen.
+GameState.Wings = {
+	South = "WingSouth",
+	West = "WingWest",
+	North = "WingNorth",
+	East = "WingEast",
+}
+GameState.WingOrder = { "WingSouth", "WingWest", "WingNorth", "WingEast" }
+-- Зал угла открывается только из своего крыла: купить зал можно, когда крыло открыто.
+GameState.HallWing = {
+	Sculptures = "WingSouth",
+	Dinosaurs = "WingWest",
+	Jewelry = "WingNorth",
+	Space = "WingEast",
+}
+
+-- Атрибуты точек входа (Map.Entrances): у двери центра и у наружной двери крыла.
+GameState.EntranceAttr = {
+	UntilWing = "UntilWing", -- string, крыло: вход работает, пока оно закрыто (дверь центра)
+	HoldInside = "HoldInside", -- number, на сколько стадов за дверью воры ждут (иначе Config.Waves.Smart.HoldInside)
+	HoldSpread = "HoldSpread", -- number, разброс места ожидания вбок
+}
+
+-- Работает ли сейчас вход (точка в Map.Entrances): его зал открыт, а крыло, пока закрыто которое он работает, — закрыто.
+function GameState.isEntranceOpen(marker: Instance): boolean
+	local untilWing = marker:GetAttribute(GameState.EntranceAttr.UntilWing)
+	if typeof(untilWing) == "string" and GameState.isHallOpen(untilWing) then
+		return false
+	end
+	return GameState.isHallOpen(marker:GetAttribute("Hall"))
+end
+
 -- Атрибуты точки камеры (Map.CameraPoints.CameraN). Пишет только сервер.
 GameState.CameraAttr = {
 	Index = "Index", -- number, номер камеры (1..N)
@@ -176,6 +209,7 @@ GameState.CameraAttr = {
 GameState.DoorAttr = {
 	Open = "Open", -- boolean, у модели двери
 	SlideX = "SlideX", -- number, у створки: на сколько она сдвигается вдоль своей оси X, когда дверь открыта
+	Wing = "Wing", -- string, у двери центра (этап 5, блок B): крыло куплено — дверь открыта всегда (арка)
 }
 
 -- Атрибут GameState «зал открыт»: HallOpen_Jewelry и т.д.

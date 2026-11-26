@@ -25,6 +25,10 @@
 --    Коридор от центра стал короче на 16 (последний отрезок C3 — 8 стадов), холл и повороты на месте.
 --  • Каждая комната — прямоугольник со своими стенами; соседние комнаты стоят вплотную (стены
 --    касаются), проходы между ними — арки. Всё, что не комната, — глухое пространство за стенами.
+--  • Музей растёт от центра (этап 5, блок B): в начале забега открыт только центр, в его 4 стенах — двери-входы.
+--    За каждой дверью «тамбур» (отрезок C3 и угол C2), где появляются туристы и воры, дальше — заколоченная
+--    стена крыла с ценой (WingService). Купили крыло — доски падают, дверь центра остаётся открытой аркой,
+--    вход этой стороны — снова наружная дверь в конце крыла.
 --  • Залы открываются за деньги (HallService), в зал ведёт одна дверь — в конце отрезка C2, где коридор
 --    поворачивает к центру. Зал 88 × 44 (стал мельче: его край упёрся в новый центр).
 
@@ -145,6 +149,10 @@ local WING_PATH = { Vector2.new(0, 130), Vector2.new(0, 116), Vector2.new(40, 11
 local HALL_RECT = rect(-96, -8, CENTER.maxZ + 2, 106) -- зал южного крыла (Скульптуры); остальные залы — поворот
 local HALL_DOOR = { x = -7, z1 = 74, z2 = 82 } -- дверь зала: в западном торце коридора C2 (поворот к центру)
 local SIDE_NAMES = { [0] = "South", [1] = "West", [2] = "North", [3] = "East" }
+-- Заколоченная стена крыла (этап 5, блок B): поперёк C2 сразу за углом, где коридор поворачивает к центру.
+-- До неё — «тамбур» (C3 и угол C2 с дверью зала): тут появляются туристы и воры, пока крыло закрыто.
+local WING_WALL_X = 7
+local INNER_ENTRANCE = Vector3.new(2, 3, 79) -- где появляются туристы и воры у двери центра (~17 стадов за дверью)
 local WING_HALLS = { [0] = "Sculptures", [1] = "Dinosaurs", [2] = "Jewelry", [3] = "Space" }
 -- Служебный угол на юго-востоке (только у южного крыла): дверь STAFF ONLY из коридора C1
 local STAFF_CORRIDOR = rect(48, 100, 98, 106)
@@ -1194,7 +1202,7 @@ end
 local function buildWing(k: number, doorsFolder: Folder)
 	local T = turn(k)
 	local side = SIDE_NAMES[k]
-	local main = GameState.Hall.Main
+	local main = GameState.Wings[side] -- пол крыла: закрытое крыло не гуляют туристы, его камеры не работают
 	local function at(x: number, y: number, z: number): Vector3
 		return T * Vector3.new(x, y, z)
 	end
@@ -1285,6 +1293,59 @@ local function buildWing(k: number, doorsFolder: Folder)
 	door.WorldPivot = base
 	door.Parent = doorsFolder
 
+	-- Дверь в стене центра (этап 5, блок B): вход музея, пока крыло закрыто; купили крыло — открыта всегда (DoorService)
+	local centerDoor = Instance.new("Model")
+	centerDoor.Name = side .. "CenterDoor"
+	centerDoor:SetAttribute(GameState.DoorAttr.Open, false)
+	centerDoor:SetAttribute(GameState.DoorAttr.Wing, main)
+	local centerBase = T * CFrame.new(0, 0, CENTER.maxZ + 1)
+	for _, s in { -1, 1 } do
+		local leafPivot = centerBase * CFrame.new(s * DOOR_HALF / 2, 0, 0) * (if s > 0 then CFrame.Angles(0, math.pi, 0) else CFrame.identity)
+		local leaf = ModelLibrary.place(MapSchema.Models.EntranceDoor, leafPivot, ENTRANCE_DOOR_STUB, centerDoor)
+		leaf.Name = if s < 0 then "LeafLeft" else "LeafRight"
+		leaf:SetAttribute(GameState.DoorAttr.SlideX, -DOOR_HALF)
+		ModelLibrary.forEachPart(leaf, function(part)
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+		end)
+	end
+	centerDoor.WorldPivot = centerBase
+	centerDoor.Parent = doorsFolder
+end
+
+-- Заколоченная стена крыла (этап 5, блок B): щит во всё сечение коридора, доски и табличка с ценой (текст пишет
+-- WingService). Стоит поперёк C2 на x = WING_WALL_X и смотрит в тамбур — к центру.
+local function buildWingWall(folder: Folder, k: number)
+	local T = turn(k)
+	local side = SIDE_NAMES[k]
+	local wall = Instance.new("Model")
+	wall.Name = "WingDoor_" .. side
+	wall:SetAttribute("Wing", GameState.Wings[side])
+	local c2 = WING.C2
+	local width = c2.maxZ - c2.minZ
+	local center = T * Vector3.new(WING_WALL_X, 0, (c2.minZ + c2.maxZ) / 2)
+	local cframe = CFrame.lookAt(center, center + T:VectorToWorldSpace(Vector3.new(-1, 0, 0)))
+	newPart(wall, MapSchema.HallDoorPanel, Vector3.new(width, CORRIDOR_H, 0.6), cframe * CFrame.new(0, CORRIDOR_H / 2, 0), COLORS.Plank, Enum.Material.WoodPlanks)
+	for index, angle in { 0.3, -0.3, 0.12, -0.12 } do
+		local plank = newPart(wall, "Plank", Vector3.new(width + 1, 0.9, 0.3), cframe * CFrame.new(0, 1.8 + index * 2.3, -0.45) * CFrame.Angles(0, 0, angle), COLORS.Plank, Enum.Material.Wood)
+		plank.CanCollide = false
+	end
+	local sign = newPart(wall, MapSchema.HallDoorSign, Vector3.new(8, 3.2, 0.2), cframe * CFrame.new(0, 10.5, -0.75), COLORS.Dark)
+	sign.CanCollide = false
+	local gui = surfaceGui(sign, Enum.NormalId.Front, 40, 0)
+	gui.Name = "SignGui"
+	local label = Instance.new("TextLabel")
+	label.Name = "Text"
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = COLORS.Gold
+	label.Text = string.upper(side) .. " WING"
+	label.Parent = gui
+	wall.PrimaryPart = wall:FindFirstChild(MapSchema.HallDoorPanel) :: BasePart
+	wall.Parent = folder
 end
 
 local function addWingDoorways(k: number)
@@ -1292,7 +1353,7 @@ local function addWingDoorways(k: number)
 	addDoorway(k, 34, 109, 46, 109, ARCH_H) -- холл → C1
 	addDoorway(k, 34, 85, 46, 85, ARCH_H) -- C1 → C2
 	addDoorway(k, -6, 71, 6, 71, ARCH_H) -- C2 → C3
-	addDoorway(k, -6, CENTER.maxZ + 1, 6, CENTER.maxZ + 1, ARCH_H) -- C3 → центр
+	addDoorway(k, -DOOR_HALF, CENTER.maxZ + 1, DOOR_HALF, CENTER.maxZ + 1, DOOR_H) -- C3 → центр: дверь центра
 	addDoorway(k, HALL_DOOR.x, HALL_DOOR.z1, HALL_DOOR.x, HALL_DOOR.z2, OPENING_H) -- C3 → зал
 end
 
@@ -1436,7 +1497,7 @@ end
 ---------------------------------------------------------------- служебный угол
 
 local function buildStaffArea(doorsFolder: Folder)
-	local main = GameState.Hall.Main
+	local main = GameState.Wings.South -- служебный угол открывается вместе с южным крылом
 	buildRoom({ name = "StaffCorridor", rect = STAFF_CORRIDOR, height = STAFF_H, style = STYLES.Staff, floorColor = hex("5A6070"), floorMaterial = Enum.Material.Concrete, hall = main, wander = false, lampSpacing = 18, area = "STAFF CORRIDOR" }, "Staff")
 	buildRoom({ name = "Armory", rect = ARMORY, height = STAFF_H, style = STYLES.Armory, floorColor = hex("4A505C"), floorMaterial = Enum.Material.DiamondPlate, hall = main, wander = false, lampSpacing = 14, area = "ARMORY" }, "Staff")
 	-- Жёлто-чёрная полоса по полу у входа и табличка на стороне коридора
@@ -1579,13 +1640,23 @@ end
 
 local function buildEntrances(entrances: Folder)
 	-- Точки снаружи у каждой двери: тут появляются воры и туристы, сюда убегают воры и уходят туристы.
+	-- Какие из них сейчас входы — решает WingService.entrances() (у двери центра или в конце крыла).
 	for k = 0, 3 do
 		local T = turn(k)
 		local position = T * Vector3.new(0, 3, HALF + 11)
 		local inside = T * Vector3.new(0, 3, HALF - 5)
-		local marker = newMarker(entrances, SIDE_NAMES[k], CFrame.lookAt(position, inside))
-		marker:SetAttribute("Hall", GameState.Hall.Main) -- все 4 двери работают с первой ночи
-		marker:SetAttribute("Side", SIDE_NAMES[k])
+		local side = SIDE_NAMES[k]
+		local wing = GameState.Wings[side]
+		local marker = newMarker(entrances, side, CFrame.lookAt(position, inside))
+		marker:SetAttribute("Hall", wing) -- наружная дверь — вход, когда крыло куплено
+		marker:SetAttribute("Side", side)
+		-- Дверь центра (этап 5, блок B): вход, пока крыло этой стороны закрыто. Точка — в тамбуре за дверью.
+		local inner = newMarker(entrances, side .. "Center", CFrame.lookAt(T * INNER_ENTRANCE, T * Vector3.new(0, 3, CENTER.maxZ - 6)))
+		inner:SetAttribute("Hall", GameState.Hall.Main)
+		inner:SetAttribute(GameState.EntranceAttr.UntilWing, wing)
+		inner:SetAttribute("Side", side)
+		inner:SetAttribute(GameState.EntranceAttr.HoldInside, 6) -- воры ждут в тамбуре, а не в центре
+		inner:SetAttribute(GameState.EntranceAttr.HoldSpread, 3)
 	end
 end
 
@@ -1602,8 +1673,8 @@ local function cameraSpots(): { CameraSpot }
 		local T = turn(k)
 		return { hall = hall, wall = T * wall, normal = T:VectorToWorldSpace(normal), target = T * target }
 	end
-	for k = 0, 3 do -- 3..6: входные холлы
-		table.insert(spots, rotated(k, GameState.Hall.Main, Vector3.new(-10, 13, WING.Lobby.minZ), Vector3.new(0, 0, 1), Vector3.new(6, 2, 126)))
+	for k = 0, 3 do -- 3..6: входные холлы (работают, когда крыло куплено)
+		table.insert(spots, rotated(k, GameState.Wings[SIDE_NAMES[k]], Vector3.new(-10, 13, WING.Lobby.minZ), Vector3.new(0, 0, 1), Vector3.new(6, 2, 126)))
 	end
 	for k = 0, 3 do -- 7..10: залы
 		table.insert(spots, rotated(k, WING_HALLS[k], Vector3.new(HALL_RECT.minX, 16.5, HALL_RECT.maxZ - 6), Vector3.new(1, 0, 0), Vector3.new(-30, 2, HALL_RECT.minZ + 10)))
@@ -1869,6 +1940,7 @@ function MapBuilder.build(): Instance
 	local cameraPoints = newFolder(map, MapSchema.CameraPoints)
 	local cameraSpotsFolder = newFolder(map, MapSchema.CameraSpots)
 	local hallDoors = newFolder(map, MapSchema.HallDoors)
+	local wingDoors = newFolder(map, MapSchema.WingDoors)
 	local pedestals = newFolder(map, MapSchema.Pedestals)
 	local doorsFolder = newFolder(map, MapSchema.Doors)
 	local kit = makeKit()
@@ -1885,6 +1957,7 @@ function MapBuilder.build(): Instance
 	buildCenter(map, exhibits, markers)
 	for k = 0, 3 do
 		buildWing(k, doorsFolder)
+		buildWingWall(wingDoors, k)
 		buildHall(k, hallDoors, kit)
 	end
 	buildPedestals(pedestals)
@@ -1900,8 +1973,8 @@ function MapBuilder.build(): Instance
 		museumMapBoard(CFrame.lookAt(point, point + T:VectorToWorldSpace(Vector3.new(0, 0, 1))), T * Vector3.new(0, 0, HALF))
 	end
 
-	-- Охрана появляется перед Моной Лизой, лицом к ней
-	newMarker(markers, MapSchema.PatrolSpawn, CFrame.lookAt(Vector3.new(0, 3, 15), Vector3.new(0, 3, 0)))
+	-- Охрана появляется перед Моной Лизой лицом к югу — к перегородкам и южной двери (этап 5, блок B)
+	newMarker(markers, MapSchema.PatrolSpawn, CFrame.lookAt(Vector3.new(0, 3, 14), Vector3.new(0, 3, 40)))
 
 	MapBuilder.setDayLights(map, false)
 	return map
