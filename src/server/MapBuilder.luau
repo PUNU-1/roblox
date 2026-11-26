@@ -18,14 +18,15 @@
 --                         портик NIGHT MUSEUM, площадь
 --                         домик SECURITY (лобби, круг START SHIFT)
 --
---  • Центр 88 × 88 в два этажа: Мона Лиза на бархатной стене в самой середине, над ней стеклянный
+--  • Центр 120 × 120 в два этажа (этап 5, блок B; было 88 × 88): Мона Лиза на бархатной стене в самой середине, над ней стеклянный
 --    потолок; вдоль северной стены балкон с двумя лестницами, на балконе пульт камер.
 --  • Крыло (входной холл + коридор с тремя поворотами + зал за деньги) описано в координатах южного
 --    крыла и повёрнуто на 90° для остальных: дверь → холл → на восток → на север → на запад → в центр.
---    От двери до Моны Лизы ~190 стадов: охраннику (скорость 16) бежать ~12 сек.
+--    Коридор от центра стал короче на 16 (последний отрезок C3 — 8 стадов), холл и повороты на месте.
 --  • Каждая комната — прямоугольник со своими стенами; соседние комнаты стоят вплотную (стены
 --    касаются), проходы между ними — арки. Всё, что не комната, — глухое пространство за стенами.
---  • Залы открываются за деньги (HallService), в зал ведёт одна дверь — из коридора у самого центра.
+--  • Залы открываются за деньги (HallService), в зал ведёт одна дверь — в конце отрезка C2, где коридор
+--    поворачивает к центру. Зал 88 × 44 (стал мельче: его край упёрся в новый центр).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -130,19 +131,19 @@ local function rect(minX: number, maxX: number, minZ: number, maxZ: number): Rec
 	return { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }
 end
 
-local CENTER = rect(-44, 44, -44, 44)
-local SKYLIGHT = rect(-18, 18, -18, 18)
+local CENTER = rect(-60, 60, -60, 60)
+local SKYLIGHT = rect(-24, 24, -24, 24)
 -- Крыло в координатах южного крыла (k = 0). Остальные крылья — поворот на 90°: k = 1 запад, 2 север, 3 восток.
 local WING = {
 	Lobby = rect(-14, 46, 110, 129), -- входной холл, дверь в южной стене (x от −5 до 5)
 	C1 = rect(34, 46, 86, 108), -- из холла на север
 	C2 = rect(-6, 46, 72, 84), -- на запад
-	C3 = rect(-6, 6, 46, 70), -- на север, в центр; в западной стене — дверь зала
+	C3 = rect(-6, 6, CENTER.maxZ + 2, 70), -- на север, в центр (между полами центра и C3 — 2 стада стен)
 }
 -- Ковровая дорожка от двери до центра (осевая линия коридора)
-local WING_PATH = { Vector2.new(0, 130), Vector2.new(0, 116), Vector2.new(40, 116), Vector2.new(40, 78), Vector2.new(0, 78), Vector2.new(0, 44) }
-local HALL_RECT = rect(-96, -8, 48, 106) -- зал южного крыла (Скульптуры); остальные залы — поворот
-local HALL_DOOR = { x = -7, z1 = 52, z2 = 60 } -- дверь зала: в западной стене коридора C3
+local WING_PATH = { Vector2.new(0, 130), Vector2.new(0, 116), Vector2.new(40, 116), Vector2.new(40, 78), Vector2.new(0, 78), Vector2.new(0, CENTER.maxZ) }
+local HALL_RECT = rect(-96, -8, CENTER.maxZ + 2, 106) -- зал южного крыла (Скульптуры); остальные залы — поворот
+local HALL_DOOR = { x = -7, z1 = 74, z2 = 82 } -- дверь зала: в западном торце коридора C2 (поворот к центру)
 local SIDE_NAMES = { [0] = "South", [1] = "West", [2] = "North", [3] = "East" }
 local WING_HALLS = { [0] = "Sculptures", [1] = "Dinosaurs", [2] = "Jewelry", [3] = "Space" }
 -- Служебный угол на юго-востоке (только у южного крыла): дверь STAFF ONLY из коридора C1
@@ -990,7 +991,7 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 		lampSpacing = 22,
 		area = "CENTER HALL",
 	}, "Center")
-	checkerTiles(CENTER, 11, COLORS.MarbleDark)
+	checkerTiles(CENTER, 12, COLORS.MarbleDark)
 
 	-- Стена в самом центре из тёмно-красного бархата, на ней Мона Лиза (лицом на юг)
 	local displayWall = solidPart("DisplayWall", Vector3.new(24, 12, 2), CFrame.new(0, 6, 0), COLORS.Velvet, Enum.Material.Fabric)
@@ -1017,54 +1018,62 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 	buildMonaLisaPainting(map, exhibits, markers)
 	buildShopCounter()
 
-	-- Балкон вдоль северной стены: пол на высоте 12, золотой край, колонны снизу
-	solidPart(MapSchema.Balcony, Vector3.new(88, 1, 14), CFrame.new(0, BALCONY_Y - 0.5, -37), COLORS.Parquet, Enum.Material.WoodPlanks)
-	decorPart("BalconyUnderside", Vector3.new(88, 0.1, 14), CFrame.new(0, BALCONY_Y - 1.05, -37), COLORS.Ceiling)
-	decorPart("BalconyFascia", Vector3.new(88, 1.4, 0.5), CFrame.new(0, BALCONY_Y - 0.6, -29.8), COLORS.Gold, Enum.Material.Metal)
-	for _, x in { -28, -14, 14, 28 } do
-		column(x, -31.6, BALCONY_Y - 1, COLORS.WhiteMarble, Enum.Material.Marble)
+	-- Балкон вдоль северной стены: пол на высоте 12, золотой край, колонны снизу.
+	-- Всё — от границ центра: N — северная стена, W — расстояние до боковых стен.
+	local N, W = CENTER.minZ, CENTER.maxX
+	local width = CENTER.maxX - CENTER.minX
+	local BALCONY_DEPTH = 14
+	local edge = N + BALCONY_DEPTH -- передний край балкона
+	solidPart(MapSchema.Balcony, Vector3.new(width, 1, BALCONY_DEPTH), CFrame.new(0, BALCONY_Y - 0.5, N + BALCONY_DEPTH / 2), COLORS.Parquet, Enum.Material.WoodPlanks)
+	decorPart("BalconyUnderside", Vector3.new(width, 0.1, BALCONY_DEPTH), CFrame.new(0, BALCONY_Y - 1.05, N + BALCONY_DEPTH / 2), COLORS.Ceiling)
+	decorPart("BalconyFascia", Vector3.new(width, 1.4, 0.5), CFrame.new(0, BALCONY_Y - 0.6, edge + 0.2), COLORS.Gold, Enum.Material.Metal)
+	for _, x in { -42, -28, -14, 14, 28, 42 } do
+		column(x, edge - 1.6, BALCONY_Y - 1, COLORS.WhiteMarble, Enum.Material.Marble)
 	end
 	-- Перила балкона: золотые стойки, стекло (не упасть) и поручень. По краям — выход на лестницы.
-	for x = -36, 36, 4 do
-		decorPart("RailPost", Vector3.new(0.3, 3.4, 0.3), CFrame.new(x, BALCONY_Y + 1.7, -30.4), COLORS.Gold, Enum.Material.Metal)
+	local railHalf = W - 6 -- лестницы шириной 6 у боковых стен
+	local railZ = edge - 0.4
+	for x = -railHalf + 2, railHalf - 2, 4 do
+		decorPart("RailPost", Vector3.new(0.3, 3.4, 0.3), CFrame.new(x, BALCONY_Y + 1.7, railZ), COLORS.Gold, Enum.Material.Metal)
 	end
-	local railGlass = solidPart("RailGlass", Vector3.new(76, 2.8, 0.15), CFrame.new(0, BALCONY_Y + 1.5, -30.4), COLORS.Glass, Enum.Material.Glass)
+	local railGlass = solidPart("RailGlass", Vector3.new(railHalf * 2, 2.8, 0.15), CFrame.new(0, BALCONY_Y + 1.5, railZ), COLORS.Glass, Enum.Material.Glass)
 	railGlass.Transparency = 0.7
 	railGlass.CastShadow = false
-	decorPart("RailTop", Vector3.new(76.4, 0.3, 0.45), CFrame.new(0, BALCONY_Y + 3.45, -30.4), COLORS.Gold, Enum.Material.Metal)
+	decorPart("RailTop", Vector3.new(railHalf * 2 + 0.4, 0.3, 0.45), CFrame.new(0, BALCONY_Y + 3.45, railZ), COLORS.Gold, Enum.Material.Metal)
 
-	-- Две лестницы у западной и восточной стен: 20 ступеней с красным ковром, поручень
+	-- Две лестницы у западной и восточной стен: 20 ступеней с красным ковром, поручень. Верхняя — у края балкона.
+	local stairStart = edge + STAIR_STEPS -- z перед нижней ступенью
 	for _, sign in { -1, 1 } do
-		local x = sign * 41
+		local x = sign * (W - 3)
 		for i = 1, STAIR_STEPS do
 			local top = BALCONY_Y * i / STAIR_STEPS
-			local z = -10 - (i - 0.5)
+			local z = stairStart - (i - 0.5)
 			solidPart("Stair", Vector3.new(6, top, 1), CFrame.new(x, top / 2, z), COLORS.Marble, Enum.Material.Marble)
 			decorPart("StairCarpet", Vector3.new(3.6, 0.06, 1), CFrame.new(x, top + 0.03, z), COLORS.Red, Enum.Material.Fabric)
 		end
-		local railX = sign * 38.2
+		local railX = sign * (W - 5.8)
 		for i = 2, STAIR_STEPS, 6 do
-			decorPart("StairPost", Vector3.new(0.3, 3.4, 0.3), CFrame.new(railX, BALCONY_Y * i / STAIR_STEPS + 1.7, -10 - (i - 0.5)), COLORS.Gold, Enum.Material.Metal)
+			decorPart("StairPost", Vector3.new(0.3, 3.4, 0.3), CFrame.new(railX, BALCONY_Y * i / STAIR_STEPS + 1.7, stairStart - (i - 0.5)), COLORS.Gold, Enum.Material.Metal)
 		end
-		local p0 = Vector3.new(railX, BALCONY_Y / STAIR_STEPS + 3.4, -10.5)
-		local p1 = Vector3.new(railX, BALCONY_Y + 3.4, -29.5)
+		local p0 = Vector3.new(railX, BALCONY_Y / STAIR_STEPS + 3.4, stairStart - 0.5)
+		local p1 = Vector3.new(railX, BALCONY_Y + 3.4, edge + 0.5)
 		decorPart("StairRail", Vector3.new(0.3, 0.3, (p1 - p0).Magnitude), CFrame.lookAt((p0 + p1) / 2, p1), COLORS.Gold, Enum.Material.Metal)
 	end
 
 	-- Пульт камер на балконе у северной стены, над ним стена мониторов. Справа от пульта ~3 стада
 	-- свободно: там CameraService ставит рубильник CAMERA RESET.
-	local console = newPart(map, MapSchema.ControlConsole, Vector3.new(10, 3, 3), CFrame.new(0, BALCONY_Y + 1.5, -42), hex("2B2F3A"), Enum.Material.Metal)
-	decorPart("ConsoleDesk", Vector3.new(10.4, 0.3, 3.4), CFrame.new(0, BALCONY_Y + 3.15, -41.9), COLORS.DarkWood, Enum.Material.Wood)
-	decorPart("ConsolePanel", Vector3.new(8, 0.2, 1.4), CFrame.new(0, BALCONY_Y + 3.45, -42.6) * CFrame.Angles(math.rad(20), 0, 0), COLORS.Navy)
+	local console = newPart(map, MapSchema.ControlConsole, Vector3.new(10, 3, 3), CFrame.new(0, BALCONY_Y + 1.5, N + 2), hex("2B2F3A"), Enum.Material.Metal)
+	decorPart("ConsoleDesk", Vector3.new(10.4, 0.3, 3.4), CFrame.new(0, BALCONY_Y + 3.15, N + 2.1), COLORS.DarkWood, Enum.Material.Wood)
+	decorPart("ConsolePanel", Vector3.new(8, 0.2, 1.4), CFrame.new(0, BALCONY_Y + 3.45, N + 1.4) * CFrame.Angles(math.rad(20), 0, 0), COLORS.Navy)
 	for i = -3, 3 do
 		local color = if i % 3 == 0 then COLORS.Red elseif i % 2 == 0 then hex("3FB56B") else hex("F2C230")
-		local button = decorPart("ConsoleButton", Vector3.new(0.4, 0.15, 0.4), CFrame.new(i * 1.05, BALCONY_Y + 3.65, -42.4) * CFrame.Angles(math.rad(20), 0, 0), color, Enum.Material.Neon)
+		local button = decorPart("ConsoleButton", Vector3.new(0.4, 0.15, 0.4), CFrame.new(i * 1.05, BALCONY_Y + 3.65, N + 1.6) * CFrame.Angles(math.rad(20), 0, 0), color, Enum.Material.Neon)
 		button.Shape = Enum.PartType.Cylinder
 	end
-	decorPart("MonitorWall", Vector3.new(11.4, 5, 0.3), CFrame.new(0, BALCONY_Y + 6.6, -43.85), hex("15181F"), Enum.Material.Metal)
+	decorPart("MonitorWall", Vector3.new(11.4, 5, 0.3), CFrame.new(0, BALCONY_Y + 6.6, N + 0.15), hex("15181F"), Enum.Material.Metal)
 	for row = 0, 1 do
 		for col = -1, 1 do
-			local screen = decorPart("Monitor", Vector3.new(3.4, 2, 0.1), CFrame.new(col * 3.6, BALCONY_Y + 5.4 + row * 2.4, -43.65), hex("1E5C5A"), Enum.Material.Neon)
+			local screen = decorPart("Monitor", Vector3.new(3.4, 2, 0.1), CFrame.new(col * 3.6, BALCONY_Y + 5.4 + row * 2.4, N + 0.35), hex("1E5C5A"), Enum.Material.Neon)
 			local label = textOn(screen, Enum.NormalId.Back, ("CAM %d"):format(row * 3 + col + 2), COLORS.Turquoise, 0)
 			label.TextTransparency = 0.2
 		end
@@ -1075,7 +1084,7 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 		{ size = Vector3.new(0.4, 1.7, 0.4), offset = CFrame.new(0, 0.85, 0), color = COLORS.Metal, material = Enum.Material.Metal },
 		{ size = Vector3.new(1.8, 0.2, 1.8), offset = CFrame.new(0, 0.1, 0), color = COLORS.Metal, material = Enum.Material.Metal },
 	}
-	placeModel(MapSchema.Models.Chair, CFrame.new(-2.5, BALCONY_Y, -38.2), chair, false)
+	placeModel(MapSchema.Models.Chair, CFrame.new(-2.5, BALCONY_Y, N + 5.8), chair, false)
 	console:SetAttribute("MapObstacle", true)
 
 	-- Канатное ограждение перед Моной Лизой, с проходом посередине
@@ -1090,28 +1099,31 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 		placeModel(MapSchema.Models.Bench, CFrame.new(x, 0, 24), BENCH_STUB)
 	end
 	placeModel(MapSchema.Models.Bench, CFrame.new(0, 0, -16), BENCH_STUB)
-	-- Ковровая дорожка от южной арки к Моне Лизе
-	decorPart("Carpet", Vector3.new(4, 0.05, 34), CFrame.new(0, 0.03, 27), COLORS.Red, Enum.Material.Fabric)
+	-- Ковровая дорожка от южной двери к Моне Лизе
+	local carpetLength = CENTER.maxZ - 10
+	decorPart("Carpet", Vector3.new(4, 0.05, carpetLength), CFrame.new(0, 0.03, 10 + carpetLength / 2), COLORS.Red, Enum.Material.Fabric)
 	for _, x in { -2.1, 2.1 } do
-		decorPart("CarpetEdge", Vector3.new(0.3, 0.06, 34), CFrame.new(x, 0.035, 27), COLORS.Gold, Enum.Material.Fabric)
+		decorPart("CarpetEdge", Vector3.new(0.3, 0.06, carpetLength), CFrame.new(x, 0.035, 10 + carpetLength / 2), COLORS.Gold, Enum.Material.Fabric)
 	end
 
 	-- Картины, люстры, растения
 	local c = CENTER
-	for _, x in { -26, 26 } do
+	for _, x in { -40, -20, 20, 40 } do
 		paintingOn(c, "S", x, 7, 7, 5)
 		paintingOn(c, "N", x, 5.5, 6, 3.5) -- под балконом
 		paintingOn(c, "N", x, 18.5, 8, 5) -- над балконом
 	end
 	paintingOn(c, "S", 0, 18, 12, 7)
 	for _, side in { "W", "E" } do
-		paintingOn(c, side, 24, 7, 7, 5)
+		paintingOn(c, side, 22, 7, 7, 5)
+		paintingOn(c, side, 44, 7, 7, 5)
 		paintingOn(c, side, 0, 18, 10, 6)
 	end
-	chandelier(-28, 16, CENTER_H, 7)
-	chandelier(28, 16, CENTER_H, 7)
-	chandelier(0, 32, CENTER_H, 7)
-	for _, spot in { { -40, 40 }, { 40, 40 }, { -40, 14 }, { 40, 14 } } do
+	for _, spot in { { -36, 20 }, { 36, 20 }, { 0, 40 }, { -30, -28 }, { 30, -28 } } do
+		chandelier(spot[1], spot[2], CENTER_H, 7)
+	end
+	local inset = CENTER.maxX - 4
+	for _, spot in { { -inset, inset }, { inset, inset }, { -inset, 16 }, { inset, 16 } } do
 		plant(spot[1], spot[2])
 	end
 end
@@ -1198,18 +1210,15 @@ local function buildWing(k: number, doorsFolder: Folder)
 	paint(WING.C2, "N", 40)
 	paint(WING.C2, "S", 0)
 	paint(WING.C2, "S", 22)
-	for _, spot in { { -4, 82.4 }, { 44, 73.6 } } do
+	for _, spot in { { 4, 82.4 }, { 44, 73.6 } } do -- у западного торца C2 — дверь зала
 		local p = at(spot[1], 0, spot[2])
 		plant(p.X, p.Z)
 	end
 
-	-- Коридор C3 (x от −6 до 6, z от 46 до 70): банкетка у восточной стены, табличка над аркой в центр
-	placeModel(MapSchema.Models.Bench, T * CFrame.new(4.8, 0, 64) * CFrame.Angles(0, math.rad(90), 0), BENCH_STUB)
-	paint(WING.C3, "E", 54)
-	paint(WING.C3, "W", 66)
-	wallSign(at(0, 12.4, 46), dir(0, 1), 6, 1.2, "▲  MONA LISA", COLORS.Gold)
-	-- Изнутри центра над аркой — куда она ведёт
-	wallSign(at(0, 12.6, 44), dir(0, -1), 7, 1.2, string.upper(side) .. " EXIT", COLORS.Gold)
+	-- Коридор C3 (x от −6 до 6, z от 62 до 70): табличка над проходом в центр
+	wallSign(at(0, 12.4, WING.C3.minZ), dir(0, 1), 6, 1.2, "▲  MONA LISA", COLORS.Gold)
+	-- Изнутри центра над проходом — куда он ведёт
+	wallSign(at(0, 12.6, CENTER.maxZ), dir(0, -1), 7, 1.2, string.upper(side) .. " EXIT", COLORS.Gold)
 
 	-- Дверь входа: две стеклянные створки, разъезжаются в стену, когда рядом кто-то есть (DoorService)
 	local door = Instance.new("Model")
@@ -1237,7 +1246,7 @@ local function addWingDoorways(k: number)
 	addDoorway(k, 34, 109, 46, 109, ARCH_H) -- холл → C1
 	addDoorway(k, 34, 85, 46, 85, ARCH_H) -- C1 → C2
 	addDoorway(k, -6, 71, 6, 71, ARCH_H) -- C2 → C3
-	addDoorway(k, -6, 45, 6, 45, ARCH_H) -- C3 → центр
+	addDoorway(k, -6, CENTER.maxZ + 1, 6, CENTER.maxZ + 1, ARCH_H) -- C3 → центр
 	addDoorway(k, HALL_DOOR.x, HALL_DOOR.z1, HALL_DOOR.x, HALL_DOOR.z2, OPENING_H) -- C3 → зал
 end
 
@@ -1345,6 +1354,7 @@ local PEDESTAL_STUBS: { [string]: { ModelLibrary.StubPart } } = {
 }
 
 -- Где стоят постаменты залов (в координатах зала Скульптур): x, z и куда смотрит экспонат.
+-- z — по старому залу 88 × 58 (MapDecor.hallZ пересчитывает в нынешний, как украшения).
 -- Порядок = порядок экспонатов в Config.Exhibits.Slots (в зале — по возрастанию цены).
 local HALL_PEDESTALS: { [string]: { { number } } } = {
 	Sculptures = { { -52, 58, 0, 1 }, { -52, 96, 0, -1 }, { -80, 77, 1, 0 }, { -24, 77, -1, 0 } }, -- крестом вокруг фонтана
@@ -1364,7 +1374,7 @@ local function buildPedestals(folder: Folder)
 		local hall = WING_HALLS[k]
 		local T = turn(k)
 		for _, spot in HALL_PEDESTALS[hall] do
-			local position = Vector3.new(spot[1], 0, spot[2])
+			local position = Vector3.new(spot[1], 0, MapDecor.hallZ(HALL_RECT, spot[2])) -- z — по старому залу, как украшения
 			local cframe = T * CFrame.lookAt(position, position + Vector3.new(spot[3], 0, spot[4]))
 			table.insert(spots, { hall = hall, cframe = cframe, stub = hall })
 		end
@@ -1550,10 +1560,10 @@ local function cameraSpots(): { CameraSpot }
 		table.insert(spots, rotated(k, GameState.Hall.Main, Vector3.new(-10, 13, WING.Lobby.minZ), Vector3.new(0, 0, 1), Vector3.new(6, 2, 126)))
 	end
 	for k = 0, 3 do -- 7..10: залы
-		table.insert(spots, rotated(k, WING_HALLS[k], Vector3.new(HALL_RECT.minX, 16.5, 100), Vector3.new(1, 0, 0), Vector3.new(-30, 2, 58)))
+		table.insert(spots, rotated(k, WING_HALLS[k], Vector3.new(HALL_RECT.minX, 16.5, HALL_RECT.maxZ - 6), Vector3.new(1, 0, 0), Vector3.new(-30, 2, HALL_RECT.minZ + 10)))
 	end
 	for _, k in { 2, 3 } do -- 11, 12: вторые камеры дорогих залов (Драгоценности, Космос)
-		table.insert(spots, rotated(k, WING_HALLS[k], Vector3.new(HALL_RECT.maxX, 16.5, 100), Vector3.new(-1, 0, 0), Vector3.new(-80, 2, 58)))
+		table.insert(spots, rotated(k, WING_HALLS[k], Vector3.new(HALL_RECT.maxX, 16.5, HALL_RECT.maxZ - 6), Vector3.new(-1, 0, 0), Vector3.new(-80, 2, HALL_RECT.minZ + 10)))
 	end
 	return spots
 end

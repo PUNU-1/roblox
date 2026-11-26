@@ -314,8 +314,8 @@ local Config = {
 		PreviewSpin = 0.45, -- 3D-картинки товаров крутятся (радиан в секунду)
 		HintNights = 1, -- подсказка «Press B to open the shop» — в первые N дней забега
 		-- Касса SHOP у Моны Лизы (MapBuilder): где стоит и куда смотрит (по полу центра)
-		CounterPosition = Vector3.new(27, 0, 30),
-		CounterFacing = Vector3.new(8, 0, 40), -- смотрит на эту точку (к ковровой дорожке и южному входу)
+		CounterPosition = Vector3.new(14, 0, 18), -- внутри кольца перегородок, справа-спереди от картины
+		CounterFacing = Vector3.new(4, 0, 34), -- смотрит на эту точку (к ковровой дорожке и южному входу)
 		CounterPromptDistance = 9,
 		CounterHoldSeconds = 0.25,
 	},

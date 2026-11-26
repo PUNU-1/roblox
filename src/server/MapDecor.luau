@@ -71,17 +71,36 @@ local function rad(degrees: number): number
 	return math.rad(degrees)
 end
 
+-- Украшения ниже расставлены по старому залу 88 × 58 (z от 48 до 106, середина 77). С этапа 5 (блок B) центр
+-- стал 120 × 120 и зал — мельче: z от r.minZ до r.maxZ. Пересчёт z: у стен (10 стадов) — тот же отступ от стены,
+-- середина сжимается. Так витрины у стен не влезают в стену, а середина зала остаётся посередине.
+local OLD_MIN_Z, OLD_MAX_Z, WALL_BAND = 48, 106, 10
+
+function MapDecor.hallZ(r: Rect, z: number): number
+	if z <= OLD_MIN_Z + WALL_BAND then
+		return r.minZ + (z - OLD_MIN_Z)
+	elseif z >= OLD_MAX_Z - WALL_BAND then
+		return r.maxZ - (OLD_MAX_Z - z)
+	end
+	local a, b = r.minZ + WALL_BAND, r.maxZ - WALL_BAND
+	return a + (z - (OLD_MIN_Z + WALL_BAND)) * (b - a) / ((OLD_MAX_Z - WALL_BAND) - (OLD_MIN_Z + WALL_BAND))
+end
+
 local function newRoom(kit: Kit, T: CFrame, r: Rect): Room
+	local function mapCFrame(cframe: CFrame): CFrame
+		local p = cframe.Position
+		return CFrame.new(p.X, p.Y, MapDecor.hallZ(r, p.Z)) * cframe.Rotation
+	end
 	return {
 		kit = kit,
 		T = T,
 		r = r,
 		height = kit.hallHeight,
 		at = function(x: number, y: number, z: number): Vector3
-			return T * Vector3.new(x, y, z)
+			return T * Vector3.new(x, y, MapDecor.hallZ(r, z))
 		end,
 		cf = function(cframe: CFrame): CFrame
-			return T * cframe
+			return T * mapCFrame(cframe)
 		end,
 		dir = function(x: number, z: number): Vector3
 			return T:VectorToWorldSpace(Vector3.new(x, 0, z))
@@ -98,9 +117,9 @@ local function wallPoint(room: Room, side: string, along: number, y: number): (V
 	elseif side == "S" then
 		point, facing = Vector3.new(along, y, r.maxZ), Vector3.new(0, 0, -1)
 	elseif side == "W" then
-		point, facing = Vector3.new(r.minX, y, along), Vector3.new(1, 0, 0)
+		point, facing = Vector3.new(r.minX, y, MapDecor.hallZ(r, along)), Vector3.new(1, 0, 0)
 	else
-		point, facing = Vector3.new(r.maxX, y, along), Vector3.new(-1, 0, 0)
+		point, facing = Vector3.new(r.maxX, y, MapDecor.hallZ(r, along)), Vector3.new(-1, 0, 0)
 	end
 	return room.T * point, room.T:VectorToWorldSpace(facing)
 end
@@ -476,7 +495,7 @@ local function sculptures(room: Room)
 		deco(room, "FloorBorder", Vector3.new(84, 0.04, 1.5), CFrame.new(-52, 0.02, z), STONE, Enum.Material.Marble)
 	end
 	for _, x in { -93, -11 } do
-		deco(room, "FloorBorder", Vector3.new(1.5, 0.04, 52), CFrame.new(x, 0.02, 77), STONE, Enum.Material.Marble)
+		deco(room, "FloorBorder", Vector3.new(1.5, 0.04, room.r.maxZ - room.r.minZ - 6), CFrame.new(x, 0.02, 77), STONE, Enum.Material.Marble)
 	end
 	-- Фонтан посередине под стеклянным потолком, колонны вокруг, банкетки смотрят на фонтан
 	placeAt(room, Models.Fountain, -52, 0, 77, 0, 1, FOUNTAIN_STUB):SetAttribute("MapObstacle", true)
@@ -506,7 +525,7 @@ local function sculptures(room: Room)
 	end
 	chandelierAt(room, -82, 77)
 	chandelierAt(room, -22, 77)
-	for _, spot in { { -93, 51 }, { -93, 103 }, { -11, 103 }, { -11, 66 } } do
+	for _, spot in { { -93, 51 }, { -93, 103 }, { -11, 103 }, { -11, 51 } } do -- у восточной стены посередине — дверь зала
 		plantAt(room, spot[1], spot[2])
 	end
 	for _, x in { -80, -24 } do
@@ -566,11 +585,12 @@ local GEM_COLORS = { hex("E0245E"), hex("2E9BFF"), hex("3FD27F"), hex("B05CFF"),
 local function jewelry(room: Room)
 	local kit = room.kit
 	-- Красная ковровая дорожка вдоль зала и от двери к ней
-	deco(room, "Carpet", Vector3.new(82, 0.05, 6), CFrame.new(-52, 0.025, 77), RED, Enum.Material.Fabric)
-	deco(room, "Carpet", Vector3.new(6, 0.05, 25), CFrame.new(-14, 0.026, 64.5), RED, Enum.Material.Fabric)
-	for _, z in { 73.9, 80.1 } do
-		deco(room, "CarpetEdge", Vector3.new(82, 0.06, 0.3), CFrame.new(-52, 0.03, z), GOLD, Enum.Material.Fabric)
+	local carpet = deco(room, "Carpet", Vector3.new(82, 0.05, 6), CFrame.new(-52, 0.025, 77), RED, Enum.Material.Fabric)
+	for _, z in { -3.1, 3.1 } do
+		kit.decor("CarpetEdge", Vector3.new(82, 0.06, 0.3), carpet.CFrame * CFrame.new(0, 0.005, z), GOLD, Enum.Material.Fabric)
 	end
+	-- Кусок дорожки от двери зала (восточная стена, z 74..82) к большой дорожке
+	kit.decor("Carpet", Vector3.new(6, 0.05, 8), room.T * CFrame.new(-11, 0.026, 79), RED, Enum.Material.Fabric)
 	for _, spot in { { -88, 62 }, { -88, 92 } } do
 		columnAt(room, spot[1], spot[2], GOLD, Enum.Material.Metal)
 	end
@@ -612,7 +632,7 @@ local function jewelry(room: Room)
 	hallTitle(room, "JEWELRY", GOLD, hex("2A1A3D"))
 	chandelierAt(room, -70, 77)
 	chandelierAt(room, -34, 77)
-	for _, spot in { { -11, 103 }, { -11, 70 } } do
+	for _, spot in { { -11, 103 }, { -11, 51 } } do -- у восточной стены посередине — дверь зала
 		plantAt(room, spot[1], spot[2])
 	end
 	for _, x in { -68, -36 } do
@@ -697,7 +717,7 @@ local function space(room: Room, ceilingSlabs: { Part })
 		deco(room, "NeonStrip", Vector3.new(84, 0.06, 0.3), CFrame.new(-52, 0.03, z), kit.colors.Turquoise, Enum.Material.Neon)
 	end
 	for _, x in { -94.4, -9.6 } do
-		deco(room, "NeonStrip", Vector3.new(0.3, 0.06, 52), CFrame.new(x, 0.03, 77), kit.colors.Turquoise, Enum.Material.Neon)
+		deco(room, "NeonStrip", Vector3.new(0.3, 0.06, room.r.maxZ - room.r.minZ - 6), CFrame.new(x, 0.03, 77), kit.colors.Turquoise, Enum.Material.Neon)
 	end
 	-- Ракета на стартовом столе и космонавт с флагом у дальней стены
 	placeAt(room, Models.Rocket, -84, 0, 62, 1, 0, rocketStub()):SetAttribute("MapObstacle", true)
