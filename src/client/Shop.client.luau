@@ -734,6 +734,7 @@ local function open()
 	end
 	openFlag = true
 	overlay.Visible = true
+	localPlayer:SetAttribute(GameState.PlayerAttr.ShopOpen, true) -- только у себя: обучение засчитывает шаг (блок C)
 	messageLabel.Text = DEFAULT_MESSAGE
 	messageLabel.TextColor3 = Colors.Gray
 	selectTab(currentTab)
@@ -749,6 +750,7 @@ local function close()
 	end
 	openFlag = false
 	overlay.Visible = false
+	localPlayer:SetAttribute(GameState.PlayerAttr.ShopOpen, false)
 	rescale()
 end
 

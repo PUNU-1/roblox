@@ -17,7 +17,6 @@ local ClassCards = require(script.Parent:WaitForChild("UI"):WaitForChild("ClassC
 local Phase = GameState.Phase
 local Attr = GameState.Attr
 local PlayerAttr = GameState.PlayerAttr
-local Role = GameState.Role
 local Colors = Theme.Colors
 
 local localPlayer = Players.LocalPlayer
@@ -54,7 +53,7 @@ Theme.padding(6).Parent = moneyFrame
 local banner = Theme.label({
 	Name = "Banner",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0.14, 0),
+	Position = UDim2.new(0.5, 0, 0, 140), -- под плашкой шага обучения (Tutorial.client)
 	Size = UDim2.new(0.8, 0, 0, 70),
 	TextColor3 = Colors.Red,
 	MaxTextSize = 56,
@@ -397,81 +396,8 @@ Remotes.get(Remotes.Names.NightResults).OnClientEvent:Connect(function(results)
 	end
 end)
 
----------------------------------------------------------------- подсказки новичку
-
-local hintFrame = Theme.new("Frame", {
-	Name = "Hint",
-	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -16),
-	Size = UDim2.new(0.55, 0, 0, 40),
-	BackgroundColor3 = Colors.Navy,
-	BackgroundTransparency = 0.25,
-	Visible = false,
-	Parent = gui,
-}, { Theme.corner(12), Theme.padding(6), Theme.new("UISizeConstraint", { MinSize = Vector2.new(300, 0) }) })
-local hintLabel = Theme.label({ Size = UDim2.fromScale(1, 1), Font = Theme.BodyFont, MaxTextSize = 20, Parent = hintFrame })
-
-local HINT_ARREST = if touchOnly then "Hold the button next to a thief to arrest him" else "Hold F next to a thief to arrest him"
-local HINT_BUY = if touchOnly
-	then "SHOP button — or hold the button at boarded doors, pedestals and CAMERA SPOT signs"
-	else "B — shop, or hold F at boarded doors, pedestals and CAMERA SPOT signs"
--- Этап 4, блок 1b: в первый день — где магазин
-local HINT_SHOP = if touchOnly
-	then "Tap SHOP to buy halls, exhibits, cameras and weapons"
-	else "Press B to open the shop — halls, exhibits, cameras, weapons"
-local HINT_PHONE = if touchOnly then "Phone button — cameras" else "Tab — cameras"
-local HINT_CONSOLE = "Camera console: on the balcony above the Mona Lisa"
-local HINT_STOLEN = "The thief has the painting — catch him before he gets out!"
-
--- Раунд засчитан, когда закончилась ночь, в которой игрок участвовал
-local roundsPlayed = 0
-local playedThisNight = false
-
-local function countRounds(phase: string)
-	if phase == Phase.Night then
-		if localPlayer:GetAttribute(PlayerAttr.InRound) == true then
-			playedThisNight = true
-		end
-	elseif playedThisNight then
-		playedThisNight = false
-		roundsPlayed += 1
-	end
-end
-
-local function hintText(phase: string): string?
-	if roundsPlayed >= Config.Hints.Rounds or localPlayer:GetAttribute(PlayerAttr.InRound) ~= true then
-		return nil
-	end
-	if localPlayer:GetAttribute(PlayerAttr.ViewingCameras) == true then
-		return nil -- у экрана камер своя подсказка
-	end
-	local hasPhone = GameState.roleOf(localPlayer) == Role.Operator
-	local cameras = if hasPhone then HINT_PHONE else HINT_CONSOLE
-	if phase == Phase.Day then
-		if (tonumber(GameState.get(Attr.NightNumber)) or 1) <= Config.Shop.HintNights then
-			return HINT_SHOP
-		end
-		local money = tonumber(localPlayer:GetAttribute(PlayerAttr.Money)) or 0
-		local closedHall = false
-		for _, list in { GameState.PaidHalls, GameState.WingOrder } do -- залы и крылья (этап 5, блок B)
-			for _, hall in list do
-				if not GameState.isHallOpen(hall) then
-					closedHall = true
-				end
-			end
-		end
-		if closedHall and money > 0 then
-			return HINT_BUY
-		end
-		return "Thieves come at midnight. Don't let them take the Mona Lisa!   •   " .. cameras
-	elseif phase == Phase.Night then
-		if GameState.get(Attr.PaintingStolen) == true then
-			return HINT_STOLEN
-		end
-		return HINT_ARREST .. "   •   " .. cameras
-	end
-	return nil
-end
+-- Подсказки новичку внизу экрана (решение 36) заменены обучением со стрелками в каждом забеге
+-- (этап 5, блок C, решение 78): client/Tutorial.client.luau.
 
 ---------------------------------------------------------------- обновление каждый кадр
 
@@ -538,13 +464,6 @@ RunService.Heartbeat:Connect(function(dt)
 	topBar.Visible = phase ~= Phase.Results
 	topLabel.Text = topBarText(phase)
 	moneyLabel.Text = "$" .. tostring(localPlayer:GetAttribute(PlayerAttr.Money) or 0)
-
-	countRounds(phase)
-	local hint = hintText(phase)
-	hintFrame.Visible = hint ~= nil
-	if hint then
-		hintLabel.Text = hint
-	end
 
 	-- Класс из хаба уже выбран: пока команда прилетает, карточек нет
 	local choosing = canChooseClass() and phase ~= Phase.Results and GameState.get(Attr.HubArrival) ~= true
