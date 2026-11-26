@@ -9,6 +9,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
 local MapSchema = require(Shared:WaitForChild("MapSchema"))
 
 local Server = script.Parent
@@ -755,6 +756,210 @@ function MapDecor.hall(kit: Kit, hall: string, T: CFrame, r: Rect, ceilingSlabs:
 	local builder = BUILDERS[hall]
 	if builder then
 		builder(newRoom(kit, T, r), ceilingSlabs)
+	end
+end
+
+---------------------------------------------------------------- края центра (этап 5, блок E)
+
+-- Кадка с деревом: деревянный ящик с золотым кантом, ствол и крона из шаров. Низ по центру.
+local PLANTER_TREE_STUB: Stub = {
+	{ name = "Box", size = Vector3.new(2.6, 1.8, 2.6), offset = CFrame.new(0, 0.9, 0), color = hex("5A3A22"), material = Enum.Material.WoodPlanks },
+	{ name = "Rim", size = Vector3.new(2.8, 0.2, 2.8), offset = CFrame.new(0, 1.8, 0), color = GOLD, material = Enum.Material.Metal },
+	{ name = "Soil", size = Vector3.new(2.3, 0.1, 2.3), offset = CFrame.new(0, 1.85, 0), color = hex("3B2A1E"), material = Enum.Material.Ground, collide = false },
+	{ name = "Trunk", size = Vector3.new(0.5, 4.4, 0.5), offset = CFrame.new(0, 4, 0), color = hex("6B4A2E"), material = Enum.Material.Wood, collide = false },
+	{ name = "Crown", size = Vector3.new(3.8, 3.8, 3.8), offset = CFrame.new(0, 6.8, 0), color = LEAF, material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
+	{ name = "Crown", size = Vector3.new(2.8, 2.8, 2.8), offset = CFrame.new(0.9, 7.9, 0.4), color = LEAF_DARK, material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
+	{ name = "Crown", size = Vector3.new(2.6, 2.6, 2.6), offset = CFrame.new(-0.9, 7.6, -0.5), color = hex("4FA352"), material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
+}
+
+-- Напольный светильник: тяжёлое основание, золотая стойка, тканевый абажур, лампочка Bulb (игра вешает на неё свет). Низ по центру.
+local FLOOR_LAMP_STUB: Stub = {
+	{ name = "Base", size = Vector3.new(0.3, 1.4, 1.4), offset = CFrame.new(0, 0.15, 0) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "Pole", size = Vector3.new(0.22, 5.8, 0.22), offset = CFrame.new(0, 3.2, 0), color = GOLD, material = Enum.Material.Metal, collide = false },
+	{ name = "Shade", size = Vector3.new(1.3, 1.7, 1.7), offset = CFrame.new(0, 6.5, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("F3E3C3"), material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder, transparency = 0.15, collide = false },
+	{ name = "ShadeTrim", size = Vector3.new(0.12, 1.8, 1.8), offset = CFrame.new(0, 5.85, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "Bulb", size = Vector3.new(0.6, 0.6, 0.6), offset = CFrame.new(0, 6.3, 0), color = hex("FFE7B8"), material = Enum.Material.Neon, shape = Enum.PartType.Ball, collide = false },
+}
+
+-- Столбики с канатом перед статуей (шире, чем у Моны Лизы: под постамент 3.4).
+local ROPE_STUB: Stub = {
+	{ name = "Post", size = Vector3.new(0.4, 3, 0.4), offset = CFrame.new(-2.3, 1.5, 0), color = GOLD, material = Enum.Material.Metal },
+	{ name = "Post", size = Vector3.new(0.4, 3, 0.4), offset = CFrame.new(2.3, 1.5, 0), color = GOLD, material = Enum.Material.Metal },
+	{ name = "Rope", size = Vector3.new(4.6, 0.25, 0.25), offset = CFrame.new(0, 2.5, 0), color = RED, material = Enum.Material.Fabric, collide = false },
+}
+
+-- Что лежит в витринах у стен центра (по кругу) и что написано на табличке.
+local CASE_ITEMS = {
+	{ kind = "Coins", label = "ROMAN COINS\n2nd century" },
+	{ kind = "Scrolls", label = "ANCIENT SCROLLS\nEgypt" },
+	{ kind = "Mask", label = "GOLDEN MASK\nSouth America" },
+	{ kind = "Jewels", label = "ROYAL JEWELS\n17th century" },
+}
+local STATUE_LABELS = { "THE THINKER\nMarble", "GODDESS OF WISDOM\nMarble", "THE ATHLETE\nMarble", "THE POET\nMarble" }
+local BANNERS = {
+	{ text = "ANCIENT\nEGYPT", color = hex("1E4E79") },
+	{ text = "THE\nRENAISSANCE", color = hex("7A1E24") },
+	{ text = "GOLDEN\nAGE", color = hex("6B4A12") },
+	{ text = "TREASURES\nOF ROME", color = hex("3D2A5C") },
+	{ text = "MASTERS\nOF LIGHT", color = hex("1F5C4A") },
+	{ text = "THE SILK\nROAD", color = hex("8A3A12") },
+}
+
+-- Точка на полу у стены центра: side — "N" (z = minZ), "S", "W" (x = minX), "E"; along — вдоль стены,
+-- depth — на сколько от стены, y — высота. Второе — направление от стены в зал.
+local function edgePoint(r: Rect, side: string, along: number, depth: number, y: number?): (Vector3, Vector3)
+	local h = y or 0
+	if side == "N" then
+		return Vector3.new(along, h, r.minZ + depth), Vector3.new(0, 0, 1)
+	elseif side == "S" then
+		return Vector3.new(along, h, r.maxZ - depth), Vector3.new(0, 0, -1)
+	elseif side == "W" then
+		return Vector3.new(r.minX + depth, h, along), Vector3.new(1, 0, 0)
+	end
+	return Vector3.new(r.maxX - depth, h, along), Vector3.new(-1, 0, 0)
+end
+
+-- Наклонная табличка с описанием на передней стороне предмета. base — низ предмета, «перед» в −Z.
+local function frontPlaque(kit: Kit, base: CFrame, y: number, z: number, text: string)
+	local board = kit.decor("InfoPlaque", Vector3.new(1.9, 0.6, 0.08), base * CFrame.new(0, y, z) * CFrame.Angles(rad(-15), 0, 0), GOLD, Enum.Material.Metal)
+	kit.textOn(board, Enum.NormalId.Front, text, hex("2A1A12"), 0)
+end
+
+-- Мелкие вещи под стеклом витрины. base — низ витрины (бархат на высоте 2.7).
+local function fillCase(kit: Kit, base: CFrame, kind: string)
+	if kind == "Coins" then
+		for i, stack in { 3, 1, 2, 4 } do
+			for level = 1, stack do
+				local coin = kit.decor("Coin", Vector3.new(0.12, 0.55, 0.55), base * CFrame.new(-1.35 + (i - 1) * 0.9, 2.66 + level * 0.12, (i % 2) * 0.3 - 0.15) * CFrame.Angles(0, 0, rad(90)), GOLD, Enum.Material.Metal)
+				coin.Shape = Enum.PartType.Cylinder
+			end
+		end
+	elseif kind == "Scrolls" then
+		for i, x in { -0.8, 0.9 } do
+			local roll = kit.decor("Scroll", Vector3.new(1.5, 0.42, 0.42), base * CFrame.new(x, 2.95, (i - 1.5) * 0.6) * CFrame.Angles(0, rad(i * 12), 0), hex("E9D9B0"), Enum.Material.Fabric)
+			roll.Shape = Enum.PartType.Cylinder
+			for _, e in { -0.8, 0.8 } do
+				local cap = kit.decor("ScrollRod", Vector3.new(0.14, 0.55, 0.55), roll.CFrame * CFrame.new(e, 0, 0), hex("6B4A2E"), Enum.Material.Wood)
+				cap.Shape = Enum.PartType.Cylinder
+			end
+		end
+	elseif kind == "Mask" then
+		local face = base * CFrame.new(0, 3.45, 0.15) * CFrame.Angles(rad(-12), 0, 0)
+		kit.decor("Mask", Vector3.new(1.1, 1.4, 0.3), face, GOLD, Enum.Material.Metal)
+		for _, x in { -0.25, 0.25 } do
+			kit.decor("MaskEye", Vector3.new(0.28, 0.14, 0.05), face * CFrame.new(x, 0.18, -0.16), hex("1A1A1A"))
+		end
+		kit.decor("MaskMouth", Vector3.new(0.4, 0.08, 0.05), face * CFrame.new(0, -0.35, -0.16), hex("1A1A1A"))
+		kit.decor("MaskGem", Vector3.new(0.18, 0.18, 0.05), face * CFrame.new(0, 0.5, -0.17) * CFrame.Angles(0, 0, rad(45)), hex("2E9BFF"), Enum.Material.Neon)
+		kit.decor("MaskStand", Vector3.new(0.15, 0.7, 0.15), base * CFrame.new(0, 2.95, 0.35), DARK_METAL, Enum.Material.Metal)
+	else
+		for i = -1, 1 do
+			kit.decor("Gem", Vector3.new(0.4, 0.4, 0.4), base * CFrame.new(i * 1.1, 2.95, -0.2) * CFrame.Angles(rad(45), rad(45), 0), GEM_COLORS[i + 3], Enum.Material.Neon)
+		end
+		for _, side in { -1, 1 } do -- ожерелье: две золотые нити буквой V
+			kit.decor("Necklace", Vector3.new(0.08, 0.08, 1.1), base * CFrame.new(side * 0.3, 2.72, 0.45) * CFrame.Angles(0, rad(side * 35), 0), GOLD, Enum.Material.Metal)
+		end
+		local ring = kit.decor("Ring", Vector3.new(0.1, 0.5, 0.5), base * CFrame.new(1.3, 2.95, 0.4) * CFrame.Angles(0, 0, rad(90)), GOLD, Enum.Material.Metal)
+		ring.Shape = Enum.PartType.Cylinder
+	end
+end
+
+-- Баннер выставки высоко на стене (над головой): ткань с надписью, золотая перекладина и бахрома.
+local function banner(kit: Kit, r: Rect, side: string, along: number, info: { text: string, color: Color3 })
+	local point, facing = edgePoint(r, side, along, 0.15, 17)
+	local look = CFrame.lookAt(point, point + facing)
+	local cloth = kit.decor("BannerCloth", Vector3.new(4, 8, 0.1), look, info.color, Enum.Material.Fabric)
+	kit.textOn(cloth, Enum.NormalId.Front, info.text, GOLD, 0)
+	kit.decor("BannerRod", Vector3.new(4.8, 0.3, 0.3), look * CFrame.new(0, 4.1, 0), GOLD, Enum.Material.Metal)
+	kit.decor("BannerFringe", Vector3.new(4, 0.35, 0.12), look * CFrame.new(0, -4.15, 0), GOLD, Enum.Material.Fabric)
+end
+
+-- Края центра 120 × 120 (этап 5, блок E): вдоль стен витрины с мелкими вещами и статуи (укрытия, MapObstacle,
+-- их не крадут), скамейки, кадки с деревьями, напольные светильники, канаты, баннеры выставок и большие картины.
+-- Свободно остаётся: 4 двери (±12 от середины стены), табличка CAMERA SPOT на южной (x = −14) и восточной
+-- (z = 30) стенах, лестницы на балкон и площадки под ними (z от −50 до −18 у западной и восточной стен).
+-- Всё стоит не дальше 6 стадов от стены: до кольца перегородок остаётся проход ~20 стадов.
+function MapDecor.centerEdges(kit: Kit, r: Rect)
+	local caseIndex, statueIndex = 0, 0
+	local function displayCase(side: string, along: number)
+		local position, facing = edgePoint(r, side, along, 2.5)
+		local case = kit.place(Models.DisplayCase, CFrame.lookAt(position, position + facing), kit.displayCase)
+		case:SetAttribute("MapObstacle", true)
+		caseIndex += 1
+		local item = CASE_ITEMS[(caseIndex - 1) % #CASE_ITEMS + 1]
+		local base = case:GetPivot()
+		fillCase(kit, base, item.kind)
+		frontPlaque(kit, base, 1.6, -1.06, item.label)
+	end
+	local function statue(side: string, along: number)
+		local position, facing = edgePoint(r, side, along, 2.7)
+		local model = kit.place(Models.Statue, CFrame.lookAt(position, position + facing), STATUE_STUB)
+		model:SetAttribute("MapObstacle", true)
+		statueIndex += 1
+		frontPlaque(kit, model:GetPivot(), 1.2, -1.56, STATUE_LABELS[(statueIndex - 1) % #STATUE_LABELS + 1])
+		local ropeAt = edgePoint(r, side, along, 5.9)
+		kit.place(Models.Barrier, CFrame.lookAt(ropeAt, ropeAt + facing), ROPE_STUB)
+	end
+	local function bench(side: string, along: number)
+		local position, facing = edgePoint(r, side, along, 1.6)
+		kit.place(Models.Bench, CFrame.lookAt(position, position + facing), kit.bench)
+	end
+	local function tree(side: string, along: number)
+		local position, facing = edgePoint(r, side, along, 2)
+		kit.place(Models.PlanterTree, CFrame.lookAt(position, position + facing), PLANTER_TREE_STUB)
+	end
+	local function lamp(side: string, along: number)
+		local position, facing = edgePoint(r, side, along, 1.2)
+		local model = kit.place(Models.FloorLamp, CFrame.lookAt(position, position + facing), FLOOR_LAMP_STUB)
+		local bulb = model:FindFirstChild("Bulb", true)
+		if bulb and bulb:IsA("BasePart") then -- днём горит, ночью гаснет, как люстры (MapBuilder.setDayLights)
+			local settings = Config.Lighting.FloorLamp
+			bulb:SetAttribute(kit.dayLight, true)
+			local light = Instance.new("PointLight")
+			light.Range = settings.Range
+			light.Brightness = settings.Brightness
+			light.Color = settings.Color
+			light:SetAttribute(kit.dayLight, true)
+			light.Parent = bulb
+		end
+	end
+	local function bigPainting(side: string, along: number)
+		local point, facing = edgePoint(r, side, along, 0, 17)
+		kit.painting(point - facing * 0.5, facing, 12, 7)
+	end
+
+	-- Южная стена (z = maxZ): дверь посередине, CAMERA SPOT 1 на x = −14
+	for _, s in { -1, 1 } do
+		lamp("S", s * 49)
+		displayCase("S", s * 40)
+		statue("S", s * 31)
+		displayCase("S", s * 22)
+		bigPainting("S", s * 45)
+	end
+	tree("S", 16)
+	-- Западная и восточная стены: дверь посередине, у северного края — лестница на балкон
+	for _, side in { "W", "E" } do
+		tree(side, -15)
+		displayCase(side, 21)
+		displayCase(side, 46)
+		lamp(side, 51.5)
+		bigPainting(side, 46)
+	end
+	statue("W", 30)
+	bench("W", 38)
+	statue("E", 39) -- на восточной стене z 26..34 свободно: табличка CAMERA SPOT 2
+	-- Северная стена — под балконом (высота 11): витрины, статуи, скамейки, лампы
+	for _, s in { -1, 1 } do
+		bench("N", s * 20)
+		displayCase("N", s * 30)
+		lamp("N", s * 35)
+		displayCase("N", s * 40)
+		statue("N", s * 48)
+	end
+	-- Баннеры выставок высоко на стенах
+	local spots = { { "S", -30 }, { "S", 30 }, { "W", 16 }, { "W", -36 }, { "E", 16 }, { "E", -36 } }
+	for index, spot in spots do
+		banner(kit, r, spot[1], spot[2], BANNERS[index])
 	end
 end
 

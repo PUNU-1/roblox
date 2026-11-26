@@ -1095,6 +1095,11 @@ local Config = {
 			Brightness = 0.6,
 			Color = Color3.fromRGB(120, 150, 255),
 		},
+		FloorLamp = { -- напольные светильники у стен центра (этап 5, блок E), горят только днём, как люстры
+			Range = 16,
+			Brightness = 0.9,
+			Color = Color3.fromRGB(255, 214, 150),
+		},
 		Chandelier = { -- люстры в залах, горят только днём
 			Range = 36,
 			Brightness = 1.3,

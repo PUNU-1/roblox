@@ -113,6 +113,9 @@ local MapSchema = {
 		Trophy = "prop_trophy_01",
 		-- этап 4, блок 1: витрина CLASS SHOP в хабе
 		ClassStand = "prop_classstand_01",
+		-- этап 5, блок E: края центра
+		PlanterTree = "prop_planter_tree_01", -- кадка с деревом
+		FloorLamp = "prop_floorlamp_01", -- напольный светильник (горит днём)
 	},
 }
 

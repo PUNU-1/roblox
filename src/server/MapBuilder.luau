@@ -1180,6 +1180,8 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 	for _, spot in { { -inset, inset }, { inset, inset }, { -inset, 16 }, { inset, 16 } } do
 		plant(spot[1], spot[2])
 	end
+	-- Края центра (этап 5, блок E): витрины, статуи, скамейки, кадки, лампы, баннеры, большие картины
+	MapDecor.centerEdges(makeKit(), CENTER)
 end
 
 ---------------------------------------------------------------- крылья: входной холл и коридор
