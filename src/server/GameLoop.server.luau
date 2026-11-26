@@ -109,7 +109,7 @@ local function anyoneLeft(): boolean
 	return #RoleService.participants() > 0
 end
 
--- Длина дня и ночи растёт с каждым днём забега (решение 66): день 30 -> 60 сек, ночь 2 -> 5 мин.
+-- Длина дня и ночи растёт с каждым днём забега (решения 66, 77): день 45 -> 60 сек, ночь 2 -> 5 мин.
 local function daySeconds(day: number): number
 	local phases = Config.Phases
 	return math.min(phases.DayMaxSeconds, phases.DayFirstSeconds + (day - 1) * phases.DayGrowSeconds)
