@@ -1258,7 +1258,7 @@ local function buildWing(k: number, doorsFolder: Folder)
 		column(p.X, p.Z, CORRIDOR_H, COLORS.WhiteMarble, Enum.Material.Marble)
 	end
 	placeModel(MapSchema.Models.DisplayCase, T * CFrame.lookAt(Vector3.new(31, 0, 73.2), Vector3.new(31, 0, 74.2)), DISPLAY_CASE_STUB):SetAttribute("MapObstacle", true)
-	placeModel(MapSchema.Models.DisplayCase, T * CFrame.lookAt(Vector3.new(9, 0, 82.8), Vector3.new(9, 0, 81.8)), DISPLAY_CASE_STUB):SetAttribute("MapObstacle", true)
+	placeModel(MapSchema.Models.DisplayCase, T * CFrame.lookAt(Vector3.new(11, 0, 82.8), Vector3.new(11, 0, 81.8)), DISPLAY_CASE_STUB):SetAttribute("MapObstacle", true) -- за стеной крыла (x = 7)
 	placeModel(MapSchema.Models.Bench, T * CFrame.new(32, 0, 82.8), BENCH_STUB)
 	paint(WING.C2, "N", 12)
 	paint(WING.C2, "N", 40)

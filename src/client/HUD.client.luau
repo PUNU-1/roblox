@@ -453,9 +453,11 @@ local function hintText(phase: string): string?
 		end
 		local money = tonumber(localPlayer:GetAttribute(PlayerAttr.Money)) or 0
 		local closedHall = false
-		for _, hall in GameState.PaidHalls do
-			if not GameState.isHallOpen(hall) then
-				closedHall = true
+		for _, list in { GameState.PaidHalls, GameState.WingOrder } do -- залы и крылья (этап 5, блок B)
+			for _, hall in list do
+				if not GameState.isHallOpen(hall) then
+					closedHall = true
+				end
 			end
 		end
 		if closedHall and money > 0 then
