@@ -135,6 +135,7 @@ doneSound.Name = "TutorialStepDone"
 doneSound.SoundId = Settings.DoneSound
 doneSound.Volume = Settings.DoneVolume
 doneSound.Parent = SoundService
+Theme.bindEffects(doneSound)
 
 local function pop()
 	plateScale.Scale = 1.07

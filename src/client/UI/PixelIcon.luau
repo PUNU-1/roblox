@@ -854,6 +854,29 @@ Icons.Stats = {
 	palette = { K = OUTLINE, n = "2E4170", w = "E8DCC4", g = "3FB56B", Y = GOLD, b = "3BC6C1" },
 }
 
+-- Этап 6, блок J1: настройки (шестерёнка)
+Icons.Settings = {
+	rows = {
+		"................",
+		"......KKKK......",
+		"..KK..KhhK..KK..",
+		".KhhKKKhhKKKhhK.",
+		".KhggghhhhggghK.",
+		"..KggKKKKKKggK..",
+		".KKgKK....KKgKK.",
+		"KhggK......KggdK",
+		"KhggK......KggdK",
+		".KKgKK....KKgKK.",
+		"..KggKKKKKKggK..",
+		".KdgggddddgggdK.",
+		".KddKKKddKKKddK.",
+		"..KK..KddK..KK..",
+		"......KKKK......",
+		"................",
+	},
+	palette = { K = OUTLINE, h = "E8ECF4", g = "A9B4C6", d = "6E788C" },
+}
+
 PixelIcon.Icons = Icons
 
 local function resolve(icon: Icon | string): Icon

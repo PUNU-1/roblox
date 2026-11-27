@@ -5,6 +5,7 @@
 
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
@@ -139,6 +140,13 @@ function Fx.wire(from: Vector3, to: Vector3, color: Color3?)
 	Fx.impact(to, true)
 end
 
+local function bindEffects(sound: Sound)
+	local group = SoundService:FindFirstChild("Effects")
+	if group and group:IsA("SoundGroup") then
+		sound.SoundGroup = group
+	end
+end
+
 -- Звук выстрела. at — где (3D, слышно издалека); nil — у самого игрока (свой выстрел).
 function Fx.shotSound(weapon: string, at: Vector3?)
 	local info = (Sounds.Shots :: any)[weapon]
@@ -159,6 +167,7 @@ function Fx.shotSound(weapon: string, at: Vector3?)
 	sound.Volume = info.Volume
 	sound.PlaybackSpeed = info.Speed * (0.95 + math.random() * 0.1)
 	sound.RollOffMaxDistance = Sounds.ShotRollOff
+	bindEffects(sound)
 	sound.Parent = parent
 	sound:Play()
 	Debris:AddItem(sound, 3)
@@ -173,6 +182,7 @@ function Fx.click(speed: number, volume: number?)
 	sound.SoundId = Sounds.Click
 	sound.Volume = volume or Sounds.ClickVolume
 	sound.PlaybackSpeed = speed
+	bindEffects(sound)
 	sound.Parent = folder
 	sound:Play()
 	Debris:AddItem(sound, 2)

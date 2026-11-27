@@ -246,6 +246,7 @@ function ProgressFx.start()
 	sound.SoundId = Config.Sounds.Purchase
 	sound.Volume = Config.Sounds.PurchaseVolume
 	sound.Parent = gui
+	Theme.bindEffects(sound)
 	Remotes.get(Remotes.Names.ProgressEvent).OnClientEvent:Connect(function(kind: any, a: any, b: any, c: any)
 		if kind == "LevelUp" and typeof(a) == "number" then
 			showLevelUp(a, if typeof(b) == "string" then b else "", if typeof(c) == "number" then c else 0)

@@ -203,6 +203,7 @@ local purchaseSound = Instance.new("Sound")
 purchaseSound.SoundId = Config.Sounds.Purchase
 purchaseSound.Volume = Config.Sounds.PurchaseVolume
 purchaseSound.Parent = window.gui
+Theme.bindEffects(purchaseSound)
 
 ---------------------------------------------------------------- обновление
 

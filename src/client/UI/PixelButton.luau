@@ -40,6 +40,7 @@ function PixelButton.click()
 		created.Volume = Settings.ClickVolume
 		created.PlaybackSpeed = Settings.ClickSpeed
 		created.Parent = SoundService
+		Theme.bindEffects(created)
 		clickSound = created
 		sound = created
 	end

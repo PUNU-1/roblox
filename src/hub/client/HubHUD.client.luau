@@ -37,6 +37,7 @@ local Quests = require(script.Parent:WaitForChild("Quests"))
 local Collection = require(script.Parent:WaitForChild("Collection"))
 local ProgressFx = require(UI:WaitForChild("ProgressFx"))
 local GoalBar = require(UI:WaitForChild("GoalBar"))
+local SettingsWindow = require(UI:WaitForChild("SettingsWindow"))
 
 local PadAttr = GameState.PadAttr
 local PadState = GameState.PadState
@@ -53,6 +54,7 @@ local gui = Theme.screenGui("HubHUD", 1)
 local touchOnly = Theme.touchOnly()
 
 ProgressFx.start() -- LEVEL UP, «Quest done», достижения, подарок новичку (этап 6, блок H1)
+SettingsWindow.start() -- применяем сохранённые настройки сразу при входе (этап 6, блок J1)
 
 -- Уровень и полоска опыта слева сверху, под кнопками Roblox (этап 6, блок H1); кнопки меню — под ней
 local LEVEL_TOP = if touchOnly then 60 else 64
@@ -291,6 +293,12 @@ local function openClasses()
 	end
 end
 
+local function openSettings()
+	if not launching() then
+		SettingsWindow.toggle()
+	end
+end
+
 local ITEMS: { MenuItem } = {
 	{ icon = "Shop", label = "SHOP", key = "B", action = openShop },
 	{ icon = "Classes", label = "CLASSES", key = "C", action = openClasses },
@@ -322,6 +330,7 @@ local ITEMS: { MenuItem } = {
 			comingSoon("COMING SOON!", "Add Night Guard: Museum to your favorites. Coming soon!")
 		end,
 	},
+	{ icon = "Settings", label = "SETTINGS", key = Config.Settings.KeyLabel, action = openSettings }, -- настройки (этап 6, блок J1)
 }
 
 local buttons: { [string]: PixelButton.IconButton } = {}
@@ -339,21 +348,36 @@ for index, item in ITEMS do
 	table.insert(buttonList, button)
 end
 
--- Раскладка: на компьютере — столбик по центру высоты слева (но не выше полоски уровня), на телефоне — 2 столбика
+-- Раскладка: на компьютере — столбик по центру высоты слева (но не выше полоски уровня), на телефоне — 2–3 столбика
 -- сверху слева под полоской уровня (внизу слева джойстик). Клетка иконки — целое число пикселей, на маленьком экране меньше.
-local COLUMNS = if touchOnly then 2 else 1
-local ROWS = math.ceil(#buttonList / COLUMNS)
 local function layoutMenu()
 	local camera = Workspace.CurrentCamera
 	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
 	local room = if touchOnly then viewport.Y * 0.62 - levelBar.height else viewport.Y - MENU_TOP - 12
+	local baseCols = if touchOnly then 2 else 1
+	local columns = baseCols
+	local rows = math.ceil(#buttonList / columns)
 	local cell = Config.PixelUI.MinCell
-	for try = Config.PixelUI.Cell, Config.PixelUI.MinCell, -1 do
-		buttonList[1].setCell(try)
-		if ROWS * buttonList[1].height() + (ROWS - 1) * try <= room then
-			cell = try
+	local fit = false
+	for cols = baseCols, baseCols + 1 do
+		local tryRows = math.ceil(#buttonList / cols)
+		for try = Config.PixelUI.Cell, Config.PixelUI.MinCell, -1 do
+			buttonList[1].setCell(try)
+			if tryRows * buttonList[1].height() + (tryRows - 1) * try <= room then
+				columns = cols
+				rows = tryRows
+				cell = try
+				fit = true
+				break
+			end
+		end
+		if fit then
 			break
 		end
+	end
+	if not fit then
+		columns = baseCols + 1
+		rows = math.ceil(#buttonList / columns)
 	end
 	local width, height = 0, 0
 	for _, button in buttonList do
@@ -362,11 +386,11 @@ local function layoutMenu()
 		height = math.max(height, button.height())
 	end
 	for index, button in buttonList do
-		local column = (index - 1) % COLUMNS
-		local row = (index - 1) // COLUMNS
+		local column = (index - 1) % columns
+		local row = (index - 1) // columns
 		button.root.Position = UDim2.fromOffset(column * width, row * (height + cell))
 	end
-	menu.Size = UDim2.fromOffset(COLUMNS * width, ROWS * height + (ROWS - 1) * cell)
+	menu.Size = UDim2.fromOffset(columns * width, rows * height + (rows - 1) * cell)
 	menu.AnchorPoint = Vector2.new(0, 0)
 	if touchOnly then
 		menu.Position = UDim2.fromOffset(8, MENU_TOP)
@@ -500,6 +524,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	elseif input.KeyCode == Enum.KeyCode.Q and not launching() then
 		Quests.toggle()
+		return
+	elseif input.KeyCode == Config.Settings.Key then
+		openSettings()
 		return
 	end
 	if ClassesWindow.isOpen() then

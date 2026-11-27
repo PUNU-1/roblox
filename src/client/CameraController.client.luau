@@ -76,6 +76,7 @@ if Config.Sounds.CameraSwitch ~= "" then
 	sound.SoundId = Config.Sounds.CameraSwitch
 	sound.Volume = Config.Sounds.CameraSwitchVolume
 	sound.Parent = SoundService
+	Theme.bindEffects(sound)
 	switchSound = sound
 end
 local colorEffect: ColorCorrectionEffect? = nil

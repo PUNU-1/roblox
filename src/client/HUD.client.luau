@@ -20,6 +20,7 @@ local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("Pixel
 local GoalBar = require(script.Parent:WaitForChild("UI"):WaitForChild("GoalBar"))
 local PixelIcon = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelIcon"))
 local MvpShowcase = require(script.Parent:WaitForChild("UI"):WaitForChild("MvpShowcase"))
+local SettingsWindow = require(script.Parent:WaitForChild("UI"):WaitForChild("SettingsWindow"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -28,6 +29,76 @@ local Colors = Theme.Colors
 
 local localPlayer = Players.LocalPlayer
 local gui = Theme.screenGui("HUD", 1)
+SettingsWindow.start() -- применяем сохранённые настройки сразу при входе (этап 6, блок J1)
+
+---------------------------------------------------------------- кнопка настроек (рядом с SHOP / STATS)
+
+local settingsGui = Theme.screenGui("SettingsHud", 5)
+local function canOpenSettings(): boolean
+	if GameState.phase() == Phase.Results then
+		return false
+	end
+	if localPlayer:GetAttribute(PlayerAttr.ViewingCameras) == true then
+		return false
+	end
+	if localPlayer:GetAttribute(PlayerAttr.ShopOpen) == true then
+		return false
+	end
+	return true
+end
+
+local settingsButton = PixelButton.new({
+	icon = "Settings",
+	label = "SETTINGS",
+	key = Config.Settings.KeyLabel,
+	cell = Config.PixelUI.HudCell,
+	name = "SettingsButton",
+	parent = settingsGui,
+	onActivated = function()
+		if SettingsWindow.isOpen() then
+			SettingsWindow.close()
+		elseif canOpenSettings() then
+			SettingsWindow.open()
+		end
+	end,
+})
+settingsButton.root.AnchorPoint = Vector2.new(1, 0)
+settingsButton.root.Position = UDim2.new(1, -12, 0, 62)
+
+local function updateSettingsButton()
+	local phase = GameState.phase()
+	local allowed = canOpenSettings()
+	settingsButton.root.Visible = allowed
+	if allowed then
+		local onShift = localPlayer:GetAttribute(PlayerAttr.InRound) == true
+		local statsVisible = phase == Phase.Day or phase == Phase.Night
+		local slot = (if onShift then 1 else 0) + (if statsVisible then 1 else 0)
+		local rightOffset = 12 + slot * (settingsButton.width() + Config.Settings.ButtonGap)
+		settingsButton.root.Position = UDim2.new(1, -rightOffset, 0, 62)
+	elseif SettingsWindow.isOpen() then
+		SettingsWindow.close()
+	end
+end
+
+local settingsConns: { RBXScriptConnection } = {
+	GameState.folder():GetAttributeChangedSignal(Attr.Phase):Connect(updateSettingsButton),
+	localPlayer:GetAttributeChangedSignal(PlayerAttr.InRound):Connect(updateSettingsButton),
+	localPlayer:GetAttributeChangedSignal(PlayerAttr.ViewingCameras):Connect(updateSettingsButton),
+	localPlayer:GetAttributeChangedSignal(PlayerAttr.ShopOpen):Connect(updateSettingsButton),
+	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed or UserInputService:GetFocusedTextBox() ~= nil then
+			return
+		end
+		if input.KeyCode == Config.Settings.Key then
+			if SettingsWindow.isOpen() then
+				SettingsWindow.close()
+			elseif canOpenSettings() then
+				SettingsWindow.open()
+			end
+		end
+	end),
+}
+updateSettingsButton()
 
 ---------------------------------------------------------------- верхняя строка и деньги
 
@@ -751,6 +822,14 @@ RunService.Heartbeat:Connect(function(dt)
 end)
 
 gui.Destroying:Connect(function()
+	for _, conn in settingsConns do
+		conn:Disconnect()
+	end
+	table.clear(settingsConns)
+	SettingsWindow.close()
+	if settingsGui.Parent then
+		settingsGui:Destroy()
+	end
 	mvpShowcase.destroy()
 	if viewportConn then
 		viewportConn:Disconnect()

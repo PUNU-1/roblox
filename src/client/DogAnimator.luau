@@ -11,6 +11,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
@@ -257,6 +258,10 @@ local function playBark(view: View)
 	sound.Volume = Config.Sounds.BarkVolume
 	sound.PlaybackSpeed = Config.Sounds.BarkSpeed * (0.94 + math.random() * 0.12)
 	sound.RollOffMaxDistance = Config.Sounds.BarkRollOff
+	local group = SoundService:FindFirstChild("Effects")
+	if group and group:IsA("SoundGroup") then
+		sound.SoundGroup = group
+	end
 	sound.Parent = head
 	sound.Ended:Once(function()
 		sound:Destroy()

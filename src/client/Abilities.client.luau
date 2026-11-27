@@ -71,6 +71,7 @@ local function playSound(id: string, volume: number, speed: number, parent: Inst
 	sound.Volume = volume
 	sound.PlaybackSpeed = speed
 	sound.Parent = parent
+	Theme.bindEffects(sound)
 	sound.Ended:Once(function()
 		sound:Destroy()
 	end)

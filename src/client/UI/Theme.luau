@@ -208,4 +208,20 @@ function Theme.nightClock(fraction: number): string
 	return ("%02d:%02d"):format(hour, minute)
 end
 
+-- Привязывает клиентский звук к SoundGroup "Effects" (чтобы ползунок Effects в настройках управлял и им).
+function Theme.bindEffects(sound: Sound)
+	local SoundService = game:GetService("SoundService")
+	local existing = SoundService:FindFirstChild("Effects")
+	if existing and existing:IsA("SoundGroup") then
+		sound.SoundGroup = existing
+		return
+	end
+	task.spawn(function()
+		local group = SoundService:WaitForChild("Effects", 10)
+		if group and group:IsA("SoundGroup") and sound.Parent then
+			sound.SoundGroup = group
+		end
+	end)
+end
+
 return Theme
