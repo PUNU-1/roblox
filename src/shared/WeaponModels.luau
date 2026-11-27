@@ -54,6 +54,14 @@ local C = {
 	Navy = hex("243B6B"),
 	NavyDark = hex("172647"),
 	Gold = hex("F5C542"),
+	-- Добавлено в блоке F3 (вещи)
+	Grey = hex("C9CED6"),
+	Olive = hex("5A6B4A"),
+	OliveDark = hex("424F37"),
+	Strap = hex("0E1322"),
+	Flap = hex("1B2236"),
+	Clip = hex("4A5160"),
+	Green = hex("3FE07A"),
 }
 WeaponModels.Colors = C
 
@@ -299,38 +307,94 @@ addRow(RIFLE, 4, function(i)
 	return box("GripRidge", v3(0.23, 0.03, 0.24), RIFLE_GRIP * at(0, -0.18 + i * 0.08, 0.01), C.Black)
 end)
 
--- Аптечка: белый чемоданчик с красными крестами, ручка сверху (точка привязки — ручка).
+---------------------------------------------------------------- вещи
+
+-- Аптечка: белый чемоданчик со скруглёнными серыми углами, красный крест насквозь (виден с обеих сторон),
+-- шов крышки, петля сзади, золотые защёлки, ручка с резиновой накладкой, ножки (точка привязки — ручка).
 local MEDKIT: { Spec } = {
-	{ name = "Case", size = Vector3.new(1.2, 0.8, 0.45), offset = at(0, -0.55, 0), color = C.White },
-	{ name = "Rim", size = Vector3.new(1.24, 0.06, 0.49), offset = at(0, -0.36, 0), color = hex("C9CED6") },
-	{ name = "CrossH", size = Vector3.new(0.46, 0.14, 0.47), offset = at(0, -0.58, 0), color = C.Red },
-	{ name = "CrossV", size = Vector3.new(0.14, 0.46, 0.47), offset = at(0, -0.58, 0), color = C.Red },
-	{ name = "Handle", size = Vector3.new(0.5, 0.08, 0.1), offset = at(0, 0, 0), color = C.Polymer },
-	{ name = "PostL", size = Vector3.new(0.08, 0.16, 0.1), offset = at(-0.21, -0.08, 0), color = C.Polymer },
-	{ name = "PostR", size = Vector3.new(0.08, 0.16, 0.1), offset = at(0.21, -0.08, 0), color = C.Polymer },
-	{ name = "LatchL", size = Vector3.new(0.1, 0.08, 0.04), offset = at(-0.4, -0.33, -0.24), color = C.Gold, material = M.Metal },
-	{ name = "LatchR", size = Vector3.new(0.1, 0.08, 0.04), offset = at(0.4, -0.33, -0.24), color = C.Gold, material = M.Metal },
+	box("Case", v3(1.2, 0.8, 0.45), at(0, -0.55, 0), C.White),
+	box("Rim", v3(1.22, 0.05, 0.47), at(0, -0.32, 0), C.Grey),
+	box("CrossH", v3(0.42, 0.13, 0.47), at(0, -0.62, 0), C.Red),
+	box("CrossV", v3(0.13, 0.42, 0.47), at(0, -0.62, 0), C.Red),
+	cyl("Hinge", 0.9, 0.05, at(0, -0.32, 0.235), C.SteelLight, M.Metal),
+	box("Handle", v3(0.5, 0.08, 0.1), at(0, 0, 0), C.Polymer),
+	box("HandleGrip", v3(0.34, 0.1, 0.12), at(0, 0, 0), C.Black, M.Rubber),
+	box("PostL", v3(0.08, 0.16, 0.1), at(-0.21, -0.08, 0), C.Polymer),
+	box("PostR", v3(0.08, 0.16, 0.1), at(0.21, -0.08, 0), C.Polymer),
+	box("PostBaseL", v3(0.14, 0.03, 0.16), at(-0.21, -0.15, 0), C.SteelLight, M.Metal),
+	box("PostBaseR", v3(0.14, 0.03, 0.16), at(0.21, -0.15, 0), C.SteelLight, M.Metal),
+	box("LatchL", v3(0.12, 0.12, 0.03), at(-0.38, -0.32, -0.235), C.Gold, M.Metal),
+	box("LatchR", v3(0.12, 0.12, 0.03), at(0.38, -0.32, -0.235), C.Gold, M.Metal),
+	box("ClipL", v3(0.07, 0.06, 0.03), at(-0.38, -0.38, -0.25), C.SteelLight, M.Metal),
+	box("ClipR", v3(0.07, 0.06, 0.03), at(0.38, -0.38, -0.25), C.SteelLight, M.Metal),
 }
+-- Скруглённые углы (резиновые) и ножки
+for _, corner in { { -0.6, -0.225 }, { 0.6, -0.225 }, { -0.6, 0.225 }, { 0.6, 0.225 } } do
+	table.insert(MEDKIT, cyl("Corner", 0.8, 0.1, at(corner[1], -0.55, corner[2]) * ALONG_Y, C.Grey, M.Rubber))
+	table.insert(MEDKIT, box("Foot", v3(0.12, 0.04, 0.1), at(corner[1] * 0.75, -0.97, corner[2] * 0.6), C.Black, M.Rubber))
+end
 
--- Дубинка грабителя: резиновая с ручкой-темляком (точка привязки — рукоять, бьющий конец в −Z).
+-- Дубинка грабителя: резиновая рукоять с кольцами, стальной воротник, два колена с кольцом между ними, боковая
+-- ручка с наконечником, стальное навершие и темляк (точка привязки — рукоять, бьющий конец в −Z).
 local BATON: { Spec } = {
-	{ name = "Grip", size = Vector3.new(0.5, 0.18, 0.18), offset = at(0, 0, 0) * ALONG_Z, color = C.Black, material = M.Rubber, shape = CYL },
-	{ name = "Rod", size = Vector3.new(1.7, 0.14, 0.14), offset = at(0, 0, -1.05) * ALONG_Z, color = C.PolymerDark, material = M.Rubber, shape = CYL },
-	{ name = "Tip", size = Vector3.new(0.16, 0.16, 0.16), offset = at(0, 0, -1.9), color = C.PolymerDark, material = M.Rubber, shape = BALL },
-	{ name = "Side", size = Vector3.new(0.4, 0.1, 0.1), offset = at(0, 0, -0.35) * CFrame.Angles(0, 0, math.pi / 2), color = C.Black, material = M.Rubber, shape = CYL },
-	{ name = "Pommel", size = Vector3.new(0.08, 0.22, 0.22), offset = at(0, 0, 0.27) * ALONG_Z, color = C.Steel, material = M.Metal, shape = CYL },
+	cyl("Grip", 0.5, 0.18, at(0, 0, 0) * ALONG_Z, C.Black, M.Rubber),
+	cyl("Collar", 0.08, 0.2, at(0, 0, -0.27) * ALONG_Z, C.Steel, M.Metal),
+	cyl("Rod", 0.9, 0.15, at(0, 0, -0.75) * ALONG_Z, C.PolymerDark, M.Rubber),
+	cyl("RodRing", 0.05, 0.16, at(0, 0, -1.2) * ALONG_Z, C.Steel, M.Metal),
+	cyl("Rod", 0.7, 0.13, at(0, 0, -1.55) * ALONG_Z, C.PolymerDark, M.Rubber),
+	ball("Tip", 0.16, at(0, 0, -1.9), C.PolymerDark, M.Rubber),
+	cyl("Side", 0.4, 0.1, at(0, 0, -0.35) * CFrame.Angles(0, 0, math.pi / 2), C.Black, M.Rubber),
+	cyl("SideCap", 0.05, 0.12, at(0, -0.2, -0.35) * CFrame.Angles(0, 0, math.pi / 2), C.Steel, M.Metal),
+	cyl("Pommel", 0.08, 0.22, at(0, 0, 0.27) * ALONG_Z, C.Steel, M.Metal),
+	box("Strap", v3(0.03, 0.3, 0.06), at(0, -0.12, 0.34) * CFrame.Angles(0.3, 0, 0), C.Red, M.Fabric),
 }
+addRow(BATON, 4, function(i)
+	return cyl("GripRing", 0.035, 0.2, at(0, 0, 0.15 - i * 0.1) * ALONG_Z, C.Polymer, M.Rubber)
+end)
 
--- Дымовая шашка: зелёно-серая банка с кольцом и рычагом.
+-- Дымовая шашка: оливковая банка с жёлтой полосой и белой табличкой SMOKE, донце, крышка с отверстиями,
+-- запал с рычагом сбоку, чека с кольцом.
 local SMOKE: { Spec } = {
-	{ name = "Can", size = Vector3.new(0.62, 0.36, 0.36), offset = at(0, 0, 0) * ALONG_Y, color = hex("5A6B4A"), shape = CYL },
-	{ name = "Band", size = Vector3.new(0.12, 0.37, 0.37), offset = at(0, 0.12, 0) * ALONG_Y, color = C.Yellow, shape = CYL },
-	{ name = "Top", size = Vector3.new(0.08, 0.26, 0.26), offset = at(0, 0.34, 0) * ALONG_Y, color = C.SteelLight, material = M.Metal, shape = CYL },
-	{ name = "Lever", size = Vector3.new(0.06, 0.4, 0.08), offset = at(0.15, 0.18, 0), color = C.SteelLight, material = M.Metal },
-	{ name = "Ring", size = Vector3.new(0.03, 0.16, 0.16), offset = at(-0.12, 0.42, 0), color = C.SteelLight, material = M.Metal, shape = CYL },
+	cyl("Can", 0.62, 0.36, at(0, 0, 0) * ALONG_Y, C.Olive),
+	cyl("Band", 0.12, 0.37, at(0, 0.12, 0) * ALONG_Y, C.Yellow),
+	cyl("Bottom", 0.05, 0.37, at(0, -0.29, 0) * ALONG_Y, C.OliveDark),
+	cyl("Top", 0.08, 0.26, at(0, 0.34, 0) * ALONG_Y, C.SteelLight, M.Metal),
+	cyl("Fuse", 0.12, 0.14, at(0, 0.42, 0) * ALONG_Y, C.SteelLight, M.Metal),
+	box("LeverTop", v3(0.16, 0.04, 0.08), at(0.08, 0.47, 0), C.SteelLight, M.Metal),
+	box("Lever", v3(0.04, 0.4, 0.08), at(0.2, 0.28, 0), C.SteelLight, M.Metal),
+	box("Pin", v3(0.12, 0.025, 0.025), at(-0.06, 0.44, 0), C.SteelLight, M.Metal),
+	cyl("Ring", 0.025, 0.16, at(-0.13, 0.44, 0), C.SteelLight, M.Metal),
+	box("Label", v3(0.16, 0.12, 0.02), at(0, -0.08, -0.18), C.White),
 }
+for _, spot in { { 0.08, 0 }, { -0.08, 0 }, { 0, 0.08 }, { 0, -0.08 } } do
+	table.insert(SMOKE, box("Vent", v3(0.05, 0.02, 0.05), at(spot[1], 0.385, spot[2]), C.Black))
+end
 
-type Info = { specs: { Spec }, muzzle: CFrame, support: CFrame }
+-- Надпись на детали модели: SurfaceGui с текстом на грани face (если детали нет — ничего).
+local function labelPart(model: Instance, partName: string, face: Enum.NormalId, text: string, color: Color3, size: UDim2?, position: UDim2?)
+	local part = model:FindFirstChild(partName, true)
+	if not (part and part:IsA("BasePart")) then
+		return
+	end
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 50
+	gui.LightInfluence = 1
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = size or UDim2.fromScale(1, 1)
+	label.Position = position or UDim2.fromScale(0, 0)
+	label.Text = text
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = color
+	label.Parent = gui
+	gui.Parent = part
+end
+
+type Label = { part: string, face: Enum.NormalId, text: string, color: Color3 }
+type Info = { specs: { Spec }, muzzle: CFrame, support: CFrame, labels: { Label }? }
 
 WeaponModels.Names = {
 	Taser = "weapon_taser_01",
@@ -349,7 +413,12 @@ local INFO: { [string]: Info } = {
 	Rifle = { specs = RIFLE, muzzle = at(0, 0.36, -2.78), support = at(0, 0.14, -1.45) },
 	Medkit = { specs = MEDKIT, muzzle = at(0, -0.55, -0.3), support = at(-0.55, -0.55, 0) },
 	Baton = { specs = BATON, muzzle = at(0, 0, -1.9), support = at(0, 0, 0) },
-	Smoke = { specs = SMOKE, muzzle = at(0, 0.4, 0), support = at(0, 0, 0) },
+	Smoke = {
+		specs = SMOKE,
+		muzzle = at(0, 0.4, 0),
+		support = at(0, 0, 0),
+		labels = { { part = "Label", face = Enum.NormalId.Front, text = "SMOKE", color = C.Black } },
+	},
 }
 
 ---------------------------------------------------------------- сборка
@@ -456,7 +525,15 @@ end
 -- Оружие или снаряжение по короткому имени: Taser, Pistol, Shotgun, Rifle, Medkit, Baton, Smoke.
 function WeaponModels.build(kind: string): Built
 	local info = INFO[kind] or INFO.Pistol
-	return WeaponModels.fromSpecs(WeaponModels.Names[kind] or kind, info.specs, info.muzzle, info.support)
+	local built = WeaponModels.fromSpecs(WeaponModels.Names[kind] or kind, info.specs, info.muzzle, info.support)
+	-- Надписи (SMOKE на шашке); у модели друга без детали с таким именем — без надписи
+	local labels = info.labels
+	if labels then
+		for _, label in labels do
+			labelPart(built.model, label.part, label.face, label.text, label.color)
+		end
+	end
+	return built
 end
 
 -- Приварить собранную модель к детали персонажа: модель встаёт в cframe (в мире) и двигается вместе с частью тела.
@@ -493,50 +570,47 @@ end
 ---------------------------------------------------------------- бронежилет охраны
 
 -- Детали бронежилета для верхней части туловища размером t (точка привязки — центр туловища).
--- Тёмные пластины спереди и сзади, плечевые лямки, боковые ремни, подсумки, рация и значок.
+-- Тёмные пластины спереди и сзади, лямки, боковые ремни с пряжками, лента-стропа спереди, три подсумка
+-- с клапанами, рация с зелёным огоньком, золотой значок с синим центром, нашивка SECURITY на груди,
+-- ручка для эвакуации и жёлтая полоса сзади. Всё не толще прежнего: штурмовой жилет (Uniform) прячет его внутри.
 function WeaponModels.vestSpecs(t: Vector3): { Spec }
 	local front = -t.Z * 0.5 - 0.1
 	local back = t.Z * 0.5 + 0.1
 	local plate = C.NavyDark
-	local strap = hex("0E1322")
-	return {
-		{ name = "FrontPlate", size = Vector3.new(t.X * 0.86, t.Y * 0.84, 0.2), offset = at(0, -t.Y * 0.04, front), color = plate, material = M.Fabric },
-		{ name = "BackPlate", size = Vector3.new(t.X * 0.88, t.Y * 0.86, 0.2), offset = at(0, -t.Y * 0.03, back), color = plate, material = M.Fabric },
-		{ name = "StrapL", size = Vector3.new(t.X * 0.2, 0.14, t.Z * 1.24), offset = at(-t.X * 0.27, t.Y * 0.47, 0), color = strap, material = M.Fabric },
-		{ name = "StrapR", size = Vector3.new(t.X * 0.2, 0.14, t.Z * 1.24), offset = at(t.X * 0.27, t.Y * 0.47, 0), color = strap, material = M.Fabric },
-		{ name = "SideL", size = Vector3.new(0.12, t.Y * 0.42, t.Z * 1.2), offset = at(-t.X * 0.5 - 0.04, -t.Y * 0.18, 0), color = strap, material = M.Fabric },
-		{ name = "SideR", size = Vector3.new(0.12, t.Y * 0.42, t.Z * 1.2), offset = at(t.X * 0.5 + 0.04, -t.Y * 0.18, 0), color = strap, material = M.Fabric },
-		{ name = "PouchL", size = Vector3.new(t.X * 0.22, t.Y * 0.26, 0.18), offset = at(-t.X * 0.27, -t.Y * 0.26, front - 0.17), color = strap, material = M.Fabric },
-		{ name = "PouchM", size = Vector3.new(t.X * 0.22, t.Y * 0.26, 0.18), offset = at(0, -t.Y * 0.26, front - 0.17), color = strap, material = M.Fabric },
-		{ name = "PouchR", size = Vector3.new(t.X * 0.22, t.Y * 0.26, 0.18), offset = at(t.X * 0.27, -t.Y * 0.26, front - 0.17), color = strap, material = M.Fabric },
-		{ name = "Radio", size = Vector3.new(0.22, 0.34, 0.14), offset = at(t.X * 0.26, t.Y * 0.16, front - 0.16), color = C.Black },
-		{ name = "Antenna", size = Vector3.new(0.04, 0.36, 0.04), offset = at(t.X * 0.31, t.Y * 0.4, front - 0.16), color = C.Black },
-		{ name = "Badge", size = Vector3.new(0.34, 0.34, 0.05), offset = at(-t.X * 0.25, t.Y * 0.16, front - 0.12), color = C.Gold, material = M.Metal },
-		{ name = "Stripe", size = Vector3.new(t.X * 0.88, 0.07, 0.21), offset = at(0, t.Y * 0.02, back + 0.005), color = hex("F2C230") },
+	local strap = C.Strap
+	local pouchY = -t.Y * 0.26
+	local specs: { Spec } = {
+		box("FrontPlate", v3(t.X * 0.86, t.Y * 0.84, 0.2), at(0, -t.Y * 0.04, front), plate, M.Fabric),
+		box("BackPlate", v3(t.X * 0.88, t.Y * 0.86, 0.2), at(0, -t.Y * 0.03, back), plate, M.Fabric),
+		box("StrapL", v3(t.X * 0.2, 0.14, t.Z * 1.24), at(-t.X * 0.27, t.Y * 0.47, 0), strap, M.Fabric),
+		box("StrapR", v3(t.X * 0.2, 0.14, t.Z * 1.24), at(t.X * 0.27, t.Y * 0.47, 0), strap, M.Fabric),
+		box("SideL", v3(0.12, t.Y * 0.42, t.Z * 1.2), at(-t.X * 0.5 - 0.04, -t.Y * 0.18, 0), strap, M.Fabric),
+		box("SideR", v3(0.12, t.Y * 0.42, t.Z * 1.2), at(t.X * 0.5 + 0.04, -t.Y * 0.18, 0), strap, M.Fabric),
+		box("BuckleL", v3(0.04, 0.12, 0.16), at(-t.X * 0.5 - 0.12, -t.Y * 0.18, -t.Z * 0.2), C.Clip),
+		box("BuckleR", v3(0.04, 0.12, 0.16), at(t.X * 0.5 + 0.12, -t.Y * 0.18, -t.Z * 0.2), C.Clip),
+		box("Webbing", v3(t.X * 0.84, 0.06, 0.03), at(0, -t.Y * 0.04, front - 0.115), strap, M.Fabric),
+		box("Radio", v3(0.22, 0.34, 0.14), at(t.X * 0.26, t.Y * 0.16, front - 0.16), C.Black),
+		box("Antenna", v3(0.04, 0.36, 0.04), at(t.X * 0.31, t.Y * 0.4, front - 0.16), C.Black),
+		glow(box("RadioLight", v3(0.04, 0.04, 0.04), at(t.X * 0.22, t.Y * 0.16 + 0.18, front - 0.16), C.Green)),
+		box("Badge", v3(0.34, 0.34, 0.05), at(-t.X * 0.25, t.Y * 0.16, front - 0.12), C.Gold, M.Metal),
+		cyl("BadgeCenter", 0.02, 0.2, at(-t.X * 0.25, t.Y * 0.16, front - 0.15) * ALONG_Z, C.Navy),
+		box("FrontPatch", v3(t.X * 0.26, t.Y * 0.12, 0.03), at(0, t.Y * 0.3, front - 0.115), C.Black, M.Fabric),
+		box("DragHandle", v3(t.X * 0.3, 0.08, 0.1), at(0, t.Y * 0.36, back + 0.15), strap, M.Fabric),
+		box("Stripe", v3(t.X * 0.88, 0.07, 0.21), at(0, t.Y * 0.02, back + 0.005), hex("F2C230")),
 	}
+	for _, x in { -t.X * 0.27, 0, t.X * 0.27 } do
+		local name = if x < 0 then "PouchL" elseif x > 0 then "PouchR" else "PouchM"
+		table.insert(specs, box(name, v3(t.X * 0.22, t.Y * 0.26, 0.18), at(x, pouchY, front - 0.17), strap, M.Fabric))
+		table.insert(specs, box("Flap", v3(t.X * 0.23, t.Y * 0.07, 0.19), at(x, pouchY + t.Y * 0.1, front - 0.175), C.Flap, M.Fabric))
+	end
+	return specs
 end
 
--- Надпись SECURITY на спине бронежилета (у детали BackPlate).
+-- Надписи SECURITY: большая на спине (BackPlate) и маленькая на нашивке на груди (FrontPatch).
 function WeaponModels.labelVest(model: Instance)
-	local back = model:FindFirstChild("BackPlate", true)
-	if not (back and back:IsA("BasePart")) then
-		return
-	end
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Back
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 50
-	gui.LightInfluence = 1
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 0.32)
-	label.Position = UDim2.fromScale(0, 0.12)
-	label.Text = "SECURITY"
-	label.TextScaled = true
-	label.Font = Enum.Font.FredokaOne
-	label.TextColor3 = hex("F2C230")
-	label.Parent = gui
-	gui.Parent = back
+	local yellow = hex("F2C230")
+	labelPart(model, "BackPlate", Enum.NormalId.Back, "SECURITY", yellow, UDim2.fromScale(1, 0.32), UDim2.fromScale(0, 0.12))
+	labelPart(model, "FrontPatch", Enum.NormalId.Front, "SECURITY", yellow)
 end
 
 return WeaponModels

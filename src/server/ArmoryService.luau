@@ -208,35 +208,67 @@ local TABLE_STUB: { ModelLibrary.StubPart } = {
 	{ name = "Crate", size = Vector3.new(2.4, 1.1, 1.8), offset = CFrame.new(3.5, 1.33, 0), color = hex("4B5A3A"), material = M.Wood },
 }
 
--- Коробка патронов: ящик своего цвета, крышка, надпись калибра, патроны сверху. Низ по центру.
+-- Коробка патронов (этап 5, блок F3): армейский ящик своего цвета с рёбрами, крышкой, рычагом-защёлкой сбоку
+-- и откидной ручкой; спереди и сзади табличка с калибром и оружием (9MM / PISTOL…) и рядом значок-патрон
+-- (виден и в 3D-картинке окна магазина, где надписей нет); сверху на картонном лотке 4 патрона. Низ по центру.
 local AMMO_LOOK = {
-	PistolAmmo = { name = "prop_ammo_pistol_01", color = hex("3F6B3A"), label = "9MM", round = hex("D9A441"), tip = hex("B87333"), shell = false },
-	RifleAmmo = { name = "prop_ammo_rifle_01", color = hex("6B6B3A"), label = "5.56", round = hex("D9A441"), tip = hex("2B2F3A"), shell = false },
-	ShotgunAmmo = { name = "prop_ammo_shotgun_01", color = hex("8A2A22"), label = "12 GA", round = hex("C8343A"), tip = hex("D9A441"), shell = true },
+	PistolAmmo = { name = "prop_ammo_pistol_01", color = hex("3F6B3A"), label = "9MM", weapon = "PISTOL", round = hex("D9A441"), tip = hex("B87333"), shell = false },
+	RifleAmmo = { name = "prop_ammo_rifle_01", color = hex("6B6B3A"), label = "5.56", weapon = "RIFLE", round = hex("D9A441"), tip = hex("2B2F3A"), shell = false },
+	ShotgunAmmo = { name = "prop_ammo_shotgun_01", color = hex("8A2A22"), label = "12 GA", weapon = "SHOTGUN", round = hex("C8343A"), tip = hex("D9A441"), shell = true },
 }
+
+local UPRIGHT = CFrame.Angles(0, 0, math.pi / 2) -- ось цилиндра вертикально
 
 local function ammoBoxModel(item: string): PVInstance
 	local look = AMMO_LOOK[item]
+	local dark = look.color:Lerp(Color3.new(0, 0, 0), 0.22)
 	local stub: { ModelLibrary.StubPart } = {
 		{ name = "Box", size = Vector3.new(1.5, 0.7, 0.95), offset = CFrame.new(0, 0.35, 0), color = look.color, material = M.Metal },
+		{ name = "Rib", size = Vector3.new(1.52, 0.05, 0.97), offset = CFrame.new(0, 0.15, 0), color = dark, material = M.Metal },
+		{ name = "Rib", size = Vector3.new(1.52, 0.05, 0.97), offset = CFrame.new(0, 0.55, 0), color = dark, material = M.Metal },
 		{ name = "Lid", size = Vector3.new(1.56, 0.12, 1.0), offset = CFrame.new(0, 0.76, 0), color = look.color:Lerp(Color3.new(1, 1, 1), 0.15), material = M.Metal },
-		{ name = "Handle", size = Vector3.new(0.6, 0.08, 0.14), offset = CFrame.new(0, 0.86, 0), color = hex("2B2F3A") },
-		{ name = "Label", size = Vector3.new(0.9, 0.36, 0.04), offset = CFrame.new(0, 0.38, -0.49), color = hex("F2EEE6") },
+		-- Рычаг-защёлка на правом боку
+		{ name = "Latch", size = Vector3.new(0.04, 0.3, 0.2), offset = CFrame.new(0.77, 0.6, 0), color = COLORS.Steel, material = M.Metal },
+		{ name = "LatchPivot", size = Vector3.new(0.06, 0.1, 0.1), offset = CFrame.new(0.79, 0.75, 0), color = hex("2B2F3A"), material = M.Metal, shape = Enum.PartType.Cylinder },
+		-- Откидная ручка
+		{ name = "HandlePost", size = Vector3.new(0.06, 0.1, 0.06), offset = CFrame.new(-0.28, 0.87, 0), color = hex("2B2F3A"), material = M.Metal },
+		{ name = "HandlePost", size = Vector3.new(0.06, 0.1, 0.06), offset = CFrame.new(0.28, 0.87, 0), color = hex("2B2F3A"), material = M.Metal },
+		{ name = "Handle", size = Vector3.new(0.62, 0.07, 0.12), offset = CFrame.new(0, 0.94, 0), color = hex("1C1F26"), material = M.Rubber },
+		-- Таблички спереди и сзади, лоток для патронов
+		{ name = "Label", size = Vector3.new(0.9, 0.36, 0.04), offset = CFrame.new(0, 0.38, -0.49), color = COLORS.Paper },
+		{ name = "LabelBack", size = Vector3.new(0.9, 0.36, 0.04), offset = CFrame.new(0, 0.38, 0.49), color = COLORS.Paper },
+		{ name = "Tray", size = Vector3.new(1.1, 0.06, 0.22), offset = CFrame.new(0, 0.85, 0.25), color = hex("C9A26B"), material = M.Cardboard },
 	}
+	-- Значок-патрон справа от таблички (спереди) и с другой стороны сзади
+	for _, side in { { x = 0.6, z = -0.5 }, { x = -0.6, z = 0.5 } } do
+		if look.shell then
+			table.insert(stub, { name = "IconShell", size = Vector3.new(0.24, 0.13, 0.13), offset = CFrame.new(side.x, 0.4, side.z) * UPRIGHT, color = look.round, shape = Enum.PartType.Cylinder })
+			table.insert(stub, { name = "IconBase", size = Vector3.new(0.08, 0.135, 0.135), offset = CFrame.new(side.x, 0.24, side.z) * UPRIGHT, color = look.tip, material = M.Metal, shape = Enum.PartType.Cylinder })
+		else
+			table.insert(stub, { name = "IconCase", size = Vector3.new(0.22, 0.1, 0.1), offset = CFrame.new(side.x, 0.33, side.z) * UPRIGHT, color = look.round, material = M.Metal, shape = Enum.PartType.Cylinder })
+			table.insert(stub, { name = "IconTip", size = Vector3.new(0.1, 0.1, 0.1), offset = CFrame.new(side.x, 0.45, side.z), color = look.tip, material = M.Metal, shape = Enum.PartType.Ball })
+		end
+	end
+	-- Патроны на лотке
 	for index = 0, 3 do
 		local x = -0.45 + index * 0.3
 		if look.shell then
-			table.insert(stub, { name = "Shell", size = Vector3.new(0.42, 0.16, 0.16), offset = CFrame.new(x, 1.03, 0.15) * CFrame.Angles(0, 0, math.pi / 2), color = look.round, shape = Enum.PartType.Cylinder })
-			table.insert(stub, { name = "Brass", size = Vector3.new(0.12, 0.17, 0.17), offset = CFrame.new(x, 0.88, 0.15) * CFrame.Angles(0, 0, math.pi / 2), color = look.tip, material = M.Metal, shape = Enum.PartType.Cylinder })
+			table.insert(stub, { name = "Shell", size = Vector3.new(0.42, 0.16, 0.16), offset = CFrame.new(x, 1.09, 0.25) * UPRIGHT, color = look.round, shape = Enum.PartType.Cylinder })
+			table.insert(stub, { name = "Brass", size = Vector3.new(0.12, 0.17, 0.17), offset = CFrame.new(x, 0.94, 0.25) * UPRIGHT, color = look.tip, material = M.Metal, shape = Enum.PartType.Cylinder })
 		else
-			table.insert(stub, { name = "Case", size = Vector3.new(0.3, 0.1, 0.1), offset = CFrame.new(x, 0.97, 0.15) * CFrame.Angles(0, 0, math.pi / 2), color = look.round, material = M.Metal, shape = Enum.PartType.Cylinder })
-			table.insert(stub, { name = "Tip", size = Vector3.new(0.11, 0.11, 0.11), offset = CFrame.new(x, 1.15, 0.15), color = look.tip, material = M.Metal, shape = Enum.PartType.Ball })
+			table.insert(stub, { name = "Case", size = Vector3.new(0.3, 0.1, 0.1), offset = CFrame.new(x, 1.03, 0.25) * UPRIGHT, color = look.round, material = M.Metal, shape = Enum.PartType.Cylinder })
+			table.insert(stub, { name = "Tip", size = Vector3.new(0.11, 0.11, 0.11), offset = CFrame.new(x, 1.2, 0.25), color = look.tip, material = M.Metal, shape = Enum.PartType.Ball })
 		end
 	end
 	local box = ModelLibrary.build(look.name, stub)
+	local lines = { { text = look.label, color = COLORS.Navy }, { text = look.weapon, color = dark } }
 	local label = box:FindFirstChild("Label")
 	if label and label:IsA("BasePart") then
-		textCard(label, Enum.NormalId.Front, { { text = look.label, color = hex("1E2A44") } })
+		textCard(label, Enum.NormalId.Front, lines)
+	end
+	local labelBack = box:FindFirstChild("LabelBack")
+	if labelBack and labelBack:IsA("BasePart") then
+		textCard(labelBack, Enum.NormalId.Back, lines)
 	end
 	return box
 end
@@ -265,7 +297,7 @@ local function buildTable(rack: CFrame)
 		local good = (Goods :: any)[entry.item]
 		local spot = base * CFrame.new(entry.x, top, 0.2)
 		if entry.item == "Medkit" then
-			display("Medkit", spot * CFrame.new(0, 0.95, 0))
+			display("Medkit", spot * CFrame.new(0, 0.99, 0)) -- ножки аптечки на столе
 		else
 			ammoBox(entry.item, spot)
 		end
