@@ -976,7 +976,7 @@ local function placeView(dt: number, camera: Camera)
 		end
 		if kind == "Taser" and part.Name == "Screen" then
 			local ready = time >= math.max(taserReadyLocal, number(PlayerAttr.TaserReadyAt))
-			part.Color = if ready then Color3.fromHex("3BC6C1") else Colors.Red
+			part.Color = if ready then WeaponModels.Colors.Turquoise else Colors.Red
 		end
 	end
 	-- Руки: правая держит рукоять, левая — цевьё, помпу, низ рукояти или аптечку

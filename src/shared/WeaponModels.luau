@@ -67,95 +67,237 @@ local function at(x: number, y: number, z: number): CFrame
 	return CFrame.new(x, y, z)
 end
 
+-- Короткие помощники деталей (этап 5, блок F3): блок, цилиндр (length — вдоль своей оси X; повернуть ALONG_Z /
+-- ALONG_Y), шар, светящаяся деталь.
+local function box(name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?): Spec
+	return { name = name, size = size, offset = offset, color = color, material = material }
+end
+
+local function cyl(name: string, length: number, thick: number, offset: CFrame, color: Color3, material: Enum.Material?): Spec
+	return { name = name, size = Vector3.new(length, thick, thick), offset = offset, color = color, material = material, shape = CYL }
+end
+
+local function ball(name: string, d: number, offset: CFrame, color: Color3, material: Enum.Material?): Spec
+	return { name = name, size = Vector3.new(d, d, d), offset = offset, color = color, material = material, shape = BALL }
+end
+
+local function glow(spec: Spec): Spec
+	spec.neon = true
+	return spec
+end
+
+local function v3(x: number, y: number, z: number): Vector3
+	return Vector3.new(x, y, z)
+end
+
+-- Добавить в список count одинаковых деталей: make(i) для i = 0 .. count − 1.
+local function addRow(list: { Spec }, count: number, make: (number) -> Spec)
+	for i = 0, count - 1 do
+		table.insert(list, make(i))
+	end
+end
+
 ---------------------------------------------------------------- оружие
 
--- Шокер: жёлтый корпус, чёрная рукоять, картридж с двумя электродами, экранчик заряда сзади, лазерная точка.
+-- Шокер: жёлтый корпус с чёрной планкой и молнией на боках, рукоять с выемками под пальцы, сменный картридж
+-- с двумя электродами, экран заряда сзади в рамке (Screen — его цвет меняет Weapons.client), лазер под стволом,
+-- красный предохранитель.
+local TASER_GRIP = at(0, -0.1, 0.04) * CFrame.Angles(0.22, 0, 0)
 local TASER: { Spec } = {
-	{ name = "Grip", size = Vector3.new(0.24, 0.56, 0.3), offset = at(0, -0.1, 0.04) * CFrame.Angles(0.22, 0, 0), color = C.PolymerDark, material = M.Fabric },
-	{ name = "Body", size = Vector3.new(0.28, 0.32, 0.78), offset = at(0, 0.3, -0.24), color = C.Yellow },
-	{ name = "Rail", size = Vector3.new(0.29, 0.06, 0.78), offset = at(0, 0.48, -0.24), color = C.Black },
-	{ name = "Stripe", size = Vector3.new(0.29, 0.07, 0.36), offset = at(0, 0.24, -0.06) * CFrame.Angles(-0.4, 0, 0), color = C.Black },
-	{ name = "Cartridge", size = Vector3.new(0.3, 0.3, 0.24), offset = at(0, 0.3, -0.74), color = C.Polymer },
-	{ name = "ProngL", size = Vector3.new(0.05, 0.08, 0.08), offset = at(-0.07, 0.3, -0.87) * ALONG_Z, color = C.Electric, shape = CYL, neon = true },
-	{ name = "ProngR", size = Vector3.new(0.05, 0.08, 0.08), offset = at(0.07, 0.3, -0.87) * ALONG_Z, color = C.Electric, shape = CYL, neon = true },
-	{ name = "Screen", size = Vector3.new(0.18, 0.13, 0.02), offset = at(0, 0.33, 0.155), color = C.Turquoise, neon = true },
-	{ name = "Laser", size = Vector3.new(0.07, 0.07, 0.07), offset = at(0, 0.16, -0.6), color = C.Red, shape = BALL, neon = true },
-	{ name = "Guard", size = Vector3.new(0.06, 0.04, 0.32), offset = at(0, 0.04, -0.2), color = C.Black },
-	{ name = "GuardFront", size = Vector3.new(0.06, 0.16, 0.04), offset = at(0, 0.1, -0.36), color = C.Black },
-	{ name = "Trigger", size = Vector3.new(0.04, 0.12, 0.04), offset = at(0, 0.11, -0.18), color = C.Yellow },
+	box("Grip", v3(0.24, 0.56, 0.3), TASER_GRIP, C.PolymerDark, M.Fabric),
+	box("GripCap", v3(0.26, 0.07, 0.32), TASER_GRIP * at(0, -0.27, 0), C.Yellow),
+	box("Body", v3(0.28, 0.32, 0.78), at(0, 0.3, -0.24), C.Yellow),
+	box("Rail", v3(0.29, 0.06, 0.78), at(0, 0.48, -0.24), C.Black),
+	box("Stripe", v3(0.29, 0.07, 0.36), at(0, 0.24, -0.06) * CFrame.Angles(-0.4, 0, 0), C.Black),
+	box("Safety", v3(0.3, 0.05, 0.07), at(0, 0.42, 0.06), C.Red),
+	-- Молния на обоих боках (одна деталь чуть шире корпуса видна с двух сторон)
+	glow(box("Bolt", v3(0.3, 0.14, 0.035), at(0, 0.365, -0.4) * CFrame.Angles(0.63, 0, 0), C.Electric)),
+	glow(box("Bolt", v3(0.3, 0.035, 0.08), at(0, 0.31, -0.41), C.Electric)),
+	glow(box("Bolt", v3(0.3, 0.14, 0.035), at(0, 0.25, -0.42) * CFrame.Angles(0.6, 0, 0), C.Electric)),
+	-- Картридж: тёмный, жёлтая полоса, лицевая панель с электродами
+	box("Cartridge", v3(0.3, 0.3, 0.24), at(0, 0.3, -0.74), C.Polymer),
+	box("CartridgeBand", v3(0.31, 0.07, 0.12), at(0, 0.41, -0.74), C.Yellow),
+	box("CartridgeFace", v3(0.26, 0.26, 0.02), at(0, 0.3, -0.865), C.Black),
+	glow(cyl("ProngL", 0.08, 0.05, at(-0.07, 0.3, -0.87) * ALONG_Z, C.Electric)),
+	glow(cyl("ProngR", 0.08, 0.05, at(0.07, 0.3, -0.87) * ALONG_Z, C.Electric)),
+	-- Экран заряда сзади в чёрной рамке
+	box("Bezel", v3(0.22, 0.17, 0.016), at(0, 0.33, 0.152), C.Black),
+	glow(box("Screen", v3(0.18, 0.13, 0.02), at(0, 0.33, 0.155), C.Turquoise)),
+	-- Лазер в корпусе под стволом
+	box("LaserBox", v3(0.14, 0.1, 0.16), at(0, 0.16, -0.52), C.Black),
+	glow(ball("Laser", 0.07, at(0, 0.16, -0.6), C.Red)),
+	-- Спусковая скоба и курок
+	box("Guard", v3(0.06, 0.04, 0.32), at(0, 0.04, -0.2), C.Black),
+	box("GuardFront", v3(0.06, 0.16, 0.04), at(0, 0.1, -0.36), C.Black),
+	box("Trigger", v3(0.04, 0.12, 0.04), at(0, 0.11, -0.18) * CFrame.Angles(0.2, 0, 0), C.Yellow),
 }
+-- Выемки под пальцы спереди рукояти
+addRow(TASER, 3, function(i)
+	return cyl("Finger", 0.25, 0.07, TASER_GRIP * at(0, 0.1 - i * 0.13, -0.15), C.Black, M.Rubber)
+end)
 
--- Пистолет: тёмный затвор с насечками, рукоять с накладками, магазин, мушка и целик.
+-- Пистолет: стальной затвор с насечками спереди и сзади, окно выброса с латунным стволом, целик с двумя точками
+-- и мушка с точкой (всё на затворе — имя Slide, двигается при выстреле), рамка с планкой, рукоять с насечкой,
+-- курок, курковый молоток, магазин с патроном сверху (виден, когда выпадает).
+local PISTOL_GRIP = at(0, -0.1, 0.05) * CFrame.Angles(0.22, 0, 0)
+local PISTOL_MAG = at(0, -0.18, 0.08) * CFrame.Angles(0.22, 0, 0)
 local PISTOL: { Spec } = {
-	{ name = "Grip", size = Vector3.new(0.22, 0.56, 0.3), offset = at(0, -0.1, 0.05) * CFrame.Angles(0.22, 0, 0), color = C.Polymer },
-	{ name = "GripPanel", size = Vector3.new(0.24, 0.38, 0.22), offset = at(0, -0.12, 0.06) * CFrame.Angles(0.22, 0, 0), color = C.PolymerDark, material = M.Fabric },
-	{ name = "Mag", size = Vector3.new(0.18, 0.5, 0.24), offset = at(0, -0.18, 0.08) * CFrame.Angles(0.22, 0, 0), color = C.Black },
-	{ name = "Mag", size = Vector3.new(0.23, 0.06, 0.3), offset = at(0, -0.43, 0.14) * CFrame.Angles(0.22, 0, 0), color = C.Polymer },
-	{ name = "Frame", size = Vector3.new(0.2, 0.16, 0.84), offset = at(0, 0.2, -0.27), color = C.Polymer },
-	{ name = "Guard", size = Vector3.new(0.06, 0.04, 0.3), offset = at(0, 0.05, -0.2), color = C.Polymer },
-	{ name = "GuardFront", size = Vector3.new(0.06, 0.14, 0.04), offset = at(0, 0.11, -0.35), color = C.Polymer },
-	{ name = "Trigger", size = Vector3.new(0.04, 0.11, 0.04), offset = at(0, 0.12, -0.17), color = C.Black },
-	{ name = "Slide", size = Vector3.new(0.23, 0.2, 1.0), offset = at(0, 0.37, -0.3), color = C.Steel, material = M.Metal },
-	{ name = "Slide", size = Vector3.new(0.24, 0.15, 0.03), offset = at(0, 0.37, 0.07), color = C.Black },
-	{ name = "Slide", size = Vector3.new(0.24, 0.15, 0.03), offset = at(0, 0.37, 0.13), color = C.Black },
-	{ name = "Slide", size = Vector3.new(0.24, 0.15, 0.03), offset = at(0, 0.37, 0.01), color = C.Black },
-	{ name = "Slide", size = Vector3.new(0.035, 0.06, 0.05), offset = at(0, 0.5, -0.74), color = C.Black },
-	{ name = "Slide", size = Vector3.new(0.14, 0.06, 0.05), offset = at(0, 0.5, 0.13), color = C.Black },
-	{ name = "Slide", size = Vector3.new(0.02, 0.025, 0.025), offset = at(0, 0.53, -0.765), color = C.White, neon = true },
-	{ name = "Barrel", size = Vector3.new(0.1, 0.12, 0.12), offset = at(0, 0.37, -0.82) * ALONG_Z, color = C.Black, shape = CYL },
-	{ name = "Accent", size = Vector3.new(0.235, 0.025, 0.55), offset = at(0, 0.29, -0.42), color = C.Gold, material = M.Metal },
+	box("Grip", v3(0.22, 0.56, 0.3), PISTOL_GRIP, C.Polymer),
+	box("GripPanel", v3(0.24, 0.38, 0.22), at(0, -0.12, 0.06) * CFrame.Angles(0.22, 0, 0), C.PolymerDark, M.Fabric),
+	box("Beavertail", v3(0.2, 0.06, 0.16), at(0, 0.27, 0.2), C.Polymer),
+	box("Mag", v3(0.18, 0.5, 0.24), PISTOL_MAG, C.Black),
+	box("Mag", v3(0.23, 0.06, 0.3), at(0, -0.43, 0.14) * CFrame.Angles(0.22, 0, 0), C.Polymer),
+	cyl("Mag", 0.14, 0.07, PISTOL_MAG * at(0, 0.26, -0.02) * ALONG_Z, C.Brass, M.Metal),
+	box("MagRelease", v3(0.235, 0.05, 0.06), at(0, 0.17, -0.03), C.Black),
+	box("Frame", v3(0.2, 0.16, 0.84), at(0, 0.2, -0.27), C.Polymer),
+	box("Rail", v3(0.16, 0.05, 0.28), at(0, 0.1, -0.56), C.Black),
+	box("Guard", v3(0.06, 0.04, 0.3), at(0, 0.05, -0.2), C.Polymer),
+	box("GuardFront", v3(0.06, 0.14, 0.04), at(0, 0.11, -0.35), C.Polymer),
+	box("Trigger", v3(0.04, 0.11, 0.04), at(0, 0.12, -0.17) * CFrame.Angles(0.2, 0, 0), C.Black),
+	box("SlideStop", v3(0.24, 0.04, 0.12), at(0, 0.285, -0.06), C.Black),
+	box("Hammer", v3(0.06, 0.12, 0.07), at(0, 0.38, 0.24) * CFrame.Angles(-0.4, 0, 0), C.Black),
+	box("Accent", v3(0.235, 0.025, 0.55), at(0, 0.29, -0.42), C.Gold, M.Metal),
+	cyl("Barrel", 0.1, 0.12, at(0, 0.37, -0.82) * ALONG_Z, C.Black),
+	-- Затвор и всё, что на нём
+	box("Slide", v3(0.23, 0.2, 1.0), at(0, 0.37, -0.3), C.Steel, M.Metal),
+	box("Slide", v3(0.02, 0.09, 0.24), at(0.116, 0.4, -0.3), C.Brass, M.Metal), -- окно выброса: виден ствол
+	box("Slide", v3(0.05, 0.06, 0.05), at(-0.045, 0.5, 0.13), C.Black), -- целик из двух половинок
+	box("Slide", v3(0.05, 0.06, 0.05), at(0.045, 0.5, 0.13), C.Black),
+	glow(box("Slide", v3(0.02, 0.02, 0.01), at(-0.045, 0.51, 0.157), C.White)),
+	glow(box("Slide", v3(0.02, 0.02, 0.01), at(0.045, 0.51, 0.157), C.White)),
+	box("Slide", v3(0.035, 0.06, 0.05), at(0, 0.5, -0.74), C.Black), -- мушка
+	glow(box("Slide", v3(0.02, 0.02, 0.01), at(0, 0.51, -0.712), C.White)),
 }
+-- Насечка на затворе: 4 полосы сзади, 2 спереди
+addRow(PISTOL, 4, function(i)
+	return box("Slide", v3(0.24, 0.15, 0.025), at(0, 0.37, 0.15 - i * 0.06), C.Black)
+end)
+addRow(PISTOL, 2, function(i)
+	return box("Slide", v3(0.24, 0.15, 0.025), at(0, 0.37, -0.6 - i * 0.06), C.Black)
+end)
+-- Насечка на рукояти
+addRow(PISTOL, 4, function(i)
+	return box("GripRidge", v3(0.25, 0.03, 0.2), PISTOL_GRIP * at(0, -0.2 + i * 0.08, 0.01), C.Black)
+end)
 
--- Помповый дробовик: деревянные приклад и цевьё (помпа), длинный ствол, трубка магазина, патроны на боку.
+-- Помповый дробовик: деревянные приклад с насечкой и белой прокладкой, стальная ствольная коробка с золотой
+-- гравировкой, ствол с прицельной планкой и латунной мушкой, трубка магазина с хомутом, деревянная помпа
+-- с бороздками и тягами (всё Pump — двигается), патронташ на левом боку на 3 красных патрона.
+local SHOTGUN_GRIP = at(0, -0.06, 0.08) * CFrame.Angles(0.35, 0, 0)
+local SHOTGUN_STOCK = at(0, 0.1, 0.82) * CFrame.Angles(-0.08, 0, 0)
 local SHOTGUN: { Spec } = {
-	{ name = "Grip", size = Vector3.new(0.22, 0.48, 0.34), offset = at(0, -0.06, 0.08) * CFrame.Angles(0.35, 0, 0), color = C.Wood, material = M.Wood },
-	{ name = "Stock", size = Vector3.new(0.25, 0.4, 1.1), offset = at(0, 0.1, 0.82) * CFrame.Angles(-0.08, 0, 0), color = C.Wood, material = M.Wood },
-	{ name = "Butt", size = Vector3.new(0.27, 0.52, 0.09), offset = at(0, 0.06, 1.39) * CFrame.Angles(-0.08, 0, 0), color = C.Black, material = M.Rubber },
-	{ name = "Receiver", size = Vector3.new(0.3, 0.38, 0.9), offset = at(0, 0.32, -0.34), color = C.Steel, material = M.Metal },
-	{ name = "Port", size = Vector3.new(0.02, 0.14, 0.34), offset = at(0.155, 0.36, -0.3), color = C.Black },
-	{ name = "Barrel", size = Vector3.new(2.2, 0.16, 0.16), offset = at(0, 0.43, -1.9) * ALONG_Z, color = C.SteelLight, material = M.Metal, shape = CYL },
-	{ name = "Tube", size = Vector3.new(1.7, 0.14, 0.14), offset = at(0, 0.24, -1.62) * ALONG_Z, color = C.Steel, material = M.Metal, shape = CYL },
-	{ name = "Pump", size = Vector3.new(0.3, 0.26, 0.8), offset = at(0, 0.24, -1.42), color = C.Wood, material = M.Wood },
-	{ name = "Pump", size = Vector3.new(0.31, 0.27, 0.04), offset = at(0, 0.24, -1.2), color = C.WoodDark, material = M.Wood },
-	{ name = "Pump", size = Vector3.new(0.31, 0.27, 0.04), offset = at(0, 0.24, -1.42), color = C.WoodDark, material = M.Wood },
-	{ name = "Pump", size = Vector3.new(0.31, 0.27, 0.04), offset = at(0, 0.24, -1.64), color = C.WoodDark, material = M.Wood },
-	{ name = "Cap", size = Vector3.new(0.08, 0.17, 0.17), offset = at(0, 0.24, -2.49) * ALONG_Z, color = C.Black, shape = CYL },
-	{ name = "Bead", size = Vector3.new(0.07, 0.07, 0.07), offset = at(0, 0.53, -2.95), color = C.Brass, material = M.Metal, shape = BALL },
-	{ name = "Guard", size = Vector3.new(0.06, 0.04, 0.32), offset = at(0, 0.07, -0.18), color = C.Steel },
-	{ name = "Trigger", size = Vector3.new(0.04, 0.12, 0.04), offset = at(0, 0.14, -0.16), color = C.Black },
-	{ name = "Shell", size = Vector3.new(0.3, 0.12, 0.12), offset = at(0.17, 0.34, -0.12) * ALONG_Y, color = C.Red, shape = CYL },
-	{ name = "Shell", size = Vector3.new(0.3, 0.12, 0.12), offset = at(0.17, 0.34, -0.28) * ALONG_Y, color = C.Red, shape = CYL },
-	{ name = "Shell", size = Vector3.new(0.3, 0.12, 0.12), offset = at(0.17, 0.34, -0.44) * ALONG_Y, color = C.Red, shape = CYL },
-	{ name = "ShellCaps", size = Vector3.new(0.06, 0.13, 0.42), offset = at(0.17, 0.2, -0.28), color = C.Brass, material = M.Metal },
+	box("Grip", v3(0.22, 0.48, 0.34), SHOTGUN_GRIP, C.Wood, M.Wood),
+	box("Stock", v3(0.25, 0.4, 1.1), SHOTGUN_STOCK, C.Wood, M.Wood),
+	box("StockInlay", v3(0.26, 0.06, 0.6), SHOTGUN_STOCK * at(0, 0.06, -0.05), C.WoodDark, M.Wood),
+	box("Spacer", v3(0.28, 0.53, 0.02), at(0, 0.06, 1.39) * CFrame.Angles(-0.08, 0, 0) * at(0, 0, -0.035), C.White), -- белая кайма у затыльника
+	box("Butt", v3(0.27, 0.52, 0.09), at(0, 0.06, 1.39) * CFrame.Angles(-0.08, 0, 0), C.Black, M.Rubber),
+	box("Swivel", v3(0.04, 0.1, 0.1), SHOTGUN_STOCK * at(0, -0.24, 0.3), C.SteelLight, M.Metal),
+	box("Receiver", v3(0.3, 0.38, 0.9), at(0, 0.32, -0.34), C.Steel, M.Metal),
+	box("Engraving", v3(0.31, 0.03, 0.6), at(0, 0.24, -0.34), C.Gold, M.Metal),
+	box("Engraving", v3(0.31, 0.03, 0.3), at(0, 0.2, -0.49), C.Gold, M.Metal),
+	box("Port", v3(0.02, 0.14, 0.34), at(0.155, 0.36, -0.3), C.Black),
+	box("LoadPort", v3(0.2, 0.02, 0.4), at(0, 0.125, -0.45), C.Black),
+	cyl("Safety", 0.06, 0.08, at(0, 0.52, 0.05) * ALONG_Y, C.Red),
+	cyl("Barrel", 2.2, 0.16, at(0, 0.43, -1.9) * ALONG_Z, C.SteelLight, M.Metal),
+	box("Rib", v3(0.06, 0.04, 2.1), at(0, 0.53, -1.95), C.Black),
+	cyl("MuzzleRing", 0.06, 0.18, at(0, 0.43, -2.97) * ALONG_Z, C.Steel, M.Metal),
+	ball("Bead", 0.07, at(0, 0.57, -2.95), C.Brass, M.Metal),
+	cyl("Tube", 1.7, 0.14, at(0, 0.24, -1.62) * ALONG_Z, C.Steel, M.Metal),
+	box("Clamp", v3(0.1, 0.32, 0.1), at(0, 0.335, -2.38), C.Steel, M.Metal),
+	cyl("Cap", 0.08, 0.17, at(0, 0.24, -2.49) * ALONG_Z, C.Black),
+	-- Помпа с бороздками и стальными тягами к ствольной коробке
+	box("Pump", v3(0.3, 0.26, 0.8), at(0, 0.24, -1.42), C.Wood, M.Wood),
+	box("Pump", v3(0.31, 0.27, 0.04), at(0, 0.24, -1.2), C.WoodDark, M.Wood),
+	box("Pump", v3(0.31, 0.27, 0.04), at(0, 0.24, -1.42), C.WoodDark, M.Wood),
+	box("Pump", v3(0.31, 0.27, 0.04), at(0, 0.24, -1.64), C.WoodDark, M.Wood),
+	box("Pump", v3(0.03, 0.03, 0.4), at(-0.12, 0.3, -0.9), C.SteelLight, M.Metal),
+	box("Pump", v3(0.03, 0.03, 0.4), at(0.12, 0.3, -0.9), C.SteelLight, M.Metal),
+	box("Guard", v3(0.06, 0.04, 0.32), at(0, 0.07, -0.18), C.Steel),
+	box("Trigger", v3(0.04, 0.12, 0.04), at(0, 0.14, -0.16) * CFrame.Angles(0.2, 0, 0), C.Black),
+	-- Патронташ на левом боку (его видно от первого лица)
+	box("Saddle", v3(0.03, 0.34, 0.5), at(-0.165, 0.34, -0.28), C.Black),
 }
+addRow(SHOTGUN, 3, function(i)
+	return cyl("Shell", 0.3, 0.12, at(-0.22, 0.36, -0.12 - i * 0.16) * ALONG_Y, C.Red)
+end)
+addRow(SHOTGUN, 3, function(i)
+	return cyl("ShellBase", 0.08, 0.125, at(-0.22, 0.22, -0.12 - i * 0.16) * ALONG_Y, C.Brass, M.Metal)
+end)
+-- Насечка на шейке приклада
+addRow(SHOTGUN, 3, function(i)
+	return box("GripRidge", v3(0.23, 0.03, 0.3), SHOTGUN_GRIP * at(0, -0.12 + i * 0.09, 0), C.WoodDark, M.Wood)
+end)
 
--- Автомат: ствольная коробка, цевьё с планками, коллиматор, изогнутый магазин, складной приклад.
+-- Автомат: верхняя стальная и нижняя тёмная ствольные коробки, окно выброса, переводчик огня, цевьё с прорезями
+-- и планками, верхняя планка с зубцами, мушка в «ушах», ствол с дульным тормозом, коллиматор-трубка
+-- с красной точкой сзади, изогнутый магазин с рёбрами и патроном сверху (Mag), рукоять затвора с «крыльями»
+-- (Slide — двигается при перезарядке), приклад на буферной трубке с щекой и антабкой.
+local RIFLE_GRIP = at(0, -0.06, 0.05) * CFrame.Angles(0.3, 0, 0)
+local RIFLE_MAG = at(0, -0.02, -0.62) * CFrame.Angles(-0.12, 0, 0)
 local RIFLE: { Spec } = {
-	{ name = "Grip", size = Vector3.new(0.22, 0.5, 0.28), offset = at(0, -0.06, 0.05) * CFrame.Angles(0.3, 0, 0), color = C.Polymer },
-	{ name = "Receiver", size = Vector3.new(0.3, 0.36, 1.2), offset = at(0, 0.32, -0.36), color = C.Steel, material = M.Metal },
-	{ name = "Port", size = Vector3.new(0.02, 0.12, 0.26), offset = at(0.155, 0.36, -0.3), color = C.Black },
-	{ name = "Handguard", size = Vector3.new(0.34, 0.32, 1.0), offset = at(0, 0.33, -1.42), color = C.Polymer },
-	{ name = "RailL", size = Vector3.new(0.02, 0.05, 0.9), offset = at(-0.175, 0.37, -1.42), color = C.Black },
-	{ name = "RailR", size = Vector3.new(0.02, 0.05, 0.9), offset = at(0.175, 0.37, -1.42), color = C.Black },
-	{ name = "RailTop", size = Vector3.new(0.16, 0.04, 1.9), offset = at(0, 0.51, -0.95), color = C.Black },
-	{ name = "Barrel", size = Vector3.new(0.7, 0.14, 0.14), offset = at(0, 0.36, -2.25) * ALONG_Z, color = C.Black, material = M.Metal, shape = CYL },
-	{ name = "Brake", size = Vector3.new(0.22, 0.2, 0.2), offset = at(0, 0.36, -2.66) * ALONG_Z, color = C.Steel, material = M.Metal, shape = CYL },
-	{ name = "SightPost", size = Vector3.new(0.06, 0.28, 0.08), offset = at(0, 0.66, -1.8), color = C.Black },
-	{ name = "SightRing", size = Vector3.new(0.22, 0.06, 0.08), offset = at(0, 0.78, -1.8), color = C.Black },
-	{ name = "Optic", size = Vector3.new(0.24, 0.24, 0.5), offset = at(0, 0.68, -0.42), color = C.PolymerDark },
-	{ name = "OpticMount", size = Vector3.new(0.18, 0.1, 0.3), offset = at(0, 0.53, -0.42), color = C.Black },
-	{ name = "Lens", size = Vector3.new(0.18, 0.18, 0.02), offset = at(0, 0.68, -0.68), color = hex("FF7A7A"), material = M.Glass, transparency = 0.35 },
-	{ name = "Dot", size = Vector3.new(0.03, 0.03, 0.01), offset = at(0, 0.68, -0.69), color = C.Red, neon = true },
-	{ name = "Mag", size = Vector3.new(0.2, 0.46, 0.3), offset = at(0, -0.02, -0.62) * CFrame.Angles(-0.12, 0, 0), color = C.Black },
-	{ name = "Mag", size = Vector3.new(0.2, 0.36, 0.3), offset = at(0, -0.36, -0.7) * CFrame.Angles(-0.3, 0, 0), color = C.Black },
-	{ name = "Mag", size = Vector3.new(0.22, 0.05, 0.32), offset = at(0, -0.55, -0.76) * CFrame.Angles(-0.3, 0, 0), color = C.Polymer },
-	{ name = "Stock", size = Vector3.new(0.22, 0.32, 0.86), offset = at(0, 0.24, 0.64), color = C.Polymer },
-	{ name = "StockPad", size = Vector3.new(0.25, 0.52, 0.1), offset = at(0, 0.16, 1.1), color = C.Black, material = M.Rubber },
-	{ name = "Slide", size = Vector3.new(0.16, 0.06, 0.14), offset = at(0, 0.51, 0.16), color = C.Black },
-	{ name = "Guard", size = Vector3.new(0.06, 0.04, 0.32), offset = at(0, 0.07, -0.18), color = C.Polymer },
-	{ name = "Trigger", size = Vector3.new(0.04, 0.12, 0.04), offset = at(0, 0.14, -0.16), color = C.Black },
-	{ name = "Accent", size = Vector3.new(0.31, 0.04, 0.5), offset = at(0, 0.2, -1.42), color = C.Gold, material = M.Metal },
+	box("Grip", v3(0.22, 0.5, 0.28), RIFLE_GRIP, C.Polymer),
+	box("Upper", v3(0.28, 0.18, 1.2), at(0, 0.41, -0.36), C.Steel, M.Metal),
+	box("Lower", v3(0.26, 0.2, 0.9), at(0, 0.22, -0.42), C.PolymerDark),
+	box("Magwell", v3(0.3, 0.12, 0.36), at(0, 0.12, -0.62), C.Polymer),
+	box("Port", v3(0.02, 0.1, 0.28), at(0.145, 0.4, -0.3), C.Black),
+	box("Deflector", v3(0.06, 0.1, 0.08), at(0.16, 0.41, -0.1), C.Steel, M.Metal),
+	box("BoltRelease", v3(0.04, 0.1, 0.14), at(-0.14, 0.25, -0.75), C.Black),
+	glow(box("Selector", v3(0.02, 0.06, 0.06), at(-0.14, 0.25, -0.05), C.Red)),
+	box("Handguard", v3(0.34, 0.32, 1.0), at(0, 0.33, -1.42), C.Polymer),
+	box("RailL", v3(0.02, 0.05, 0.9), at(-0.175, 0.37, -1.42), C.Black),
+	box("RailR", v3(0.02, 0.05, 0.9), at(0.175, 0.37, -1.42), C.Black),
+	box("RailBottom", v3(0.14, 0.04, 0.7), at(0, 0.155, -1.45), C.Black),
+	box("RailTop", v3(0.16, 0.04, 1.9), at(0, 0.51, -0.95), C.Black),
+	box("Accent", v3(0.345, 0.04, 0.5), at(0, 0.2, -1.42), C.Gold, M.Metal),
+	cyl("Barrel", 0.7, 0.14, at(0, 0.36, -2.25) * ALONG_Z, C.Black, M.Metal),
+	cyl("Brake", 0.22, 0.2, at(0, 0.36, -2.66) * ALONG_Z, C.Steel, M.Metal),
+	cyl("BrakeRing", 0.03, 0.21, at(0, 0.36, -2.61) * ALONG_Z, C.Black),
+	cyl("BrakeRing", 0.03, 0.21, at(0, 0.36, -2.71) * ALONG_Z, C.Black),
+	-- Мушка: основание, два «уха» и столбик со светящейся точкой
+	box("SightBase", v3(0.16, 0.12, 0.12), at(0, 0.58, -1.8), C.Black),
+	box("SightEar", v3(0.04, 0.18, 0.08), at(-0.08, 0.7, -1.8), C.Black),
+	box("SightEar", v3(0.04, 0.18, 0.08), at(0.08, 0.7, -1.8), C.Black),
+	box("SightPost", v3(0.03, 0.14, 0.04), at(0, 0.67, -1.8), C.Black),
+	glow(box("SightTip", v3(0.03, 0.03, 0.01), at(0, 0.73, -1.778), C.Turquoise)),
+	-- Коллиматор: трубка с козырьком, барабанчик сбоку, сзади стекло с красной точкой
+	box("OpticMount", v3(0.18, 0.1, 0.3), at(0, 0.53, -0.42), C.Black),
+	cyl("Optic", 0.5, 0.26, at(0, 0.7, -0.42) * ALONG_Z, C.PolymerDark),
+	cyl("OpticHood", 0.08, 0.3, at(0, 0.7, -0.65) * ALONG_Z, C.Black),
+	cyl("OpticRing", 0.06, 0.29, at(0, 0.7, -0.2) * ALONG_Z, C.Black),
+	cyl("OpticKnob", 0.06, 0.1, at(0.15, 0.7, -0.42), C.Black),
+	{ name = "Lens", size = v3(0.02, 0.2, 0.2), offset = at(0, 0.7, -0.692) * ALONG_Z, color = hex("FF7A7A"), material = M.Glass, transparency = 0.35, shape = CYL },
+	{ name = "LensBack", size = v3(0.02, 0.22, 0.22), offset = at(0, 0.7, -0.162) * ALONG_Z, color = hex("8FD8FF"), material = M.Glass, transparency = 0.25, shape = CYL },
+	glow(box("Dot", v3(0.03, 0.03, 0.01), at(0, 0.7, -0.148), C.Red)),
+	-- Магазин: изогнутый, рёбра, патрон сверху (прячется в шахте)
+	box("Mag", v3(0.2, 0.46, 0.3), RIFLE_MAG, C.Black),
+	box("Mag", v3(0.2, 0.36, 0.3), at(0, -0.36, -0.7) * CFrame.Angles(-0.3, 0, 0), C.Black),
+	box("Mag", v3(0.22, 0.05, 0.32), at(0, -0.55, -0.76) * CFrame.Angles(-0.3, 0, 0), C.Polymer),
+	box("Mag", v3(0.21, 0.035, 0.31), RIFLE_MAG * at(0, -0.06, 0), C.Polymer),
+	box("Mag", v3(0.21, 0.035, 0.31), RIFLE_MAG * at(0, -0.16, 0), C.Polymer),
+	cyl("Mag", 0.22, 0.09, RIFLE_MAG * at(0, 0.25, 0) * ALONG_Z, C.Brass, M.Metal),
+	-- Рукоять затвора с «крыльями»
+	box("Slide", v3(0.08, 0.05, 0.2), at(0, 0.53, 0.14), C.Black),
+	box("Slide", v3(0.28, 0.06, 0.07), at(0, 0.53, 0.24), C.Black),
+	-- Приклад на буферной трубке
+	cyl("Buffer", 0.45, 0.16, at(0, 0.38, 0.45) * ALONG_Z, C.Steel, M.Metal),
+	box("Stock", v3(0.22, 0.3, 0.5), at(0, 0.28, 0.83), C.Polymer),
+	box("Cheek", v3(0.18, 0.08, 0.4), at(0, 0.46, 0.85), C.PolymerDark),
+	box("StockPad", v3(0.25, 0.4, 0.1), at(0, 0.27, 1.13), C.Black, M.Rubber),
+	box("SlingLoop", v3(0.04, 0.1, 0.1), at(0, 0.09, 0.95), C.SteelLight, M.Metal),
+	box("Guard", v3(0.06, 0.04, 0.32), at(0, 0.07, -0.18), C.Polymer),
+	box("Trigger", v3(0.04, 0.12, 0.04), at(0, 0.14, -0.16) * CFrame.Angles(0.2, 0, 0), C.Black),
 }
+-- Прорези в цевье (насквозь — видны с обеих сторон) и зубцы верхней планки
+addRow(RIFLE, 3, function(i)
+	return box("Vent", v3(0.35, 0.06, 0.16), at(0, 0.27, -1.1 - i * 0.32), C.Black)
+end)
+addRow(RIFLE, 6, function(i)
+	return box("RailTooth", v3(0.17, 0.03, 0.05), at(0, 0.545, -0.75 - i * 0.16), C.Black)
+end)
+-- Насечка на рукояти
+addRow(RIFLE, 4, function(i)
+	return box("GripRidge", v3(0.23, 0.03, 0.24), RIFLE_GRIP * at(0, -0.18 + i * 0.08, 0.01), C.Black)
+end)
 
 -- Аптечка: белый чемоданчик с красными крестами, ручка сверху (точка привязки — ручка).
 local MEDKIT: { Spec } = {
