@@ -536,6 +536,7 @@ local Config = {
 			Particles = 70,
 			Colors = { Color3.fromHex("FFD34D"), Color3.fromHex("3BC6C1"), Color3.fromHex("E0575B"), Color3.fromHex("6FE3FF"), Color3.fromHex("3FB56B") },
 		},
+		SaveDelay = 6, -- прогресс пишется не сразу, а через столько секунд одним UpdateAsync (Roblox: ключ — не чаще раза в 6 сек)
 		DayCheckSeconds = 60, -- раз в столько секунд сервер проверяет, не начался ли новый день (новые задания)
 		-- Подарок новичку: новый профиль сразу получает алмазы и бесплатный забег любым некупленным классом
 		NewbieDiamonds = 40,

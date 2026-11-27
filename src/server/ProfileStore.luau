@@ -49,6 +49,7 @@ type Profile = {
 	status: string, -- GameState.ProfileStatus
 	pending: number, -- алмазы, которые ещё не записаны в DataStore
 	pendingProgress: Progress.Delta, -- прогресс, который ещё не записан
+	saveScheduled: boolean, -- запись прогресса уже запланирована (Config.Progress.SaveDelay)
 	busy: boolean, -- идёт запрос к DataStore (запросы одного игрока — по очереди)
 }
 
@@ -271,6 +272,7 @@ local function newProfile(player: Player): Profile
 		status = if offline then Status.Offline else Status.Loading,
 		pending = 0,
 		pendingProgress = Progress.newDelta(),
+		saveScheduled = false,
 		busy = false,
 	}
 end
@@ -582,7 +584,17 @@ function ProfileStore.addProgress(player: Player, delta: Progress.Delta): Progre
 		profile.diamonds += shown.diamonds
 		events = shown
 	end
-	task.spawn(sync, player, profile)
+	-- Аресты идут подряд, а один ключ DataStore можно писать не чаще раза в 6 сек: копим и пишем одним запросом.
+	-- Выход игрока и закрытие сервера дописывают сразу (onPlayerRemoving, BindToClose).
+	if not profile.saveScheduled then
+		profile.saveScheduled = true
+		task.delay(Config.Progress.SaveDelay, function()
+			profile.saveScheduled = false
+			if profiles[player] == profile then
+				sync(player, profile)
+			end
+		end)
+	end
 	publish(player, profile)
 	return events
 end
