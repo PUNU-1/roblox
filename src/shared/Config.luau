@@ -347,6 +347,16 @@ local Config = {
 		BackKey = Enum.KeyCode.C, -- вернуться в свой вид (ползти / выбрать класс)
 	},
 
+	Stats = { -- таблица статистики команды (этап 6, блок I2): держать L или кнопка STATS
+		Key = Enum.KeyCode.L, -- клавиша удержания (Tab занят телефоном оператора)
+		RefreshSeconds = 0.5, -- обновление таблицы, пока открыта
+		WindowWidth = 820,
+		WindowHeight = 390,
+		RowHeight = 54,
+		RowGap = 6,
+		ButtonGap = 6, -- отступ слева от кнопки SHOP
+	},
+
 	Lobby = { -- круг START SHIFT в комнате охраны (блок B1): встал в круг — ты в команде
 		-- В команде не больше Config.Players.Max (5) игроков
 		CircleRadius = 6, -- стадов от центра круга до края (считаем по HumanoidRootPart)

@@ -831,6 +831,29 @@ Icons.Eye = {
 	palette = { K = OUTLINE, w = WHITE, b = "3BC6C1", h = "BDF4FF" },
 }
 
+-- Этап 6, блок I2: таблица статистики команды
+Icons.Stats = {
+	rows = {
+		"................",
+		".KKKKKKKKKKKKKK.",
+		".KnnnnnnnnnnnnK.",
+		".KnwwwwwwwwwwnK.",
+		".KnnnnnnnnnnnnK.",
+		".KnnnnKKKKnnnnK.",
+		".KnnnnKYYKnnnnK.",
+		".KnKKKKYYKnnnnK.",
+		".KnKggKYYKKKKnK.",
+		".KnKggKYYKbbKnK.",
+		".KnKggKYYKbbKnK.",
+		".KnKggKYYKbbKnK.",
+		".KnKKKKKKKKKKnK.",
+		".KnnnnnnnnnnnnK.",
+		".KKKKKKKKKKKKKK.",
+		"................",
+	},
+	palette = { K = OUTLINE, n = "2E4170", w = "E8DCC4", g = "3FB56B", Y = GOLD, b = "3BC6C1" },
+}
+
 PixelIcon.Icons = Icons
 
 local function resolve(icon: Icon | string): Icon
