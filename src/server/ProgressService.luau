@@ -319,6 +319,22 @@ function ProgressService.cameraRepaired(player: Player)
 	send(player, delta)
 end
 
+-- Забег кончился (GAME OVER): личный рекорд — больше всего ночей за забег (этап 6, блок H2).
+-- Возвращает userId (строкой) -> рекорд ДО этого забега (для «1 night to beat your record!»).
+function ProgressService.runEnded(players: { Player }, nights: number): { [string]: number }
+	local before: { [string]: number } = {}
+	for _, player in players do
+		local progress = ProfileStore.progress(player)
+		before[tostring(player.UserId)] = if progress then progress.stats.bestRun or 0 else 0
+		if nights > 0 then
+			local delta = Progress.newDelta()
+			delta.best.bestRun = nights
+			send(player, delta)
+		end
+	end
+	return before
+end
+
 -- Начался забег (достижение Night Owl — 10 забегов).
 function ProgressService.runStarted(players: { Player })
 	for _, player in players do

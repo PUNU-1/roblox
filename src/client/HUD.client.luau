@@ -207,6 +207,17 @@ local resultsExtras = Theme.new("Frame", {
 	ZIndex = 5,
 	Parent = resultsPanel,
 })
+-- GAME OVER (этап 6, блок H2): крупно ближайшая цель — «1 NIGHT TO BEAT YOUR RECORD!», «30 💎 TO TECHNICIAN»
+local nearMiss = Theme.label({
+	Name = "NearMiss",
+	Size = UDim2.new(1, 0, 0, 40),
+	TextColor3 = Colors.Gold,
+	MaxTextSize = 34,
+	Visible = false,
+	ZIndex = 6,
+	Parent = resultsExtras,
+})
+Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 3, Parent = nearMiss })
 local resultsGoal = GoalBar.new(resultsExtras, { width = 380, zIndex = 6 })
 resultsGoal.frame.AnchorPoint = Vector2.new(0.5, 0)
 resultsGoal.frame.Position = UDim2.fromScale(0.5, 0)
@@ -319,20 +330,22 @@ local choiceBar = Theme.new("Frame", {
 	Name = "GameOverChoice",
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.5, 0, 0.85, 0),
-	Size = UDim2.new(0.42, 0, 0, 56),
+	Size = UDim2.new(0.5, 0, 0, 72),
 	BackgroundTransparency = 1,
 	Visible = false,
 	ZIndex = 6,
 	Parent = resultsFrame,
-}, { Theme.new("UISizeConstraint", { MinSize = Vector2.new(320, 0) }) })
+}, { Theme.new("UISizeConstraint", { MinSize = Vector2.new(380, 0) }) })
+-- Этап 6, блок H2: PLAY AGAIN крупнее, ярче и «дышит», LOBBY — маленькая и спокойная
+local AGAIN_COLOR = Color3.fromHex("56D97F")
 -- Пиксельные кнопки с текстом, как в хабе (этап 5, блок D)
 local chooseEnd: (choice: string) -> ()
 local againButton = PixelButton.text({
 	name = "PlayAgain",
 	text = if touchOnly then "PLAY AGAIN" else "PLAY AGAIN [P]",
-	color = Colors.Green,
-	textSize = 16,
-	size = UDim2.new(0.49, 0, 1, 0),
+	color = AGAIN_COLOR,
+	textSize = 20,
+	size = UDim2.new(0.64, 0, 1, 0),
 	zIndex = 6,
 	parent = choiceBar,
 	onActivated = function()
@@ -340,13 +353,15 @@ local againButton = PixelButton.text({
 	end,
 })
 againButton.root.Modal = true -- курсор свободен, пока кнопки на экране
+local againScale = Theme.new("UIScale", { Parent = againButton.root })
 local lobbyButton = PixelButton.text({
 	name = "Lobby",
 	text = if touchOnly then "LOBBY" else "LOBBY [L]",
 	color = Colors.NavyLight,
-	textSize = 16,
-	position = UDim2.new(0.51, 0, 0, 0),
-	size = UDim2.new(0.49, 0, 1, 0),
+	textSize = 12,
+	anchor = Vector2.new(0, 0.5),
+	position = UDim2.new(0.67, 0, 0.5, 0),
+	size = UDim2.new(0.33, 0, 0, 44),
 	zIndex = 6,
 	parent = choiceBar,
 	onActivated = function()
@@ -391,7 +406,7 @@ local function refreshChoice()
 	local chosen = myChoice()
 	local locked = chosen ~= ""
 	-- Выбранная — золотая, другая после выбора бледнеет
-	againButton.setColor(if chosen == "PlayAgain" then Colors.Gold else Colors.Green)
+	againButton.setColor(if chosen == "PlayAgain" then Colors.Gold else AGAIN_COLOR)
 	lobbyButton.setColor(if chosen == "Lobby" then Colors.Gold else Colors.NavyLight)
 	againButton.setEnabled(not locked or chosen == "PlayAgain")
 	lobbyButton.setEnabled(not locked or chosen == "Lobby")
@@ -402,6 +417,23 @@ local function refreshChoice()
 	else
 		choiceHint.Text = "Same team, new run — or back to the lobby"
 	end
+end
+
+-- «Чуть-чуть не хватило» (этап 6, блок H2): до личного рекорда пара ночей — об этом; побил рекорд — праздник;
+-- иначе — ближайшая награда (класс, задание, уровень). Только честные цели, без давления.
+local function nearMissText(survivedNights: number, best: number): string
+	if best > 0 and survivedNights > best then
+		return ("NEW PERSONAL RECORD: %d NIGHTS!"):format(survivedNights)
+	end
+	local gap = best + 1 - survivedNights
+	if best > 0 and gap >= 1 and gap <= Config.GameOver.NearRecordNights then
+		return if gap == 1 then "1 NIGHT TO BEAT YOUR RECORD!" else ("%d NIGHTS TO BEAT YOUR RECORD!"):format(gap)
+	end
+	local goal = GoalBar.current()
+	if goal then
+		return goal.near
+	end
+	return if best > 0 then ("YOUR RECORD: %d NIGHTS - BEAT IT!"):format(best) else ""
 end
 
 local function showResults(results: { [string]: any })
@@ -490,6 +522,16 @@ local function showResults(results: { [string]: any })
 		})
 	end
 	resultsGoal.refresh()
+	-- Низ панели: на GAME OVER сверху крупная цель, под ней полоска; после ночи — полоска и сундук
+	if resultsGameOver then
+		local bests = if typeof(results.personalBest) == "table" then results.personalBest else {}
+		nearMiss.Text = nearMissText(tonumber(results.nightsSurvived) or 0, tonumber(bests[myKey]) or 0)
+		nearMiss.Visible = nearMiss.Text ~= ""
+		resultsGoal.frame.Position = UDim2.new(0.5, 0, 0, 46)
+	else
+		nearMiss.Visible = false
+		resultsGoal.frame.Position = UDim2.fromScale(0.5, 0)
+	end
 	local chests = if typeof(results.chests) == "table" then results.chests else {}
 	resetChest(not resultsGameOver and chests[myKey] == true)
 	resultsFrame.Visible = true
@@ -582,6 +624,8 @@ RunService.Heartbeat:Connect(function(dt)
 		if choiceOpen then
 			refreshChoice()
 		end
+		-- PLAY AGAIN «дышит», пока не выбрал
+		againScale.Scale = if choiceOpen and myChoice() == "" then 1 + 0.04 * math.sin(os.clock() * 4) else 1
 		resultsFooter.Text = if resultsGameOver
 			then "Back to the lobby in " .. left
 			else ("Day %d starts in %s"):format((tonumber(GameState.get(Attr.NightNumber)) or 0) + 1, left)

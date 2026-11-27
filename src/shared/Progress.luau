@@ -6,7 +6,7 @@
 -- Данные в профиле (PlayerProfile_v1), все поля необязательные — старые профили без них читаются:
 --   xp = 1234, levelPaid = 7 (до какого уровня уже выданы алмазы),
 --   questDay = 20419, quests = { { k = "Arrest", g = 6, r = 25, p = 2, d = false, c = "Operator"? }, ... },
---   stats = { nights = 12, arrests = 40, revives = 3, runs = 5, raids = 1, wingsRun = 2 },
+--   stats = { nights = 12, arrests = 40, revives = 3, runs = 5, raids = 1, wingsRun = 2, bestRun = 7 },
 --   kinds = { Pickpocket = true, ... }, badges = { FirstArrest = true, ... }, freeTries = 1,
 --   exhibits = { Diamond = true, MonaLisa = true, ... }, colPaid = { thieves = true, exhibits = true } (этап 6, блок H2:
 --   коллекция — kinds теперь и с FakeGuard; colPaid — за какую полную коллекцию алмазы уже выданы)
@@ -62,7 +62,8 @@ export type Events = {
 	diamonds: number, -- сколько алмазов за всё это
 }
 
-local STAT_NAMES = { "nights", "arrests", "revives", "runs", "raids", "wingsRun" }
+-- bestRun — личный рекорд: больше всего ночей за один забег (этап 6, блок H2: «чуть-чуть не хватило», рекорды друзей)
+local STAT_NAMES = { "nights", "arrests", "revives", "runs", "raids", "wingsRun", "bestRun" }
 
 ---------------------------------------------------------------- уровни и звания
 

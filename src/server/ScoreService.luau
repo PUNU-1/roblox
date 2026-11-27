@@ -42,6 +42,7 @@ export type Results = {
 	diamondsRun: { [string]: number }, -- userId (строкой) -> алмазы за весь забег
 	diamondsSaved: boolean, -- false — Studio без доступа к API: алмазы не сохраняются
 	chests: { [string]: boolean }?, -- userId (строкой) -> true: у игрока сундук после ночи (этап 6, блок H2, ChestService)
+	personalBest: { [string]: number }?, -- GAME OVER: userId (строкой) -> личный рекорд до этого забега (этап 6, блок H2)
 }
 
 -- Новый забег: всё с нуля, деньги тоже.

@@ -334,6 +334,8 @@ local function runResults(survived: boolean, night: number): { Player }
 		end
 		RecordStore.submitAsync(ids, nightsSurvived)
 	end
+	-- Личный рекорд каждого (этап 6, блок H2): на GAME OVER — «1 night to beat your record!»
+	results.personalBest = if gameOver then ProgressService.runEnded(RoleService.participants(), nightsSurvived) else nil
 	results.night = night
 	results.gameOver = not survived
 	results.nightsSurvived = nightsSurvived
