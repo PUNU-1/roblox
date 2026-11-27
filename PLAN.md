@@ -199,7 +199,7 @@
 - Проверить, что `NpcAnimator` и `Guards.client` продолжают двигать новые модели (кости и Motor6D не сломаны).
 - Документы: `GEMINI.md` (имена и описания), `CLAUDE.md` «Решил Claude» пункт 38.
 
-## Блок F2. Модели экспонатов и мебели
+## Блок F2. Модели экспонатов и мебели — сделано (код, 27.11; «Решил Claude» пункт 39)
 
 **Файлы:** `src/server/ModelLibrary.luau` (заглушки), `src/server/MapDecor.luau`, `src/server/ExhibitService.luau`, `src/server/MapBuilder.luau`, `GEMINI.md`.
 
