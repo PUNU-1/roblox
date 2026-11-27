@@ -47,8 +47,31 @@ local Attr = GameState.Attr
 
 ProfileStore.init() -- алмазы 💎 и купленные классы (этап 4, блок 1): грузятся сразу, как игрок вошёл
 ModelLibrary.setupCollisionGroups()
--- Тени: без них свет ламп и фонариков проходит сквозь стены, и ночью не темно
+-- Тени и реалистичная графика в музее: мягкие тени, отражения, bloom, цветокоррекция и лёгкая дымка
 Lighting.GlobalShadows = true
+Lighting.ShadowSoftness = 0.35
+
+local function getOrCreate<T>(className: string, name: string): T
+	local existing = Lighting:FindFirstChild(name)
+	if existing and existing:IsA(className) then
+		return existing :: any
+	end
+	local created = Instance.new(className)
+	created.Name = name
+	created.Parent = Lighting
+	return created :: any
+end
+
+local museumBloom: BloomEffect = getOrCreate("BloomEffect", "MuseumBloom")
+museumBloom.Size = 18
+
+local museumColor: ColorCorrectionEffect = getOrCreate("ColorCorrectionEffect", "MuseumColor")
+museumColor.Brightness = 0
+
+local museumAtmosphere: Atmosphere = getOrCreate("Atmosphere", "MuseumAtmosphere")
+museumAtmosphere.Offset = 0.25
+museumAtmosphere.Glare = 0.15
+museumAtmosphere.Haze = 0.6
 local map = MapBuilder.build()
 ShopService.init(map) -- окно магазина (этап 4, блок 1b): товары регистрируют сервисы ниже
 RoleService.init(map)
@@ -120,11 +143,30 @@ local function nightSeconds(night: number): number
 	return math.min(phases.NightMaxSeconds, phases.NightFirstSeconds + (night - 1) * phases.NightGrowSeconds)
 end
 
-local function setLighting(settings: { ClockTime: number, Brightness: number, Ambient: Color3, OutdoorAmbient: Color3 })
+local function setLighting(settings: { [string]: any })
 	Lighting.ClockTime = settings.ClockTime
 	Lighting.Brightness = settings.Brightness
 	Lighting.Ambient = settings.Ambient
 	Lighting.OutdoorAmbient = settings.OutdoorAmbient
+	if settings.DiffuseScale ~= nil then
+		Lighting.EnvironmentDiffuseScale = settings.DiffuseScale
+	end
+	if settings.SpecularScale ~= nil then
+		Lighting.EnvironmentSpecularScale = settings.SpecularScale
+	end
+	if settings.BloomIntensity ~= nil then
+		museumBloom.Intensity = settings.BloomIntensity
+		museumBloom.Threshold = settings.BloomThreshold or 1.1
+	end
+	if settings.Contrast ~= nil then
+		museumColor.Contrast = settings.Contrast
+		museumColor.Saturation = settings.Saturation or 0
+		museumColor.TintColor = settings.TintColor or Color3.new(1, 1, 1)
+	end
+	if settings.AtmosphereDensity ~= nil then
+		museumAtmosphere.Density = settings.AtmosphereDensity
+		museumAtmosphere.Color = settings.AtmosphereColor or Color3.fromRGB(200, 200, 210)
+	end
 end
 
 -- Лобби: ждём, пока в круге START SHIFT кто-то постоит до конца отсчёта (LobbyService).

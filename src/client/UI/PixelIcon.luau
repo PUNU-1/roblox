@@ -12,8 +12,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local Theme = require(script.Parent:WaitForChild("Theme"))
+
+-- Музей — реалистичный стиль (иконки-картинки, скруглённые рамки), хаб — пиксельный (Theme.Realistic)
+local Realistic: boolean = Theme.Realistic
+local Real = Config.PixelUI.Real
+local realImage: (name: string) -> (string?, number)
+local imageLayer: (root: Frame, name: string, image: string, rotation: number, zIndex: number) -> ImageLabel
+local realDot: (root: Frame, zIndex: number) -> ()
 
 local PixelIcon = {}
+PixelIcon.Realistic = Realistic
 
 export type Icon = {
 	rows: { string },
@@ -762,9 +771,64 @@ local function layer(data: Icon, name: string, color: Color3?, transparency: num
 	return frame
 end
 
+---------------------------------------------------------------- реалистичные иконки в музее (Config.PixelUI.Real)
+
+-- Картинка для иконки: asset id и поворот (стрелки — одна картинка «вправо», повёрнутая). nil — картинки нет.
+local ARROWS = { ArrowRight = 0, ArrowDown = 90, ArrowLeft = 180 }
+function realImage(name: string): (string?, number)
+	local key, rotation = name, 0
+	if ARROWS[name] then
+		key, rotation = "Arrow", ARROWS[name]
+	end
+	local id = Real.Images[key]
+	if typeof(id) == "string" and id ~= "" then
+		return id, rotation
+	end
+	return nil, 0
+end
+
+function imageLayer(root: Frame, name: string, image: string, rotation: number, zIndex: number): ImageLabel
+	local label = Instance.new("ImageLabel")
+	label.Name = name
+	label.BackgroundTransparency = 1
+	label.BorderSizePixel = 0
+	label.Size = UDim2.fromScale(1, 1)
+	label.Image = image
+	label.ScaleType = Enum.ScaleType.Fit
+	label.Rotation = rotation
+	label.ZIndex = zIndex
+	label.Parent = root
+	return label
+end
+
+-- Красная точка-уведомление без картинки: круг с градиентом, бликом и тёмной обводкой.
+function realDot(root: Frame, zIndex: number)
+	local dot = Instance.new("Frame")
+	dot.Name = "Art"
+	dot.BorderSizePixel = 0
+	dot.AnchorPoint = Vector2.new(0.5, 0.5)
+	dot.Position = UDim2.fromScale(0.5, 0.5)
+	dot.Size = UDim2.fromScale(0.8, 0.8)
+	dot.BackgroundColor3 = Color3.fromHex("F03C3C")
+	dot.ZIndex = zIndex
+	dot.Parent = root
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = dot
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new(Color3.fromHex("FF8A8A"), Color3.fromHex("B81E1E"))
+	gradient.Rotation = 90
+	gradient.Parent = dot
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromHex("5A0A0A")
+	stroke.Thickness = 1.5
+	stroke.Parent = dot
+end
+
 -- Новая иконка: Frame на весь размер, который ему дадут (по умолчанию — 4 пикселя на клетку).
 -- В нём слой «Art» и, если shadow ~= false, слой «Shadow» на 1 клетку вниз-вправо (выходит за край Frame).
 -- zIndex — ZIndex рисунка (тень на 1 ниже).
+-- В музее (Theme.Realistic) иконка с картинкой в Config.PixelUI.Real.Images — реалистичная картинка (ImageLabel).
 function PixelIcon.new(icon: Icon | string, shadow: boolean?, zIndex: number?): Frame
 	local data = resolve(icon)
 	local w, h = PixelIcon.cells(data)
@@ -775,6 +839,23 @@ function PixelIcon.new(icon: Icon | string, shadow: boolean?, zIndex: number?): 
 	root.BorderSizePixel = 0
 	root.Size = UDim2.fromOffset(w * 4, h * 4)
 	root.ZIndex = z
+	if typeof(icon) == "string" and Realistic then
+		if icon == "Dot" then
+			realDot(root, z)
+			return root
+		end
+		local image, rotation = realImage(icon)
+		if image then
+			if shadow ~= false then
+				local shade = imageLayer(root, "Shadow", image, rotation, z - 1)
+				shade.ImageColor3 = Color3.new(0, 0, 0)
+				shade.ImageTransparency = Real.ShadowTransparency
+				shade.Position = UDim2.fromScale(Real.ShadowOffset, Real.ShadowOffset)
+			end
+			imageLayer(root, "Art", image, rotation, z)
+			return root
+		end
+	end
 	if shadow ~= false then
 		local shade = layer(data, "Shadow", Color3.new(0, 0, 0), Config.PixelUI.ShadowTransparency, z - 1)
 		shade.Position = UDim2.fromScale(1 / w, 1 / h)
@@ -791,6 +872,22 @@ PixelIcon.Outline = Color3.fromHex(OUTLINE)
 -- Прямоугольник со ступенчатыми углами (2 ступеньки по клетке) с отступом inset клеток от краёв parent.
 -- Это 3 Frame: широкий, средний и высокий — вместе выглядят как пиксельный прямоугольник без UICorner.
 local function stepped(parent: Instance, cell: number, inset: number, color: Color3, transparency: number, zIndex: number, name: string)
+	if Realistic then
+		-- Музей: один скруглённый прямоугольник вместо трёх ступенчатых
+		local part = Instance.new("Frame")
+		part.Name = name
+		part.BorderSizePixel = 0
+		part.BackgroundColor3 = color
+		part.BackgroundTransparency = transparency
+		part.Position = UDim2.fromOffset(inset * cell, inset * cell)
+		part.Size = UDim2.new(1, -2 * inset * cell, 1, -2 * inset * cell)
+		part.ZIndex = zIndex
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, math.max(3, (4 - inset) * cell))
+		corner.Parent = part
+		part.Parent = parent
+		return
+	end
 	for step = 0, 2 do
 		local x = (inset + 2 - step) * cell
 		local y = (inset + step) * cell
@@ -837,6 +934,45 @@ function PixelIcon.box(parent: Instance, cell: number, options: BoxOptions): (Fr
 	end
 	local inner = #options.layers - 1
 	local fill = options.layers[#options.layers]
+	if Realistic and fill then
+		-- Музей: заливка с мягким градиентом сверху вниз (объём), у кнопок (bevel) — сильнее, с бликом сверху
+		for _, part in root:GetChildren() do
+			if part:IsA("Frame") and part.Name == "Layer" .. #options.layers then
+				local gradient = Instance.new("UIGradient")
+				gradient.Rotation = 90
+				if options.bevel then
+					gradient.Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+						ColorSequenceKeypoint.new(0.45, Color3.fromRGB(225, 225, 225)),
+						ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 150, 150)),
+					})
+				else
+					gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(185, 185, 195))
+				end
+				gradient.Parent = part
+			end
+		end
+		if options.bevel then
+			local gloss = Instance.new("Frame")
+			gloss.Name = "Gloss"
+			gloss.BorderSizePixel = 0
+			gloss.BackgroundColor3 = Color3.new(1, 1, 1)
+			gloss.BackgroundTransparency = 0.8
+			gloss.Position = UDim2.fromOffset((inner + 1) * cell, (inner + 0.5) * cell)
+			gloss.Size = UDim2.new(1, -2 * (inner + 1) * cell, 0.4, 0)
+			gloss.ZIndex = #options.layers + 2
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(0, math.max(3, 2 * cell))
+			corner.Parent = gloss
+			local fade = Instance.new("UIGradient")
+			fade.Rotation = 90
+			fade.Transparency = NumberSequence.new(0, 1)
+			fade.Parent = gloss
+			gloss.Parent = root
+		end
+		root.Parent = parent
+		return root, (inner + 1) * cell
+	end
 	if options.bevel and fill then
 		local z = #options.layers + 2
 		local x = (inner + 2) * cell

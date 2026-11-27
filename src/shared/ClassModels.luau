@@ -43,19 +43,19 @@ end
 ---------------------------------------------------------------- собака
 
 local D = {
-	Tan = hex("C98A4B"), -- рыжая шерсть
-	TanLight = hex("E2B27C"),
-	Cream = hex("F4E2C0"), -- светлое брюхо, лапы, морда
-	Saddle = hex("3B2A20"), -- тёмная «попона» на спине, как у овчарки
+	Tan = hex("DF984B"), -- тёплая яркая рыжая шерсть
+	TanLight = hex("F4C688"),
+	Cream = hex("FFF0D4"), -- светлое брюхо, лапы, морда
+	Saddle = hex("422C1F"), -- контрастная «попона» на спине
 	Nose = hex("1A1414"),
 	White = hex("FFFFFF"),
-	Pupil = hex("1B1B22"),
-	Pink = hex("E8828E"),
-	Collar = hex("C8343A"),
-	Gold = hex("D4A93A"),
-	Vest = hex("1E2A44"), -- жилет K-9 в цвет формы охраны
-	VestDark = hex("141C30"),
-	Yellow = hex("F2C230"),
+	Pupil = hex("161822"),
+	Pink = hex("FF8CA0"),
+	Collar = hex("E63946"),
+	Gold = hex("F5C542"),
+	Vest = hex("243B6B"), -- жилет K-9 в цвет формы охраны
+	VestDark = hex("172647"),
+	Yellow = hex("FFD036"),
 }
 ClassModels.DogColors = D
 
@@ -241,15 +241,15 @@ end
 ---------------------------------------------------------------- датчик движения
 
 local S = {
-	Body = hex("F2F4F7"),
-	Bezel = hex("3A3F4B"),
-	Lens = hex("E6ECF0"),
-	Steel = hex("6E7686"),
-	SteelDark = hex("2B2F3A"),
-	Rubber = hex("141518"),
-	Yellow = hex("F2C230"),
-	Green = hex("3FD17A"),
-	Red = hex("FF3B3B"),
+	Body = hex("F8FAFC"),
+	Bezel = hex("2E3545"),
+	Lens = hex("D8F3FF"),
+	Steel = hex("8D9BB2"),
+	SteelDark = hex("2E3545"),
+	Rubber = hex("14171F"),
+	Yellow = hex("FFD036"),
+	Green = hex("38F28A"),
+	Red = hex("FF3B4E"),
 }
 
 -- Нога треноги: цилиндр от ступни до втулки.

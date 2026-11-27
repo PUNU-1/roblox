@@ -61,14 +61,20 @@ type Slot = {
 	billboard: BillboardGui?,
 }
 
-local GOLD = Color3.fromHex("D4A93A")
-local MARBLE = Color3.fromHex("F2EEE6")
-local WOOD = Color3.fromHex("7A5230")
-local BONE = Color3.fromHex("E9DFC6")
-local BONE_DARK = Color3.fromHex("C9B98F")
-local SOCKET = Color3.fromHex("3A2E22")
-local STAND = Color3.fromHex("2B2F3A")
-local NAVY = Color3.fromHex("1E2A44")
+local GOLD = Color3.fromHex("F5C542")
+local GOLD_BRIGHT = Color3.fromHex("FFE066")
+local MARBLE = Color3.fromHex("FBF8F1")
+local WOOD = Color3.fromHex("9E6230")
+local BONE = Color3.fromHex("F5EBD4")
+local BONE_DARK = Color3.fromHex("D9C59A")
+local SOCKET = Color3.fromHex("36281C")
+local STAND = Color3.fromHex("243B6B")
+local NAVY = Color3.fromHex("243B6B")
+local RUBY = Color3.fromHex("FF2E55")
+local SAPPHIRE = Color3.fromHex("2E8BFF")
+local EMERALD = Color3.fromHex("2EE88A")
+local AMETHYST = Color3.fromHex("B55CFF")
+local VELVET = Color3.fromHex("7A182B")
 
 local function rad(degrees: number): number
 	return math.rad(degrees)
@@ -103,53 +109,78 @@ end
 -- Заглушки экспонатов из деталей (друг может заменить моделью с тем же именем: exhibit_<вид>_01).
 local STUBS: { [string]: { ModelLibrary.StubPart } } = {
 	GoldVase = {
-		{ size = Vector3.new(1, 0.3, 1), offset = CFrame.new(0, 0.15, 0), color = GOLD, material = Enum.Material.Metal },
-		{ size = Vector3.new(1.5, 1.5, 1.5), offset = CFrame.new(0, 1.05, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
-		{ size = Vector3.new(0.6, 0.7, 0.6), offset = CFrame.new(0, 1.95, 0), color = GOLD, material = Enum.Material.Metal },
+		{ name = "Foot", size = Vector3.new(1.1, 0.3, 1.1), offset = CFrame.new(0, 0.15, 0), color = GOLD, material = Enum.Material.Metal, reflectance = 0.35 },
+		{ name = "Body", size = Vector3.new(1.55, 1.55, 1.55), offset = CFrame.new(0, 1.05, 0), color = GOLD_BRIGHT, material = Enum.Material.Metal, shape = Enum.PartType.Ball, reflectance = 0.35 },
+		{ name = "Band", size = Vector3.new(0.24, 1.62, 1.62), offset = CFrame.new(0, 1.05, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("2CE6D8"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder },
+		{ name = "Neck", size = Vector3.new(0.65, 0.75, 0.65), offset = CFrame.new(0, 1.95, 0), color = GOLD, material = Enum.Material.Metal, reflectance = 0.35 },
+		{ name = "Rim", size = Vector3.new(0.16, 0.95, 0.95), offset = CFrame.new(0, 2.34, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD_BRIGHT, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, reflectance = 0.35 },
+		{ name = "HandleL", size = Vector3.new(0.16, 0.85, 0.2), offset = CFrame.new(-0.88, 1.4, 0) * CFrame.Angles(0, 0, rad(18)), color = GOLD, material = Enum.Material.Metal },
+		{ name = "HandleR", size = Vector3.new(0.16, 0.85, 0.2), offset = CFrame.new(0.88, 1.4, 0) * CFrame.Angles(0, 0, rad(-18)), color = GOLD, material = Enum.Material.Metal },
 	},
 	AncientClock = {
-		{ size = Vector3.new(1.4, 2.2, 1), offset = CFrame.new(0, 1.1, 0), color = WOOD, material = Enum.Material.Wood },
-		{ size = Vector3.new(1, 1, 0.1), offset = CFrame.new(0, 1.5, -0.52), color = MARBLE },
-		{ size = Vector3.new(1.6, 0.3, 1.2), offset = CFrame.new(0, 2.35, 0), color = GOLD, material = Enum.Material.Metal },
+		{ name = "Base", size = Vector3.new(1.6, 0.25, 1.2), offset = CFrame.new(0, 0.125, 0), color = GOLD, material = Enum.Material.Metal },
+		{ name = "Body", size = Vector3.new(1.4, 2.1, 1), offset = CFrame.new(0, 1.25, 0), color = WOOD, material = Enum.Material.Wood },
+		{ name = "Face", size = Vector3.new(0.12, 1.05, 1.05), offset = CFrame.new(0, 1.6, -0.52) * CFrame.Angles(0, rad(90), 0), color = MARBLE, shape = Enum.PartType.Cylinder },
+		{ name = "FaceRim", size = Vector3.new(0.08, 1.18, 1.18), offset = CFrame.new(0, 1.6, -0.5) * CFrame.Angles(0, rad(90), 0), color = GOLD_BRIGHT, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "HandH", size = Vector3.new(0.08, 0.36, 0.05), offset = CFrame.new(0, 1.74, -0.59), color = NAVY, material = Enum.Material.Metal },
+		{ name = "HandM", size = Vector3.new(0.32, 0.07, 0.05), offset = CFrame.new(0.14, 1.6, -0.59), color = NAVY, material = Enum.Material.Metal },
+		{ name = "Pendulum", size = Vector3.new(0.35, 0.35, 0.12), offset = CFrame.new(0, 0.65, -0.52), color = GOLD_BRIGHT, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+		{ name = "Crown", size = Vector3.new(1.65, 0.3, 1.2), offset = CFrame.new(0, 2.42, 0), color = GOLD, material = Enum.Material.Metal },
 	},
 	Necklace = {
-		{ size = Vector3.new(1.2, 0.2, 1.2), offset = CFrame.new(0, 0.1, 0), color = Color3.fromHex("2B1B3D"), material = Enum.Material.Fabric },
-		{ size = Vector3.new(0.35, 0.35, 0.35), offset = CFrame.new(-0.4, 0.4, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
-		{ size = Vector3.new(0.35, 0.35, 0.35), offset = CFrame.new(0.4, 0.4, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
-		{ size = Vector3.new(0.35, 0.35, 0.35), offset = CFrame.new(0, 0.4, 0.4), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
-		{ size = Vector3.new(0.45, 0.45, 0.45), offset = CFrame.new(0, 0.4, -0.4), color = Color3.fromHex("E0245E"), material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+		{ name = "Cushion", size = Vector3.new(1.4, 0.28, 1.4), offset = CFrame.new(0, 0.14, 0), color = Color3.fromHex("4C2678"), material = Enum.Material.Fabric },
+		{ name = "Trim", size = Vector3.new(1.48, 0.08, 1.48), offset = CFrame.new(0, 0.05, 0), color = GOLD, material = Enum.Material.Metal },
+		{ name = "PearlL", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(-0.44, 0.42, 0), color = GOLD_BRIGHT, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ name = "PearlR", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(0.44, 0.42, 0), color = GOLD_BRIGHT, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ name = "GemL", size = Vector3.new(0.34, 0.34, 0.34), offset = CFrame.new(-0.32, 0.44, -0.32), color = SAPPHIRE, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+		{ name = "GemR", size = Vector3.new(0.34, 0.34, 0.34), offset = CFrame.new(0.32, 0.44, -0.32), color = EMERALD, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+		{ name = "Clasp", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(0, 0.42, 0.44), color = GOLD_BRIGHT, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ name = "Ruby", size = Vector3.new(0.5, 0.5, 0.5), offset = CFrame.new(0, 0.48, -0.44), color = RUBY, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
 	},
 	Crown = {
-		{ size = Vector3.new(1.6, 0.5, 1.6), offset = CFrame.new(0, 0.25, 0), color = GOLD, material = Enum.Material.Metal },
-		{ size = Vector3.new(0.3, 0.6, 0.3), offset = CFrame.new(-0.65, 0.8, -0.65), color = GOLD, material = Enum.Material.Metal },
-		{ size = Vector3.new(0.3, 0.6, 0.3), offset = CFrame.new(0.65, 0.8, -0.65), color = GOLD, material = Enum.Material.Metal },
-		{ size = Vector3.new(0.3, 0.6, 0.3), offset = CFrame.new(-0.65, 0.8, 0.65), color = GOLD, material = Enum.Material.Metal },
-		{ size = Vector3.new(0.3, 0.6, 0.3), offset = CFrame.new(0.65, 0.8, 0.65), color = GOLD, material = Enum.Material.Metal },
-		{ size = Vector3.new(0.45, 0.45, 0.45), offset = CFrame.new(0, 0.3, -0.85), color = Color3.fromHex("C8343A"), material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+		{ name = "Velvet", size = Vector3.new(1.38, 0.85, 1.38), offset = CFrame.new(0, 0.52, 0), color = VELVET, material = Enum.Material.Fabric, sphere = true },
+		{ name = "Band", size = Vector3.new(1.65, 0.5, 1.65), offset = CFrame.new(0, 0.25, 0), color = GOLD_BRIGHT, material = Enum.Material.Metal, reflectance = 0.35 },
+		{ name = "SpikeFL", size = Vector3.new(0.3, 0.65, 0.3), offset = CFrame.new(-0.65, 0.82, -0.65), color = GOLD, material = Enum.Material.Metal },
+		{ name = "SpikeFR", size = Vector3.new(0.3, 0.65, 0.3), offset = CFrame.new(0.65, 0.82, -0.65), color = GOLD, material = Enum.Material.Metal },
+		{ name = "SpikeBL", size = Vector3.new(0.3, 0.65, 0.3), offset = CFrame.new(-0.65, 0.82, 0.65), color = GOLD, material = Enum.Material.Metal },
+		{ name = "SpikeBR", size = Vector3.new(0.3, 0.65, 0.3), offset = CFrame.new(0.65, 0.82, 0.65), color = GOLD, material = Enum.Material.Metal },
+		{ name = "Orb", size = Vector3.new(0.34, 0.34, 0.34), offset = CFrame.new(0, 1.05, 0), color = GOLD_BRIGHT, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+		{ name = "Ruby", size = Vector3.new(0.42, 0.42, 0.42), offset = CFrame.new(0, 0.28, -0.86), color = RUBY, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+		{ name = "SapphireL", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(-0.85, 0.28, 0), color = SAPPHIRE, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+		{ name = "EmeraldR", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(0.85, 0.28, 0), color = EMERALD, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
 	},
 	Scepter = {
-		{ size = Vector3.new(0.3, 2.4, 0.3), offset = CFrame.new(0, 1.2, 0), color = GOLD, material = Enum.Material.Metal },
-		{ size = Vector3.new(0.7, 0.7, 0.7), offset = CFrame.new(0, 2.6, 0), color = Color3.fromHex("8E44AD"), material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+		{ name = "Base", size = Vector3.new(0.7, 0.2, 0.7), offset = CFrame.new(0, 0.1, 0), color = GOLD, material = Enum.Material.Metal },
+		{ name = "Shaft", size = Vector3.new(2.3, 0.28, 0.28), offset = CFrame.new(0, 1.25, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD_BRIGHT, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, reflectance = 0.35 },
+		{ name = "Collar", size = Vector3.new(0.2, 0.65, 0.65), offset = CFrame.new(0, 2.25, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "Orb", size = Vector3.new(0.75, 0.75, 0.75), offset = CFrame.new(0, 2.68, 0), color = AMETHYST, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+		{ name = "Finial", size = Vector3.new(0.24, 0.24, 0.24), offset = CFrame.new(0, 3.12, 0), color = GOLD_BRIGHT, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
 	},
 	Diamond = {
-		{ size = Vector3.new(0.8, 0.4, 0.8), offset = CFrame.new(0, 0.2, 0), color = GOLD, material = Enum.Material.Metal },
-		{ size = Vector3.new(1, 1, 1), offset = CFrame.new(0, 1.2, 0) * CFrame.Angles(math.rad(45), 0, math.rad(45)), color = Color3.fromHex("7FE7FF"), material = Enum.Material.Glass, transparency = 0.15 },
+		{ name = "Stand", size = Vector3.new(0.9, 0.35, 0.9), offset = CFrame.new(0, 0.175, 0), color = GOLD, material = Enum.Material.Metal, reflectance = 0.35 },
+		{ name = "Core", size = Vector3.new(0.65, 0.65, 0.65), offset = CFrame.new(0, 1.2, 0) * CFrame.Angles(rad(45), 0, rad(45)), color = Color3.fromHex("8CF6FF"), material = Enum.Material.Neon },
+		{ name = "Crystal", size = Vector3.new(1.15, 1.15, 1.15), offset = CFrame.new(0, 1.2, 0) * CFrame.Angles(rad(45), 0, rad(45)), color = Color3.fromHex("6BF0FF"), material = Enum.Material.Glass, transparency = 0.2, reflectance = 0.4 },
 	},
 	Amphora = {
-		{ size = Vector3.new(0.8, 0.3, 0.8), offset = CFrame.new(0, 0.15, 0), color = Color3.fromHex("A0522D") },
-		{ size = Vector3.new(1.5, 1.8, 1.5), offset = CFrame.new(0, 1.2, 0), color = Color3.fromHex("C0703E"), shape = Enum.PartType.Ball },
-		{ size = Vector3.new(0.5, 0.7, 0.5), offset = CFrame.new(0, 2.3, 0), color = Color3.fromHex("C0703E") },
+		{ name = "Foot", size = Vector3.new(0.85, 0.3, 0.85), offset = CFrame.new(0, 0.15, 0), color = Color3.fromHex("B85A2A") },
+		{ name = "Body", size = Vector3.new(1.5, 1.8, 1.5), offset = CFrame.new(0, 1.2, 0), color = Color3.fromHex("E0783E"), shape = Enum.PartType.Ball },
+		{ name = "Band", size = Vector3.new(0.22, 1.56, 1.56), offset = CFrame.new(0, 1.25, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "Neck", size = Vector3.new(0.55, 0.7, 0.55), offset = CFrame.new(0, 2.3, 0), color = Color3.fromHex("E0783E") },
+		{ name = "HandleL", size = Vector3.new(0.14, 0.75, 0.16), offset = CFrame.new(-0.78, 1.65, 0) * CFrame.Angles(0, 0, rad(15)), color = GOLD, material = Enum.Material.Metal },
+		{ name = "HandleR", size = Vector3.new(0.14, 0.75, 0.16), offset = CFrame.new(0.78, 1.65, 0) * CFrame.Angles(0, 0, rad(-15)), color = GOLD, material = Enum.Material.Metal },
 	},
 	Bust = {
-		{ size = Vector3.new(1.2, 0.5, 1), offset = CFrame.new(0, 0.25, 0), color = MARBLE, material = Enum.Material.Marble },
-		{ size = Vector3.new(1.8, 0.7, 0.8), offset = CFrame.new(0, 0.85, 0), color = MARBLE, material = Enum.Material.Marble },
-		{ size = Vector3.new(1.1, 1.2, 1.1), offset = CFrame.new(0, 1.75, 0), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball },
+		{ name = "Plinth", size = Vector3.new(1.3, 0.2, 1.1), offset = CFrame.new(0, 0.1, 0), color = GOLD, material = Enum.Material.Metal },
+		{ size = Vector3.new(1.2, 0.45, 1), offset = CFrame.new(0, 0.35, 0), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(1.8, 0.7, 0.8), offset = CFrame.new(0, 0.9, 0), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(1.1, 1.2, 1.1), offset = CFrame.new(0, 1.8, 0), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball },
 	},
 	Statue = {
-		{ size = Vector3.new(1, 0.4, 1), offset = CFrame.new(0, 0.2, 0), color = MARBLE, material = Enum.Material.Marble },
-		{ size = Vector3.new(0.8, 2, 0.6), offset = CFrame.new(0, 1.4, 0), color = MARBLE, material = Enum.Material.Marble },
-		{ size = Vector3.new(2.2, 0.3, 0.3), offset = CFrame.new(0, 2.1, 0) * CFrame.Angles(0, 0, 0.4), color = MARBLE, material = Enum.Material.Marble },
-		{ size = Vector3.new(0.7, 0.7, 0.7), offset = CFrame.new(0, 2.75, 0), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball },
+		{ name = "Plinth", size = Vector3.new(1.15, 0.2, 1.15), offset = CFrame.new(0, 0.1, 0), color = GOLD, material = Enum.Material.Metal },
+		{ size = Vector3.new(1, 0.35, 1), offset = CFrame.new(0, 0.35, 0), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(0.8, 2, 0.6), offset = CFrame.new(0, 1.45, 0), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(2.2, 0.3, 0.3), offset = CFrame.new(0, 2.15, 0) * CFrame.Angles(0, 0, 0.4), color = MARBLE, material = Enum.Material.Marble },
+		{ size = Vector3.new(0.7, 0.7, 0.7), offset = CFrame.new(0, 2.8, 0), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball },
 	},
 	-- Динозавры (блок 2)
 	TRexSkull = join({

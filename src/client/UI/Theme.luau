@@ -31,6 +31,17 @@ Theme.BodyFont = Enum.Font.GothamBold
 local okFont, pixelFont = pcall(Font.new, Config.PixelUI.Font)
 Theme.PixelFont = if okFont then pixelFont else Font.fromEnum(Enum.Font.Arcade)
 
+-- Реалистичный стиль в музее (Config.PixelUI.Real): хаб узнаём по его скрипту HubHUD рядом с папкой UI.
+-- В музее пиксельный шрифт заменяется гладким жирным, обводка надписей — скруглённая.
+local clientFolder = script.Parent.Parent
+local inHub = clientFolder ~= nil and clientFolder:FindFirstChild("HubHUD") ~= nil
+Theme.Realistic = Config.PixelUI.Real.Enabled and not inHub
+if Theme.Realistic then
+	local okReal, realFont = pcall(Font.new, Config.PixelUI.Real.Font, Enum.FontWeight.Heavy)
+	Theme.PixelFont = if okReal then realFont else Font.fromEnum(Enum.Font.GothamBlack)
+end
+local STROKE_JOIN = if Theme.Realistic then Enum.LineJoinMode.Round else Enum.LineJoinMode.Miter
+
 -- Надпись пиксельным шрифтом: белая с чёрной обводкой у самого текста (UIStroke на тексте, не на рамке).
 -- size — размер в пикселях (TextScaled не используем: пиксели должны быть ровными).
 function Theme.pixelLabel(props: { [string]: any }, size: number?, strokeThickness: number?): TextLabel
@@ -49,7 +60,7 @@ function Theme.pixelLabel(props: { [string]: any }, size: number?, strokeThickne
 	Theme.new("UIStroke", {
 		Color = Color3.new(0, 0, 0),
 		Thickness = strokeThickness or math.max(1, math.floor((size or 16) / 8)),
-		LineJoinMode = Enum.LineJoinMode.Miter,
+		LineJoinMode = STROKE_JOIN,
 		Parent = label,
 	})
 	return label
@@ -76,7 +87,7 @@ function Theme.pixelize(...: TextLabel)
 	for _, label in { ... } do
 		label.FontFace = Theme.PixelFont
 		if not label:FindFirstChildOfClass("UIStroke") then
-			Theme.new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 2, LineJoinMode = Enum.LineJoinMode.Miter, Parent = label })
+			Theme.new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 2, LineJoinMode = STROKE_JOIN, Parent = label })
 		end
 	end
 end

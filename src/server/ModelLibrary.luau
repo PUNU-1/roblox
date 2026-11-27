@@ -18,6 +18,14 @@ export type StubPart = {
 	wedge: boolean?, -- клин (WedgePart): скос от верхнего заднего ребра к нижнему переднему
 	sphere: boolean?, -- овал: шар, растянутый по размеру детали (SpecialMesh), для яиц, шлемов, планет
 	collide: boolean?, -- false — сквозь деталь можно пройти (мелкие украшения)
+	reflectance: number?, -- блеск поверхности (если не задан — подбирается по материалу)
+}
+
+local MATERIAL_REFLECTANCE: { [Enum.Material]: number } = {
+	[Enum.Material.Metal] = 0.25,
+	[Enum.Material.Glass] = 0.22,
+	[Enum.Material.Marble] = 0.08,
+	[Enum.Material.SmoothPlastic] = 0.04,
 }
 
 local ModelLibrary = {}
@@ -68,7 +76,9 @@ local function newStubPart(spec: StubPart, index: number): BasePart
 	part.Size = spec.size
 	part.CFrame = spec.offset
 	part.Color = spec.color
-	part.Material = spec.material or Enum.Material.SmoothPlastic
+	local mat = spec.material or Enum.Material.SmoothPlastic
+	part.Material = mat
+	part.Reflectance = if spec.reflectance ~= nil then spec.reflectance else (MATERIAL_REFLECTANCE[mat] or 0)
 	part.Transparency = spec.transparency or 0
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth

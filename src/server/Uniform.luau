@@ -12,7 +12,9 @@ local ModelLibrary = require(script.Parent:WaitForChild("ModelLibrary"))
 local Uniform = {}
 
 local BADGE_STUB: { ModelLibrary.StubPart } = {
-	{ size = Vector3.new(0.45, 0.45, 0.08), offset = CFrame.identity, color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal },
+	{ name = "Shield", size = Vector3.new(0.48, 0.52, 0.08), offset = CFrame.identity, color = Color3.fromHex("F5C542"), material = Enum.Material.Metal, reflectance = 0.35 },
+	{ name = "Core", size = Vector3.new(0.34, 0.36, 0.09), offset = CFrame.new(0, 0, -0.01), color = Color3.fromHex("243B6B"), material = Enum.Material.SmoothPlastic },
+	{ name = "Star", size = Vector3.new(0.18, 0.18, 0.1), offset = CFrame.new(0, 0.02, -0.02) * CFrame.Angles(0, 0, math.rad(45)), color = Color3.fromHex("FFE066"), material = Enum.Material.Neon },
 }
 
 -- Всё, что носят на голове, остаётся (решение 55): шапки, волосы, очки, брови.

@@ -38,22 +38,22 @@ local function hex(value: string): Color3
 end
 
 local C = {
-	Polymer = hex("2B2F3A"),
-	PolymerDark = hex("1C1F26"),
-	Steel = hex("3A3F4B"),
-	SteelLight = hex("6E7686"),
-	Black = hex("141518"),
-	Yellow = hex("F2C230"),
-	Wood = hex("8A5A2B"),
-	WoodDark = hex("5E3A1C"),
-	Brass = hex("D9A441"),
-	Red = hex("C8343A"),
-	White = hex("F2F2EE"),
-	Turquoise = hex("3BC6C1"),
-	Electric = hex("6FD3FF"),
-	Navy = hex("1E2A44"),
-	NavyDark = hex("141C30"),
-	Gold = hex("D4A93A"),
+	Polymer = hex("2E3545"),
+	PolymerDark = hex("1B202B"),
+	Steel = hex("495366"),
+	SteelLight = hex("9AA6BC"),
+	Black = hex("14171F"),
+	Yellow = hex("FFD036"),
+	Wood = hex("A36632"),
+	WoodDark = hex("6E411E"),
+	Brass = hex("F5BE42"),
+	Red = hex("E63946"),
+	White = hex("F8F9FC"),
+	Turquoise = hex("2CE6D8"),
+	Electric = hex("6BF0FF"),
+	Navy = hex("243B6B"),
+	NavyDark = hex("172647"),
+	Gold = hex("F5C542"),
 }
 WeaponModels.Colors = C
 
@@ -227,7 +227,15 @@ local function newPart(spec: Spec, index: number): BasePart
 	part.Size = spec.size
 	part.CFrame = spec.offset
 	part.Color = spec.color
-	part.Material = if spec.neon then Enum.Material.Neon else (spec.material or Enum.Material.SmoothPlastic)
+	local mat = if spec.neon then Enum.Material.Neon else (spec.material or Enum.Material.SmoothPlastic)
+	part.Material = mat
+	if mat == Enum.Material.Metal then
+		part.Reflectance = 0.25
+	elseif mat == Enum.Material.Glass then
+		part.Reflectance = 0.22
+	elseif mat == Enum.Material.SmoothPlastic then
+		part.Reflectance = 0.05
+	end
 	part.Transparency = spec.transparency or 0
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth

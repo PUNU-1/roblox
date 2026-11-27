@@ -56,17 +56,17 @@ type Room = {
 
 local MapDecor = {}
 
-local BONE = hex("E9DFC6")
-local BONE_DARK = hex("CDBF9C")
-local STEEL = hex("8A93A6")
-local DARK_METAL = hex("3A3F4B")
-local WHITE = hex("F2F4F7")
-local MARBLE = hex("F2EEE6")
-local STONE = hex("BFB6A3")
-local GOLD = hex("D4A93A")
-local RED = hex("C8343A")
-local LEAF = hex("3E8E41")
-local LEAF_DARK = hex("2F7A35")
+local BONE = hex("F5EBD4")
+local BONE_DARK = hex("DAC8A2")
+local STEEL = hex("9AA6BC")
+local DARK_METAL = hex("364054")
+local WHITE = hex("F8FAFC")
+local MARBLE = hex("FBF8F1")
+local STONE = hex("CFC5B2")
+local GOLD = hex("F5C542")
+local RED = hex("E63946")
+local LEAF = hex("36B856")
+local LEAF_DARK = hex("248F42")
 
 local function rad(degrees: number): number
 	return math.rad(degrees)

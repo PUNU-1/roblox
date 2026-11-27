@@ -47,35 +47,35 @@ local MapDecor = require(Server:WaitForChild("MapDecor"))
 local hex = Color3.fromHex
 
 local COLORS = {
-	Exterior = hex("D8CCB4"), -- песчаник снаружи
-	ExteriorDark = hex("B8AA8E"), -- цоколь и карниз снаружи
-	Staff = hex("1E2A44"), -- служебные помещения
-	Plank = hex("8A5A2B"),
-	Marble = hex("E8DCC4"),
-	MarbleDark = hex("3A3F4B"),
-	WhiteMarble = hex("F2EEE6"),
-	Gold = hex("D4A93A"),
-	Red = hex("C8343A"),
-	Velvet = hex("5E1622"),
-	VelvetDark = hex("3D0E16"),
-	Turquoise = hex("3BC6C1"),
-	Ground = Color3.fromRGB(60, 90, 60),
-	Dark = Color3.fromRGB(40, 40, 45),
-	Wood = Color3.fromRGB(120, 80, 50),
-	DarkWood = hex("5A3A22"),
-	Parquet = hex("6B4A2E"),
-	Canvas = Color3.fromRGB(110, 95, 60),
-	Steel = Color3.fromRGB(90, 110, 140),
-	Metal = hex("8A93A6"),
-	Ceiling = hex("F4EFE4"),
-	Stone = hex("BFB6A3"),
-	Glass = hex("BFE3F2"),
-	Terracotta = hex("B5651D"),
-	Leaves = hex("3E7D3A"),
-	LeavesLight = hex("5AA34F"),
-	Navy = hex("1E2A44"),
-	ExitGreen = hex("2FA35A"),
-	Window = hex("2B3A55"),
+	Exterior = hex("E8DAC0"), -- тёплый яркий песчаник снаружи
+	ExteriorDark = hex("C7B695"), -- цоколь и карниз снаружи
+	Staff = hex("243B6B"), -- служебные помещения
+	Plank = hex("A36632"),
+	Marble = hex("F2E6D0"),
+	MarbleDark = hex("364054"),
+	WhiteMarble = hex("FBF8F1"),
+	Gold = hex("F5C542"),
+	Red = hex("E63946"),
+	Velvet = hex("7A182B"),
+	VelvetDark = hex("4E0E1C"),
+	Turquoise = hex("2CE6D8"),
+	Ground = Color3.fromRGB(64, 132, 68),
+	Dark = Color3.fromRGB(36, 40, 50),
+	Wood = Color3.fromRGB(152, 96, 52),
+	DarkWood = hex("663B1E"),
+	Parquet = hex("855832"),
+	Canvas = Color3.fromRGB(135, 115, 72),
+	Steel = Color3.fromRGB(108, 128, 160),
+	Metal = hex("9AA6BC"),
+	Ceiling = hex("FBF7EE"),
+	Stone = hex("CFC5B2"),
+	Glass = hex("C8EEFF"),
+	Terracotta = hex("D4742C"),
+	Leaves = hex("36B856"),
+	LeavesLight = hex("5CE06E"),
+	Navy = hex("243B6B"),
+	ExitGreen = hex("2EE070"),
+	Window = hex("2C4570"),
 }
 
 -- Отделка стены изнутри комнаты: обои, деревянные панели внизу, карниз
@@ -88,26 +88,26 @@ export type WallStyle = {
 }
 
 local STYLES: { [string]: WallStyle } = {
-	Main = { wall = hex("8C2A2A"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("4A2E1F"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
-	Corridor = { wall = hex("2E4A5A"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("4A2E1F"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
-	Lobby = { wall = hex("E6D9BE"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("6B4A2B"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
-	Sculptures = { wall = hex("D9D2C3"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("A89F8C"), trim = hex("F7F3EA"), trimMaterial = Enum.Material.Marble },
-	Dinosaurs = { wall = hex("D9B98A"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("6B4A2B"), trim = hex("8A6A45"), trimMaterial = Enum.Material.Wood },
-	Jewelry = { wall = hex("3B2559"), wallMaterial = Enum.Material.Fabric, wainscot = hex("2A1A12"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
-	Space = { wall = hex("1B2340"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("0F1428"), trim = hex("3BC6C1"), trimMaterial = Enum.Material.Neon },
-	Staff = { wall = hex("4A5266"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("2B2F3A"), trim = hex("8A93A6"), trimMaterial = Enum.Material.Metal },
-	Armory = { wall = hex("3A4250"), wallMaterial = Enum.Material.Concrete, wainscot = hex("2B2F3A"), trim = hex("C8343A"), trimMaterial = Enum.Material.Metal },
-	Guard = { wall = hex("1E2A44"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("5A3A22"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
+	Main = { wall = hex("9E2634"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("593420"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
+	Corridor = { wall = hex("26586B"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("593420"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
+	Lobby = { wall = hex("F2E5C8"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("7D522D"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
+	Sculptures = { wall = hex("ECE5D6"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("B8AE98"), trim = hex("FBF8F1"), trimMaterial = Enum.Material.Marble },
+	Dinosaurs = { wall = hex("E8C284"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("7D522D"), trim = hex("A37648"), trimMaterial = Enum.Material.Wood },
+	Jewelry = { wall = hex("4C2678"), wallMaterial = Enum.Material.Fabric, wainscot = hex("331D14"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
+	Space = { wall = hex("182452"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("101838"), trim = hex("2CE6D8"), trimMaterial = Enum.Material.Neon },
+	Staff = { wall = hex("4B5873"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("2C3445"), trim = hex("9AA6BC"), trimMaterial = Enum.Material.Metal },
+	Armory = { wall = hex("3B4659"), wallMaterial = Enum.Material.Concrete, wainscot = hex("283040"), trim = hex("E63946"), trimMaterial = Enum.Material.Metal },
+	Guard = { wall = hex("243B6B"), wallMaterial = Enum.Material.SmoothPlastic, wainscot = hex("663B1E"), trim = COLORS.Gold, trimMaterial = Enum.Material.Metal },
 }
 
 -- Картины-украшения на стенах (их не крадут): небо, солнце и холмы разных цветов
 local PALETTES = {
-	{ top = "2B5876", bottom = "F2A65A", sun = "FFE29A", hill = "3E5641", far = "2C3E2F" }, -- закат
-	{ top = "8EC5FC", bottom = "E0F7FA", sun = "FFFFFF", hill = "6A994E", far = "386641" }, -- летний день
-	{ top = "0F2027", bottom = "2C5364", sun = "F8F4E3", hill = "1B263B", far = "0D1B2A" }, -- лунная ночь
-	{ top = "F6D365", bottom = "FDA085", sun = "FFFFFF", hill = "B5651D", far = "7F4F24" }, -- пустыня
-	{ top = "355C7D", bottom = "6C5B7B", sun = "F67280", hill = "2A363B", far = "1F2A30" }, -- сумерки
-	{ top = "A1C4FD", bottom = "C2E9FB", sun = "FFF3B0", hill = "4A7C59", far = "2F5233" }, -- озеро
+	{ top = "2E6499", bottom = "FF9F5A", sun = "FFF099", hill = "3D7048", far = "274A34" }, -- яркий закат
+	{ top = "5CB8FF", bottom = "D6FAFF", sun = "FFFFFF", hill = "5EC250", far = "2F8245" }, -- солнечный день
+	{ top = "14294A", bottom = "326B8A", sun = "FFF8DC", hill = "1E3252", far = "101D33" }, -- лунная ночь
+	{ top = "FFD859", bottom = "FF8C6B", sun = "FFFFFF", hill = "D4702A", far = "994E1E" }, -- золотая пустыня
+	{ top = "3F689C", bottom = "9B689E", sun = "FF758F", hill = "2B4252", far = "1C2E3D" }, -- сиреневые сумерки
+	{ top = "6BB2FF", bottom = "B8F2FF", sun = "FFF5A8", hill = "42A368", far = "266E45" }, -- лазурное озеро
 }
 
 local WALL_T = 1 -- толщина стен
@@ -215,7 +215,15 @@ local function newPart(
 	part.Size = size
 	part.CFrame = cframe
 	part.Color = color
-	part.Material = material or Enum.Material.SmoothPlastic
+	local mat = material or Enum.Material.SmoothPlastic
+	part.Material = mat
+	if mat == Enum.Material.Metal then
+		part.Reflectance = 0.25
+	elseif mat == Enum.Material.Glass then
+		part.Reflectance = 0.2
+	elseif mat == Enum.Material.Marble then
+		part.Reflectance = 0.08
+	end
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Parent = parent

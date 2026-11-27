@@ -459,6 +459,40 @@ local Config = {
 				Fire = Vector2.new(30, 226),
 			},
 		},
+		-- Реалистичный стиль интерфейса В МУЗЕЕ (хаб остаётся пиксельным). Включён — в музее:
+		--   * иконки — реалистичные картинки (ImageLabel) вместо пиксельных, если для иконки задан asset id ниже;
+		--     нет id — рисуется старая пиксельная иконка, ничего не ломается;
+		--   * рамки кнопок и окон — скруглённые с градиентом вместо ступенчатых пиксельных;
+		--   * надписи — гладким жирным шрифтом вместо Press Start 2P.
+		-- Картинки лежат в assets/icons/*.png: загрузи их в Roblox (Creator Hub или Studio -> Asset Manager -> Import)
+		-- и впиши сюда id в виде "rbxassetid://1234567890".
+		Real = {
+			Enabled = true,
+			Font = "rbxasset://fonts/families/GothamSSm.json", -- гладкий шрифт надписей в музее
+			ShadowTransparency = 0.55, -- мягкая тень под картинкой иконки
+			ShadowOffset = 0.05, -- сдвиг тени вниз-вправо (доля размера иконки)
+			Images = {
+				Shop = "", -- assets/icons/shop.png
+				Chat = "", -- chat.png
+				Dash = "", -- dash.png
+				Sensor = "", -- sensor.png
+				Phone = "", -- phone.png
+				Pistol = "", -- pistol.png
+				Rifle = "", -- rifle.png
+				Shotgun = "", -- shotgun.png
+				Taser = "", -- taser.png
+				Medkit = "", -- medkit.png
+				Reload = "", -- reload.png
+				Crouch = "", -- crouch.png
+				Fire = "", -- fire.png
+				Painting = "", -- painting.png
+				Moon = "", -- moon.png
+				Thief = "", -- thief.png
+				KeyF = "", -- keyf.png
+				Check = "", -- check.png
+				Arrow = "", -- arrow.png (ArrowRight; ArrowLeft и ArrowDown — та же картинка, повёрнутая)
+			},
+		},
 	},
 
 	-- Ежедневные подарки в хабе (этап 5, блок A, решение 76): 7 дней подряд, пропустил день — снова с 1-го.
@@ -1080,18 +1114,45 @@ local Config = {
 			Brightness = 1.5,
 			Ambient = Color3.fromRGB(130, 125, 120),
 			OutdoorAmbient = Color3.fromRGB(140, 135, 130),
+			DiffuseScale = 0.55,
+			SpecularScale = 0.75,
+			Contrast = 0.08,
+			Saturation = 0.05,
+			TintColor = Color3.fromRGB(255, 246, 236),
+			BloomIntensity = 0.35,
+			BloomThreshold = 1.1,
+			AtmosphereDensity = 0.22,
+			AtmosphereColor = Color3.fromRGB(190, 180, 170),
 		},
 		Day = { -- день: светло, туристы
 			ClockTime = 14,
 			Brightness = 2,
 			Ambient = Color3.fromRGB(150, 150, 150),
 			OutdoorAmbient = Color3.fromRGB(170, 170, 170),
+			DiffuseScale = 0.7,
+			SpecularScale = 0.9,
+			Contrast = 0.1,
+			Saturation = 0.08,
+			TintColor = Color3.fromRGB(255, 252, 246),
+			BloomIntensity = 0.3,
+			BloomThreshold = 1.2,
+			AtmosphereDensity = 0.18,
+			AtmosphereColor = Color3.fromRGB(215, 222, 235),
 		},
 		Night = { -- ночью темно (решение 57): дежурные лампы, подсветка Моны Лизы и фонарики
 			ClockTime = 0,
 			Brightness = 0,
 			Ambient = Color3.fromRGB(12, 13, 20), -- баланс: насколько темно (больше — светлее)
 			OutdoorAmbient = Color3.fromRGB(12, 13, 20),
+			DiffuseScale = 0.25,
+			SpecularScale = 0.65,
+			Contrast = 0.14,
+			Saturation = 0.04,
+			TintColor = Color3.fromRGB(232, 240, 255),
+			BloomIntensity = 0.48,
+			BloomThreshold = 0.95,
+			AtmosphereDensity = 0.28,
+			AtmosphereColor = Color3.fromRGB(24, 30, 48),
 		},
 		NightLamp = { -- тусклые синие дежурные лампы на стенах залов и в коридоре
 			Range = 12,
