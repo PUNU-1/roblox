@@ -827,6 +827,7 @@ local Config = {
 		MonaLisaChance = 0.5, -- баланс: как часто вор идёт за Моной Лизой, если есть другие экспонаты
 		PedestalHeight = 3.3, -- верх постамента
 		HideDepth = 200, -- пока вор несёт копию экспоната, настоящий спрятан на столько стадов под картой
+		GlowMinPrice = 300, -- этап 5, блок F2: экспонаты от этой цены мягко светятся (Config.Lighting.ExhibitGlow)
 		-- Экспонат для каждого постамента (атрибут Slot у постамента): 2 в центре и по 4 в каждом зале,
 		-- в зале — по возрастанию цены. Порядок постаментов задаёт MapBuilder.
 		Slots = {
@@ -1189,6 +1190,17 @@ local Config = {
 			Range = 18,
 			Brightness = 1.2,
 			Color = Color3.fromRGB(255, 225, 170),
+		},
+		PictureLamp = { -- латунная лампа над рамой Моны Лизы (этап 5, блок F2): SurfaceLight вниз на холст
+			Range = 9,
+			Brightness = 2,
+			Angle = 75,
+			Color = Color3.fromRGB(255, 228, 180),
+		},
+		ExhibitGlow = { -- мягкий свет у дорогих экспонатов (Exhibits.GlowMinPrice), цвет — у каждого свой
+			Range = 7,
+			Brightness = 0.8,
+			Color = Color3.fromRGB(255, 230, 180),
 		},
 	},
 

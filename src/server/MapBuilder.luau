@@ -964,19 +964,56 @@ local function paintPortrait(canvas: BasePart)
 	oval(0.5, 0.79, 0.42, 0.1, "D9B48A", 6) -- сложенные руки
 end
 
+-- Мона Лиза (этап 5, блок F2): портретная, как настоящая (Ш × В = 4.4 × 6). Резная золотая рама в две ступени
+-- с розетками по углам и гребнем сверху, холст под стеклом, латунная лампа на кронштейне. Размер рамы прежний.
+-- Origin — центр нижнего края рамы, перед — в −Z. Холст называется Canvas (на нём рисуется портрет).
+local FRAME_INNER = hex("B8892A")
+local MONA_LISA_STUB: { ModelLibrary.StubPart } = {
+	{ name = "Frame", size = Vector3.new(4.4, 6, 0.4), offset = CFrame.new(0, 3, -0.2), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Canvas", size = Vector3.new(3.6, 5.2, 0.1), offset = CFrame.new(0, 3, -0.45), color = COLORS.Canvas },
+	{ name = "Molding", size = Vector3.new(0.4, 6, 0.14), offset = CFrame.new(-2, 3, -0.47), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Molding", size = Vector3.new(0.4, 6, 0.14), offset = CFrame.new(2, 3, -0.47), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Molding", size = Vector3.new(3.6, 0.4, 0.14), offset = CFrame.new(0, 5.8, -0.47), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Molding", size = Vector3.new(3.6, 0.4, 0.14), offset = CFrame.new(0, 0.2, -0.47), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Bead", size = Vector3.new(0.08, 5.28, 0.1), offset = CFrame.new(-1.84, 3, -0.52), color = FRAME_INNER, material = Enum.Material.Metal },
+	{ name = "Bead", size = Vector3.new(0.08, 5.28, 0.1), offset = CFrame.new(1.84, 3, -0.52), color = FRAME_INNER, material = Enum.Material.Metal },
+	{ name = "Bead", size = Vector3.new(3.6, 0.08, 0.1), offset = CFrame.new(0, 5.64, -0.52), color = FRAME_INNER, material = Enum.Material.Metal },
+	{ name = "Bead", size = Vector3.new(3.6, 0.08, 0.1), offset = CFrame.new(0, 0.36, -0.52), color = FRAME_INNER, material = Enum.Material.Metal },
+	{ name = "Glass", size = Vector3.new(3.6, 5.2, 0.04), offset = CFrame.new(0, 3, -0.53), color = hex("E6F4FF"), material = Enum.Material.Glass, transparency = 0.9, collide = false },
+	{ name = "Rosette", size = Vector3.new(0.1, 0.36, 0.36), offset = CFrame.new(-2, 5.8, -0.56) * CFrame.Angles(0, math.rad(90), 0), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "Rosette", size = Vector3.new(0.1, 0.36, 0.36), offset = CFrame.new(2, 5.8, -0.56) * CFrame.Angles(0, math.rad(90), 0), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "Rosette", size = Vector3.new(0.1, 0.36, 0.36), offset = CFrame.new(-2, 0.2, -0.56) * CFrame.Angles(0, math.rad(90), 0), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "Rosette", size = Vector3.new(0.1, 0.36, 0.36), offset = CFrame.new(2, 0.2, -0.56) * CFrame.Angles(0, math.rad(90), 0), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "Crest", size = Vector3.new(1.4, 0.3, 0.16), offset = CFrame.new(0, 6.1, -0.3), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "CrestJewel", size = Vector3.new(0.3, 0.3, 0.3), offset = CFrame.new(0, 6.18, -0.4), color = hex("E63946"), material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+	-- Лампа: кронштейн от верха рамы вперёд, латунная трубка и светящаяся полоска (наклонена к холсту)
+	{ name = "LampArm", size = Vector3.new(0.08, 0.08, 0.42), offset = CFrame.lookAt(Vector3.new(0, 6.26, -0.79), Vector3.new(0, 6.35, -1)), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+	{ name = "LampHood", size = Vector3.new(1.8, 0.24, 0.24), offset = CFrame.new(0, 6.38, -1), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "LampGlow", size = Vector3.new(1.6, 0.06, 0.1), offset = CFrame.new(0, 6.26, -0.98) * CFrame.Angles(math.rad(-35), 0, 0), color = hex("FFE7B8"), material = Enum.Material.Neon, collide = false },
+}
+
 local function buildMonaLisaPainting(map: Folder, exhibits: Folder, markers: Folder)
 	-- Origin — центр нижнего края рамы, перед смотрит на юг (+Z)
 	local position = Vector3.new(0, 4, 1.16)
 	local pivot = CFrame.lookAt(position, position + Vector3.new(0, 0, 1))
 
-	local painting = ModelLibrary.place(MapSchema.Models.MonaLisa, pivot, {
-		-- Портретная, как настоящая (Ш × В = 4.4 × 6)
-		{ name = "Frame", size = Vector3.new(4.4, 6, 0.4), offset = CFrame.new(0, 3, -0.2), color = COLORS.Gold, material = Enum.Material.Metal },
-		{ name = "Canvas", size = Vector3.new(3.6, 5.2, 0.1), offset = CFrame.new(0, 3, -0.45), color = COLORS.Canvas },
-	}, exhibits)
+	local painting = ModelLibrary.place(MapSchema.Models.MonaLisa, pivot, MONA_LISA_STUB, exhibits)
+	local own = not ModelLibrary.has(MapSchema.Models.MonaLisa)
 	local canvas = painting:FindFirstChild("Canvas")
-	if canvas and canvas:IsA("BasePart") and not ModelLibrary.has(MapSchema.Models.MonaLisa) then
+	if canvas and canvas:IsA("BasePart") and own then
 		paintPortrait(canvas)
+	end
+	-- Латунная лампа над рамой светит вниз на холст (у модели друга — своя)
+	local lampGlow = painting:FindFirstChild("LampGlow")
+	if lampGlow and lampGlow:IsA("BasePart") and own then
+		local settings = Config.Lighting.PictureLamp
+		local lampLight = Instance.new("SurfaceLight")
+		lampLight.Face = Enum.NormalId.Bottom
+		lampLight.Range = settings.Range
+		lampLight.Brightness = settings.Brightness
+		lampLight.Angle = settings.Angle
+		lampLight.Color = settings.Color
+		lampLight.Parent = lampGlow
 	end
 
 	newMarker(markers, MapSchema.PaintingSpot, pivot)
@@ -1480,6 +1517,34 @@ local HALL_PEDESTALS: { [string]: { { number } } } = {
 	Space = { { -62, 58, 0, 1 }, { -62, 96, 0, -1 }, { -34, 58, 0, 1 }, { -34, 96, 0, -1 } }, -- под планетами
 }
 
+-- Табличка с названием экспоната на передней стороне постамента (этап 5, блок F2): латунная рамка и тёмная доска.
+-- Видна и днём, и ночью; цена днём — по-прежнему над постаментом. y и depth — у каждого вида постамента свои.
+local PLAQUE_SPOT: { [string]: { y: number, depth: number } } = {
+	Main = { y = 2, depth = 1.2 },
+	Sculptures = { y = 1.75, depth = 1.1 },
+	Dinosaurs = { y = 2.1, depth = 1.36 }, -- поверх деревянной дощечки глыбы
+	Jewelry = { y = 1.9, depth = 1.15 },
+	Space = { y = 1.65, depth = 1 },
+}
+
+local function pedestalPlaque(pedestal: PVInstance, base: CFrame, stub: string, title: string)
+	local spot = PLAQUE_SPOT[stub]
+	if not spot then
+		return
+	end
+	local function plate(name: string, size: Vector3, z: number, color: Color3, material: Enum.Material): Part
+		local part = newPart(pedestal, name, size, base * CFrame.new(0, spot.y, -(spot.depth + z)), color, material)
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanTouch = false
+		part.CastShadow = false
+		return part
+	end
+	plate("PlaqueFrame", Vector3.new(1.5, 0.5, 0.04), 0.02, COLORS.Gold, Enum.Material.Metal)
+	local board = plate("Plaque", Vector3.new(1.36, 0.38, 0.03), 0.05, COLORS.Navy, Enum.Material.SmoothPlastic)
+	textOn(board, Enum.NormalId.Front, string.upper(title), COLORS.Gold, 0.4)
+end
+
 -- Постаменты: 2 в центре рядом с Моной Лизой и по 4 в каждом зале. Атрибуты Hall и Slot — для покупки экспонатов.
 local function buildPedestals(folder: Folder)
 	local spots: { { hall: string, cframe: CFrame, stub: string } } = {}
@@ -1496,9 +1561,15 @@ local function buildPedestals(folder: Folder)
 			table.insert(spots, { hall = hall, cframe = cframe, stub = hall })
 		end
 	end
+	local ownPedestal = not ModelLibrary.has(MapSchema.Models.Pedestal)
 	for index, spot in spots do
 		local pedestal = ModelLibrary.place(MapSchema.Models.Pedestal, spot.cframe, PEDESTAL_STUBS[spot.stub], folder)
 		pedestal.Name = "Pedestal" .. index
+		local kind = Config.Exhibits.Slots[index]
+		local info = kind and (Config.Exhibits.Kinds :: any)[kind]
+		if ownPedestal and info then
+			pedestalPlaque(pedestal, spot.cframe, spot.stub, info.Title)
+		end
 		pedestal:SetAttribute("Hall", spot.hall)
 		pedestal:SetAttribute("Slot", index)
 	end
