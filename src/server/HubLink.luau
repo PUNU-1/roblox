@@ -227,11 +227,17 @@ local function onPlayerAdded(player: Player)
 	-- Класс из хаба. RoleService ставит новому игроку класс по умолчанию — свой ставим следом.
 	-- Этап 4, блок 1: хабу не верим — купил ли игрок класс, музей проверяет сам по его профилю (ProfileStore).
 	-- Пока профиль грузится, у игрока Patrol; не загрузился или класс не куплен — так и остаётся Patrol.
+	-- Этап 6, блок H1: не куплен, но есть бесплатный забег (подарок новичку) — тратим его (по сохранённым данным,
+	-- внутри UpdateAsync) и даём класс на этот забег; после забега он снова закрыт (GameLoop, TrialClass).
 	local role = ticket.classes[player.UserId]
 	if role and role ~= Config.Classes.Default then
 		ProfileStore.waitLoaded(player, Config.Diamonds.LoadWaitSeconds)
 		if player.Parent and ProfileStore.owns(player, role) then
 			player:SetAttribute(PlayerAttr.Role, role)
+		elseif player.Parent and ProfileStore.useFreeTry(player) then
+			player:SetAttribute(PlayerAttr.Role, role)
+			player:SetAttribute(PlayerAttr.TrialClass, role)
+			print(("[HubLink] %s играет классом %s на пробу (бесплатный забег)"):format(player.Name, tostring(role)))
 		elseif player.Parent then
 			warn(("[HubLink] %s прилетел с классом %s, но не купил его — Patrol"):format(player.Name, tostring(role)))
 		end

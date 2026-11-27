@@ -190,6 +190,16 @@ local function chooseClass(role: string)
 		return
 	end
 	if not GameState.ownsClass(localPlayer, role) then
+		-- Подарок новичку (этап 6, блок H1): есть бесплатный забег — класс выбирается на пробу, иначе магазин
+		if (tonumber(localPlayer:GetAttribute(PlayerAttr.FreeTries)) or 0) > 0 then
+			if GameState.roleOf(localPlayer) ~= role then
+				Remotes.get(Remotes.Names.SetRole):FireServer(role)
+				local info = GameState.classInfo(role)
+				showBanner(("FREE TRY: %s - ONE RUN"):format(string.upper(if info then tostring(info.Title) else role)), "info")
+			end
+			ClassesWindow.close()
+			return
+		end
 		ClassShop.open(role) -- некупленный класс — сразу в магазин на нём (окно классов закроется само)
 		return
 	end
@@ -505,6 +515,9 @@ RunService.Heartbeat:Connect(function(dt)
 	local pad = myPad()
 	local info = GameState.classInfo(GameState.roleOf(localPlayer))
 	local className = string.upper(if info then tostring(info.Title) else "Patrol")
+	if not GameState.ownsClass(localPlayer, GameState.roleOf(localPlayer)) then
+		className ..= " (FREE TRY)" -- выбран на пробу (этап 6, блок H1)
+	end
 	classLine.Text = "YOUR CLASS: " .. className
 	teamLine.Text = teamText(pad)
 

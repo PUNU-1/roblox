@@ -148,9 +148,13 @@ Players.PlayerRemoving:Connect(function(player)
 	claiming[player] = nil
 end)
 
--- Класс (карточки, клавиши 1–5): любой купленный из Config.Classes.Order, пока команда игрока не улетает
+-- Класс (карточки, клавиши 1–5): любой купленный из Config.Classes.Order, пока команда игрока не улетает.
+-- Этап 6, блок H1: некупленный — на пробу, если у игрока остался бесплатный забег (тратит его музей).
 Remotes.get(Remotes.Names.SetRole).OnServerEvent:Connect(function(player, role)
-	if not GameState.classInfo(role) or PadService.isLaunching(player) or not ProfileStore.owns(player, role) then
+	if not GameState.classInfo(role) or PadService.isLaunching(player) then
+		return
+	end
+	if not ProfileStore.owns(player, role) and ProfileStore.freeTries(player) <= 0 then
 		return
 	end
 	player:SetAttribute(PlayerAttr.Role, role)

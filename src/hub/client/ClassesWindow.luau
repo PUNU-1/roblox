@@ -2,6 +2,8 @@
 -- висели внизу экрана. Открывается кнопкой CLASSES слева или клавишей C; пока окно открыто, работают клавиши 1–5.
 -- Выбрал купленный класс — окно закрывается, сверху «Your class: Technician». Некупленный — открывается CLASS SHOP
 -- на этом классе. Что можно, решает тот, кто создал окно (HubHUD: команда улетает — нельзя), и сервер.
+-- Этап 6, блок H1: у новичка на некупленных карточках «TRY FREE (1)» — нажал, и этот класс летит с ним в музей
+-- на один забег (бесплатный забег тратит музей, проверяя профиль).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -42,7 +44,7 @@ local window = PixelWindow.new({
 
 -- onChoose — что делать при выборе карточки (клавиша 1–5 или нажатие); окно закрывает тот, кто выбрал.
 function ClassesWindow.init(onChoose: (role: string) -> ())
-	cards = ClassCards.new(window.content, touchOnly, onChoose, true)
+	cards = ClassCards.new(window.content, touchOnly, onChoose, true, true) -- в хабе — «TRY FREE (1)» (этап 6, блок H1)
 end
 
 function ClassesWindow.refresh()

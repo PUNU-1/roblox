@@ -3,6 +3,7 @@
 -- Сервер решает всё: когда начинается ночь, кто участвует, чем она закончилась.
 
 local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -113,6 +114,7 @@ VoteService.setIgnoreJoiner(HubLink.isLeaving)
 TouristService.setAttractions(ExhibitService.attractions)
 
 local resultsRemote = Remotes.get(Remotes.Names.NightResults)
+local progressRemote = Remotes.get(Remotes.Names.ProgressEvent)
 local bannerRemote = Remotes.get(Remotes.Names.Banner)
 
 local bestNights = 0 -- рекорд сервера
@@ -338,6 +340,14 @@ local function runResults(survived: boolean, night: number): { Player }
 	results.choice = gameOver -- кнопки Play again / Lobby
 	resultsRemote:FireAllClients(results)
 	if gameOver then
+		-- Пробный забег кончился (этап 6, блок H1): предложить купить класс в магазине хаба
+		for _, player in Players:GetPlayers() do
+			local trial = player:GetAttribute(GameState.PlayerAttr.TrialClass)
+			local info = GameState.classInfo(trial)
+			if info then
+				progressRemote:FireClient(player, "TrialOver", tostring(info.Title), GameState.classPrice(trial))
+			end
+		end
 		return HubLink.runGameOverChoice(RoleService.participants(), nightsSurvived)
 	end
 	while GameState.secondsLeft() > 0 do
@@ -371,7 +381,17 @@ local function finishRun()
 	RoleService.setConsoleEnabled(false)
 	ExhibitService.setDayActive(false)
 	ExhibitService.reset()
-	Purchase.clearBackers() -- вклады в недокупленное забыты: в новом забеге всё с нуля
+	Purchase.clearBackers()
+	-- Класс на пробу (этап 6, блок H1) — только на один забег: снова Patrol, если так и не купил
+	for _, player in Players:GetPlayers() do
+		local trial = player:GetAttribute(GameState.PlayerAttr.TrialClass)
+		if typeof(trial) == "string" and trial ~= "" then
+			player:SetAttribute(GameState.PlayerAttr.TrialClass, "")
+			if GameState.roleOf(player) == trial and not ProfileStore.owns(player, trial) then
+				player:SetAttribute(GameState.PlayerAttr.Role, Config.Classes.Default)
+			end
+		end
+	end -- вклады в недокупленное забыты: в новом забеге всё с нуля
 	setLighting(Config.Lighting.Lobby)
 	MapBuilder.setDayLights(map, false)
 	GameState.set(Attr.NightNumber, 0)

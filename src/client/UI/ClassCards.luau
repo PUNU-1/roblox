@@ -4,6 +4,8 @@
 -- Выбор — клавишами 1–5 (их ловит HUD.client) или пальцем по карточке. Курсор не освобождается (решение 56).
 -- Этап 4, блок 1: некупленный класс — серая карточка с замком и ценой в алмазах 💎 (GameState.ownsClass);
 -- что делать при нажатии на неё (открыть магазин или подсказать), решает тот, кто создал карточки.
+-- Этап 6, блок H1: allowTry (хаб) — у некупленной карточки зелёная плашка «TRY FREE (1)», если у игрока остались
+-- бесплатные забеги (атрибут FreeTries, подарок новичку). Класс, выбранный на пробу, — без замка, с лентой YOUR CLASS.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -129,13 +131,16 @@ type Card = {
 	selected: boolean,
 	locked: boolean,
 	lock: Frame,
+	lockIcon: TextLabel,
+	tryPill: Frame,
+	tryLabel: TextLabel,
 	viewport: ViewportFrame,
 	title: TextLabel,
 }
 
 -- embedded (этап 5, блок A): карточки внутри окна (хаб, окно CLASSES) — по центру родителя и без своего UIScale
 -- (окно уменьшается целиком). Без него — внизу экрана, как в лобби музея.
-function ClassCards.new(gui: Instance, touchOnly: boolean, onChoose: (role: string) -> (), embedded: boolean?): Cards
+function ClassCards.new(gui: Instance, touchOnly: boolean, onChoose: (role: string) -> (), embedded: boolean?, allowTry: boolean?): Cards
 	local order = Classes.Order
 	local width = #order * CARD_W + (#order - 1) * GAP
 	local panel = Theme.new("Frame", {
@@ -322,7 +327,7 @@ function ClassCards.new(gui: Instance, touchOnly: boolean, onChoose: (role: stri
 			ZIndex = 5,
 			Parent = button,
 		}, { Theme.corner(14) })
-		Theme.label({
+		local lockIcon = Theme.label({
 			Name = "Icon",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(CARD_W / 2, 52),
@@ -350,6 +355,25 @@ function ClassCards.new(gui: Instance, touchOnly: boolean, onChoose: (role: stri
 			Parent = pricePill,
 		})
 
+		-- Пробный забег (этап 6, блок H1): «TRY FREE (1)» под ценой
+		local tryPill = Theme.new("Frame", {
+			Name = "TryFree",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(CARD_W / 2, 124),
+			Size = UDim2.fromOffset(CARD_W - 12, 26),
+			BackgroundColor3 = Colors.Green,
+			BorderSizePixel = 0,
+			Visible = false,
+			ZIndex = 6,
+			Parent = lock,
+		}, { Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, LineJoinMode = Enum.LineJoinMode.Miter }) })
+		local tryLabel = Theme.pixelLabel({
+			Size = UDim2.fromScale(1, 1),
+			Text = "TRY FREE",
+			ZIndex = 7,
+			Parent = tryPill,
+		}, 8, 1)
+
 		button.Activated:Connect(function()
 			onChoose(role)
 		end)
@@ -369,6 +393,9 @@ function ClassCards.new(gui: Instance, touchOnly: boolean, onChoose: (role: stri
 			selected = false,
 			locked = false,
 			lock = lock,
+			lockIcon = lockIcon,
+			tryPill = tryPill,
+			tryLabel = tryLabel,
 			viewport = viewport,
 			title = title,
 		})
@@ -380,9 +407,14 @@ function ClassCards.new(gui: Instance, touchOnly: boolean, onChoose: (role: stri
 			local role = GameState.roleOf(player)
 			picked[role] = (picked[role] or 0) + 1
 		end
+		local tries = if allowTry then tonumber(Players.LocalPlayer:GetAttribute(GameState.PlayerAttr.FreeTries)) or 0 else 0
 		for _, card in cards do
 			local selected = card.role == myRole
-			local locked = not GameState.ownsClass(Players.LocalPlayer, card.role)
+			-- Выбран на пробу (этап 6, блок H1) — замка нет, пока выбран
+			local locked = not GameState.ownsClass(Players.LocalPlayer, card.role) and not (allowTry and selected)
+			card.tryPill.Visible = locked and tries > 0
+			card.tryLabel.Text = ("TRY FREE (%d)"):format(tries)
+			card.lockIcon.Visible = not (locked and tries > 0)
 			if locked ~= card.locked then
 				card.locked = locked
 				card.lock.Visible = locked

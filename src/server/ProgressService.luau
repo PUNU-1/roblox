@@ -214,9 +214,17 @@ local function awardBadge(player: Player, badgeId: number)
 end
 
 -- Профиль записан: всем достижениям из сохранённых данных с номером значка — значок Roblox.
-local function onSaved(player: Player, progress: Progress.Data, _created: boolean)
+-- created — профиль только что создан (новичок): подарок уже в профиле, говорим о нём игроку.
+local function onSaved(player: Player, progress: Progress.Data, created: boolean)
 	if not player.Parent then
 		return
+	end
+	if created then
+		task.delay(3, function() -- клиент успевает загрузиться и подписаться на ProgressEvent
+			if player.Parent then
+				eventRemote:FireClient(player, "Newbie", Settings.NewbieDiamonds, progress.freeTries)
+			end
+		end)
 	end
 	for _, id in Config.Badges.Order do
 		local info = (Config.Badges :: any)[id]
