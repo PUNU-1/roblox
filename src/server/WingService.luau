@@ -19,6 +19,7 @@ local Server = script.Parent
 local Audio = require(Server:WaitForChild("Audio"))
 local Purchase = require(Server:WaitForChild("Purchase"))
 local ShopService = require(Server:WaitForChild("ShopService"))
+local ProgressService = require(Server:WaitForChild("ProgressService"))
 
 local Settings = Config.Wings
 
@@ -158,6 +159,7 @@ local function contribute(wing: Wing, player: Player, fromShop: boolean?): numbe
 		wing.paid += amount
 	end
 	if wing.paid >= price then
+		ProgressService.teamBought(Purchase.backers(panel), "Wing")
 		openWing(wing)
 	else
 		updateSign(wing)

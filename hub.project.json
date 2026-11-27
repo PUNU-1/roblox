@@ -38,7 +38,8 @@
         "Teleporter": { "$path": "src/server/Teleporter.luau" },
         "PlaceFinder": { "$path": "src/server/PlaceFinder.luau" },
         "RecordStore": { "$path": "src/server/RecordStore.luau" },
-        "ProfileStore": { "$path": "src/server/ProfileStore.luau" }
+        "ProfileStore": { "$path": "src/server/ProfileStore.luau" },
+        "ProgressService": { "$path": "src/server/ProgressService.luau" }
       }
     },
     "StarterPlayer": {

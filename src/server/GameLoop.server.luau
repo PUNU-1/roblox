@@ -40,12 +40,16 @@ local HubLink = require(Server:WaitForChild("HubLink"))
 local RecordStore = require(Server:WaitForChild("RecordStore"))
 local Audio = require(Server:WaitForChild("Audio"))
 local ProfileStore = require(Server:WaitForChild("ProfileStore"))
+local ProgressService = require(Server:WaitForChild("ProgressService"))
+local Purchase = require(Server:WaitForChild("Purchase"))
 local ShopService = require(Server:WaitForChild("ShopService"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
 
 ProfileStore.init() -- алмазы 💎 и купленные классы (этап 4, блок 1): грузятся сразу, как игрок вошёл
+-- Опыт, уровни, задания, достижения (этап 6, блок H1). От первого лица своя плашка над головой не видна
+ProgressService.init({ hideOwnPlate = true })
 ModelLibrary.setupCollisionGroups()
 -- Тени и реалистичная графика в музее: мягкие тени, отражения, bloom, цветокоррекция и лёгкая дымка
 Lighting.GlobalShadows = true
@@ -312,7 +316,9 @@ local function runResults(survived: boolean, night: number): { Player }
 	RoleService.closeAllViews()
 	local gameOver = not survived
 	setPhase(Phase.Results, if gameOver then Config.GameOver.ChoiceSeconds else Config.Phases.ResultsSeconds)
-	local results = ScoreService.finish(survived)
+	-- Был ли этой ночью налёт (достижение Raid Survivor)
+	local raided = table.find(WaveService.usedPlans(), Config.Raid.Title) ~= nil
+	local results = ScoreService.finish(survived, raided)
 	local nightsSurvived = if survived then night else night - 1
 	if not survived then
 		bestNights = math.max(bestNights, nightsSurvived)
@@ -365,6 +371,7 @@ local function finishRun()
 	RoleService.setConsoleEnabled(false)
 	ExhibitService.setDayActive(false)
 	ExhibitService.reset()
+	Purchase.clearBackers() -- вклады в недокупленное забыты: в новом забеге всё с нуля
 	setLighting(Config.Lighting.Lobby)
 	MapBuilder.setDayLights(map, false)
 	GameState.set(Attr.NightNumber, 0)

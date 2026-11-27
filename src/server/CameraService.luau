@@ -24,6 +24,7 @@ local Audio = require(Server:WaitForChild("Audio"))
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local Purchase = require(Server:WaitForChild("Purchase"))
 local ShopService = require(Server:WaitForChild("ShopService"))
+local ProgressService = require(Server:WaitForChild("ProgressService"))
 
 local Attr = GameState.CameraAttr
 local Cameras = Config.Cameras
@@ -136,6 +137,7 @@ local function contribute(camera: Camera, player: Player, fromShop: boolean?): n
 	end
 	camera.paid += amount
 	if camera.paid >= Cameras.Price then
+		ProgressService.teamBought(Purchase.backers(plaque), "Camera")
 		own(camera, true)
 		Remotes.get(Remotes.Names.Banner):FireAllClients(("CAMERA %d INSTALLED"):format(camera.index), "info")
 	else
@@ -331,6 +333,7 @@ local function repairOne(camera: Camera, player: Player)
 	camera.point:SetAttribute(Attr.Broken, false)
 	refreshRepair()
 	Remotes.get(Remotes.Names.Banner):FireAllClients(("CAM %d IS BACK ONLINE"):format(camera.index), "info")
+	ProgressService.cameraRepaired(player) -- задание «почини камеру» (этап 6, блок H1)
 end
 
 function CameraService.repairAll()

@@ -48,6 +48,9 @@ local NAMES: { [string]: string } = {
 	ShopReply = "ShopReply", -- (kind: string, category: string, id: string, text: string) ответ на ShopBuy, kind — GameState.ShopReply
 	GiftResult = "GiftResult", -- (ok: boolean, reward: number, day: number, message: string) ответ на ClaimGift
 	HitConfirm = "HitConfirm", -- (kind: string) стрелку: попал ("hit"), в голову ("head"), грабитель упал ("ko"), шокер ("stun")
+	-- этап 6, блок H1: прогресс (хаб и музей). kind: "LevelUp" (level, rank: string — "" если звание прежнее, diamonds),
+	-- "Quest" (text, reward), "Badge" (title), "Newbie" (diamonds, freeTries), "TrialOver" (className, price)
+	ProgressEvent = "ProgressEvent",
 }
 Remotes.Names = NAMES
 

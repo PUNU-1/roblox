@@ -24,6 +24,7 @@ local WeaponModels = require(Shared:WaitForChild("WeaponModels"))
 local Server = script.Parent
 local RoleService = require(Server:WaitForChild("RoleService"))
 local HealthService = require(Server:WaitForChild("HealthService"))
+local ProgressService = require(Server:WaitForChild("ProgressService"))
 
 local PlayerAttr = GameState.PlayerAttr
 local Weapons = Config.Weapons
@@ -362,6 +363,9 @@ local function fire(player: Player, weapon: string, origin: Vector3, direction: 
 			if stunning then
 				local handler = targetFor(hitModel)
 				if handler and handler.stun and handler.stun(hitModel, player) then
+					if confirm ~= "stun" then
+						ProgressService.stunned(player) -- задание «оглуши шокером» (этап 6, блок H1)
+					end
 					confirm = "stun"
 				end
 			else

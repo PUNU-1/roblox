@@ -4,13 +4,18 @@
 -- Этап 5, блок A: ежедневный подарок (giftDay — номер дня UTC, когда забрал, giftStreak — день серии 1–7)
 -- забирается тоже внутри UpdateAsync, как покупка класса.
 -- Этап 5, блок C: настройка «обучение выключено» (tutorialOff) — Remote SetTutorial, хаб и музей.
+-- Этап 6, блок H1: прогресс (опыт, уровни, задания, счётчики, достижения, пробный забег — поля shared/Progress).
+-- Пишется так же разницей: что произошло, копится в pendingProgress, UpdateAsync применяет это к сохранённому
+-- (Progress.apply) — уровни, задания и их алмазы считаются по сохранённым данным, дважды не выдаются. Новый
+-- профиль (в DataStore ещё ничего нет) сразу получает подарок новичку: алмазы и бесплатный забег.
 --
 -- Правило 5 из CLAUDE.md: только UpdateAsync в pcall с повтором (Retry). Каждое изменение сохраняется сразу:
 -- алмазы — разницей (pending), поэтому, даже если запись не удалась, ничего не теряется — она уйдёт со следующей
 -- попыткой (новое начисление, выход игрока, закрытие сервера). Покупка класса — тоже внутри UpdateAsync:
 -- цена и «уже куплен» проверяются по сохранённым данным, а не по кэшу.
 --
--- Клиенты видят профиль атрибутами игрока (Diamonds, OwnedClasses, ProfileStatus, GiftDay, GiftStreak, TutorialOff), пишет их
+-- Клиенты видят профиль атрибутами игрока (Diamonds, OwnedClasses, ProfileStatus, GiftDay, GiftStreak, TutorialOff,
+-- Xp, Level, Quests, Stats, FreeTries), пишет их
 -- только этот модуль.
 -- Studio без доступа к API: все классы открыты, алмазы считаются в памяти и не сохраняются (статус Offline).
 
@@ -23,6 +28,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local Progress = require(Shared:WaitForChild("Progress"))
 local Retry = require(script.Parent:WaitForChild("Retry"))
 
 local Settings = Config.Diamonds
@@ -32,14 +38,17 @@ local Status = GameState.ProfileStatus
 local ProfileStore = {}
 
 type Profile = {
+	player: Player,
 	userId: number,
 	diamonds: number, -- сколько видит игрок (сохранённое + ещё не записанное)
 	owned: { [string]: boolean },
 	giftDay: number, -- номер дня UTC, когда последний раз забрал подарок (0 — никогда)
 	giftStreak: number, -- какой это был день серии (1–7)
 	tutorialOff: boolean, -- игрок выключил обучение (этап 5, блок C)
+	progress: Progress.Data, -- опыт, задания, счётчики, достижения, пробные забеги (этап 6, блок H1)
 	status: string, -- GameState.ProfileStatus
 	pending: number, -- алмазы, которые ещё не записаны в DataStore
+	pendingProgress: Progress.Delta, -- прогресс, который ещё не записан
 	busy: boolean, -- идёт запрос к DataStore (запросы одного игрока — по очереди)
 }
 
@@ -48,6 +57,9 @@ local offline = false -- Studio без доступа к API: всё тольк�
 local inflight = 0 -- сколько запросов к DataStore идёт сейчас (BindToClose ждёт их)
 local started = false
 local lastToggle: { [Player]: number } = {} -- когда игрок последний раз менял настройку обучения (SetTutorial)
+-- Кто хочет знать о каждой удачной записи (ProgressService: значки Roblox, «Welcome» новичку)
+type SavedListener = (player: Player, progress: Progress.Data, created: boolean) -> ()
+local savedListeners: { SavedListener } = {}
 
 local function key(userId: number): string
 	return tostring(userId)
@@ -60,6 +72,7 @@ type Data = {
 	giftDay: number,
 	giftStreak: number,
 	tutorialOff: boolean,
+	progress: Progress.Data,
 }
 
 -- Данные из DataStore → алмазы, классы и подарки. Чужие и сломанные поля отбрасываются.
@@ -86,7 +99,25 @@ local function clean(data: any): Data
 			owned[name] = true -- бесплатные классы есть у всех
 		end
 	end
-	return { diamonds = diamonds, owned = owned, giftDay = giftDay, giftStreak = giftStreak, tutorialOff = tutorialOff }
+	return {
+		diamonds = diamonds,
+		owned = owned,
+		giftDay = giftDay,
+		giftStreak = giftStreak,
+		tutorialOff = tutorialOff,
+		progress = Progress.clean(data), -- поля прогресса лежат в той же таблице; у старых профилей их нет
+	}
+end
+
+-- Купленные классы по порядку карточек (для задания «сыграй за класс»).
+local function ownedList(owned: { [string]: boolean }): { string }
+	local list = {}
+	for _, name in Config.Classes.Order do
+		if owned[name] then
+			table.insert(list, name)
+		end
+	end
+	return list
 end
 
 local function pack(data: Data): { [string]: any }
@@ -94,13 +125,13 @@ local function pack(data: Data): { [string]: any }
 	for name in data.owned do
 		classes[name] = true
 	end
-	return {
-		diamonds = math.max(0, math.floor(data.diamonds)),
-		ownedClasses = classes,
-		giftDay = data.giftDay,
-		giftStreak = data.giftStreak,
-		tutorialOff = data.tutorialOff,
-	}
+	local packed = Progress.pack(data.progress)
+	packed.diamonds = math.max(0, math.floor(data.diamonds))
+	packed.ownedClasses = classes
+	packed.giftDay = data.giftDay
+	packed.giftStreak = data.giftStreak
+	packed.tutorialOff = data.tutorialOff
+	return packed
 end
 
 -- Профиль → атрибуты игрока (их видят клиенты: алмазы вверху, замки на карточках, витрина).
@@ -119,6 +150,12 @@ local function publish(player: Player, profile: Profile)
 	player:SetAttribute(PlayerAttr.GiftDay, profile.giftDay)
 	player:SetAttribute(PlayerAttr.GiftStreak, profile.giftStreak)
 	player:SetAttribute(PlayerAttr.TutorialOff, profile.tutorialOff)
+	local progress = profile.progress
+	player:SetAttribute(PlayerAttr.Xp, progress.xp)
+	player:SetAttribute(PlayerAttr.Level, (Progress.levelOf(progress.xp)))
+	player:SetAttribute(PlayerAttr.Quests, Progress.encodeQuests(progress))
+	player:SetAttribute(PlayerAttr.Stats, Progress.encodeStats(progress))
+	player:SetAttribute(PlayerAttr.FreeTries, progress.freeTries)
 	player:SetAttribute(PlayerAttr.ProfileStatus, profile.status)
 end
 
@@ -136,16 +173,29 @@ local function unlock(profile: Profile)
 	inflight -= 1
 end
 
--- Один UpdateAsync: прибавляет ещё не записанные алмазы (pending) и, если надо, что-то меняет (change).
--- После удачи кэш берётся из сохранённых данных. Возвращает, удалось ли.
+-- Один UpdateAsync: прибавляет ещё не записанные алмазы (pending), применяет ещё не записанный прогресс
+-- (pendingProgress — уровни и задания с их алмазами, новый день заданий) и, если надо, что-то меняет (change).
+-- В DataStore ещё ничего нет — это новый игрок: подарок новичку. После удачи кэш берётся из сохранённых данных.
+-- Возвращает, удалось ли.
 local function update(profile: Profile, change: ((data: Data) -> ())?): (boolean, string?)
 	local delta = profile.pending
+	local sent = Progress.copyDelta(profile.pendingProgress)
+	local today = GameState.dayNumber(os.time())
+	local created = false
 	local attempts = if RunService:IsStudio() then 1 else Settings.Retries -- в Studio без API ошибка сразу и навсегда
 	local ok, result = Retry.call(attempts, Settings.RetryDelay, function()
 		local store = DataStoreService:GetDataStore(Settings.Store)
 		return store:UpdateAsync(key(profile.userId), function(old: any): any
 			local data = clean(old)
+			created = old == nil
+			if created then
+				-- Подарок новичку (этап 6, блок H1): только один раз — следующий UpdateAsync уже найдёт профиль
+				data.diamonds += Config.Progress.NewbieDiamonds
+				data.progress.freeTries = Config.Progress.NewbieFreeTries
+			end
 			data.diamonds = math.max(0, data.diamonds + delta)
+			local events = Progress.apply(data.progress, sent, today, profile.userId, ownedList(data.owned))
+			data.diamonds += events.diamonds
 			if change then
 				change(data)
 			end
@@ -156,23 +206,34 @@ local function update(profile: Profile, change: ((data: Data) -> ())?): (boolean
 		return false, tostring(result)
 	end
 	profile.pending -= delta
+	Progress.subtract(profile.pendingProgress, sent)
 	local data = clean(result)
 	profile.diamonds = data.diamonds + profile.pending
 	profile.owned = data.owned
 	profile.giftDay = data.giftDay
 	profile.giftStreak = data.giftStreak
 	profile.tutorialOff = data.tutorialOff
+	profile.progress = data.progress
 	profile.status = Status.Ready
+	for _, listener in savedListeners do
+		task.spawn(listener, profile.player, Progress.copy(data.progress), created)
+	end
 	return true, nil
 end
 
--- Записать ещё не записанные алмазы (и заодно загрузить профиль, если он ещё не загружен).
-local function sync(player: Player, profile: Profile)
+-- Есть ли что-то, что ещё не записано.
+local function hasPending(profile: Profile): boolean
+	return profile.pending ~= 0 or not Progress.isEmpty(profile.pendingProgress)
+end
+
+-- Записать ещё не записанные алмазы и прогресс (и заодно загрузить профиль, если он ещё не загружен).
+-- force — записать, даже если нечего (начался новый день: новые задания).
+local function sync(player: Player, profile: Profile, force: boolean?)
 	if offline or profile.status == Status.Offline then
 		return
 	end
 	lock(profile)
-	if profile.pending ~= 0 or profile.status ~= Status.Ready then
+	if force or hasPending(profile) or profile.status ~= Status.Ready then
 		local ok, err = update(profile, nil)
 		if not ok then
 			if profile.status == Status.Loading then
@@ -199,14 +260,17 @@ end
 local function newProfile(player: Player): Profile
 	local data = clean(nil)
 	return {
+		player = player,
 		userId = player.UserId,
 		diamonds = data.diamonds,
 		owned = data.owned,
 		giftDay = data.giftDay,
 		giftStreak = data.giftStreak,
 		tutorialOff = data.tutorialOff,
+		progress = data.progress,
 		status = if offline then Status.Offline else Status.Loading,
 		pending = 0,
+		pendingProgress = Progress.newDelta(),
 		busy = false,
 	}
 end
@@ -234,7 +298,7 @@ local function onPlayerRemoving(player: Player)
 		return
 	end
 	-- Последняя попытка записать то, что не записалось; профиль забываем после неё
-	if profile.pending ~= 0 and profile.status ~= Status.Offline and not offline then
+	if hasPending(profile) and profile.status ~= Status.Offline and not offline then
 		sync(player, profile)
 	end
 	if profiles[player] == profile then
@@ -270,7 +334,7 @@ function ProfileStore.init()
 	-- Сервер закрывается: дописать всё, что не записано, и дождаться идущих запросов
 	game:BindToClose(function()
 		for player, profile in profiles do
-			if profile.pending ~= 0 and not offline and profile.status ~= Status.Offline then
+			if hasPending(profile) and not offline and profile.status ~= Status.Offline then
 				task.spawn(sync, player, profile)
 			end
 		end
@@ -479,6 +543,107 @@ function ProfileStore.setTutorial(player: Player, on: boolean)
 		unlock(profile)
 		publish(player, profile)
 	end)
+end
+
+---------------------------------------------------------------- прогресс (этап 6, блок H1)
+
+-- Прогресс игрока сейчас (копия; nil — профиля нет). Пока профиль не загружен — пустой.
+function ProfileStore.progress(player: Player): Progress.Data?
+	local profile = profiles[player]
+	return if profile then Progress.copy(profile.progress) else nil
+end
+
+-- Профиль загружен (или Studio без API) — прогресс в памяти настоящий.
+local function progressReady(profile: Profile): boolean
+	return offline or profile.status == Status.Offline or profile.status == Status.Ready
+end
+
+-- Что-то произошло (опыт, задание, счётчик). Игрок видит сразу, запись — тут же, в фоне, разницей.
+-- Возвращает события (новый уровень, задание, достижение) — их показывает ProgressService. nil — профиль ещё
+-- грузится: всё копится и запишется после загрузки, но без надписей.
+function ProfileStore.addProgress(player: Player, delta: Progress.Delta): Progress.Events?
+	local profile = profiles[player]
+	if not profile or Progress.isEmpty(delta) then
+		return nil
+	end
+	local today = GameState.dayNumber(os.time())
+	if offline or profile.status == Status.Offline then
+		-- Studio без доступа к API: как алмазы — в памяти, не сохраняется
+		local events = Progress.apply(profile.progress, delta, today, profile.userId, ownedList(profile.owned))
+		profile.diamonds += events.diamonds
+		publish(player, profile)
+		return events
+	end
+	Progress.merge(profile.pendingProgress, delta)
+	local events: Progress.Events? = nil
+	if profile.status == Status.Ready then
+		-- Показываем сразу по кэшу; алмазы за уровни и задания сохранит UpdateAsync по сохранённым данным
+		local shown = Progress.apply(profile.progress, delta, today, profile.userId, ownedList(profile.owned))
+		profile.diamonds += shown.diamonds
+		events = shown
+	end
+	task.spawn(sync, player, profile)
+	publish(player, profile)
+	return events
+end
+
+-- Начался новый день — новые задания (ProgressService проверяет раз в минуту).
+function ProfileStore.refreshDay(player: Player)
+	local profile = profiles[player]
+	if not profile or not progressReady(profile) then
+		return
+	end
+	local today = GameState.dayNumber(os.time())
+	if profile.progress.questDay == today then
+		return
+	end
+	if offline or profile.status == Status.Offline then
+		Progress.rollQuests(profile.progress, profile.userId, today, ownedList(profile.owned))
+		publish(player, profile)
+		return
+	end
+	task.spawn(sync, player, profile, true) -- новые задания выберет UpdateAsync по сохранённым данным
+end
+
+-- Сколько бесплатных забегов некупленным классом осталось (подарок новичку). Пока профиль не загружен — 0.
+function ProfileStore.freeTries(player: Player): number
+	local profile = profiles[player]
+	if not profile or not progressReady(profile) then
+		return 0
+	end
+	return profile.progress.freeTries
+end
+
+-- Потратить бесплатный забег (музей, класс из хаба не куплен). Проверяется по сохранённым данным внутри
+-- UpdateAsync: один забег не потратить дважды даже с двух серверов. true — можно играть этим классом.
+function ProfileStore.useFreeTry(player: Player): boolean
+	local profile = profiles[player]
+	if not profile then
+		return false
+	end
+	if offline or profile.status == Status.Offline then
+		return true -- в Studio без API все классы и так открыты
+	end
+	if profile.status ~= Status.Ready or profile.progress.freeTries <= 0 then
+		return false
+	end
+	lock(profile)
+	local used = false
+	local ok = update(profile, function(data: Data)
+		used = data.progress.freeTries > 0
+		if used then
+			data.progress.freeTries -= 1
+		end
+	end)
+	unlock(profile)
+	publish(player, profile)
+	return ok and used
+end
+
+-- Позвать listener после каждой удачной записи профиля (прогресс по сохранённым данным; created — профиль
+-- только что создан, это новичок).
+function ProfileStore.onSaved(listener: SavedListener)
+	table.insert(savedListeners, listener)
 end
 
 return ProfileStore

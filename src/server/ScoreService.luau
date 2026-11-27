@@ -11,6 +11,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local ProfileStore = require(script.Parent:WaitForChild("ProfileStore"))
+local ProgressService = require(script.Parent:WaitForChild("ProgressService"))
 
 local ScoreService = {}
 
@@ -52,6 +53,7 @@ function ScoreService.beginRun(participants: { Player })
 	end
 	incomePool = 0
 	table.clear(diamondsRun)
+	ProgressService.runStarted(participants) -- забеги для достижения Night Owl (этап 6, блок H1)
 end
 
 function ScoreService.beginDay()
@@ -102,8 +104,8 @@ function ScoreService.addSpawned()
 	GameState.set(GameState.Attr.ThievesSpawned, spawnedTotal)
 end
 
--- Арест: деньги сразу и только тому, кто арестовал (решение 68).
-function ScoreService.addCatch(player: Player)
+-- Арест: деньги сразу и только тому, кто арестовал (решение 68). kind — вид вора (опыт, задание, достижение).
+function ScoreService.addCatch(player: Player, kind: any)
 	caughtTotal += 1
 	catchesByUser[player.UserId] = (catchesByUser[player.UserId] or 0) + 1
 	local reward = Config.Money.PerArrest
@@ -111,6 +113,7 @@ function ScoreService.addCatch(player: Player)
 	player:SetAttribute(GameState.PlayerAttr.Money, (tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0) + reward)
 	player:SetAttribute(GameState.PlayerAttr.RunArrests, (tonumber(player:GetAttribute(GameState.PlayerAttr.RunArrests)) or 0) + 1)
 	GameState.set(GameState.Attr.Caught, caughtTotal)
+	ProgressService.arrest(player, kind) -- опыт, задание «арестуй», достижения (этап 6, блок H1)
 end
 
 -- Грабителя остановили без ареста (убит или его забрала полиция, блок 4): считается пойманным, денег нет.
@@ -121,7 +124,8 @@ end
 
 -- Итог ночи: кто сколько поймал и заработал арестами, сколько денег у каждого. Денег за ночь нет.
 -- Алмазы: пережили ночь — PerNight каждому, кто ещё на смене; плюс PerArrest за каждый свой арест.
-function ScoreService.finish(survived: boolean): Results
+-- Опыт и задания за ночь (этап 6, блок H1) — тоже только тем, кто на смене. raided — этой ночью был налёт.
+function ScoreService.finish(survived: boolean, raided: boolean?): Results
 	local earnings: { [string]: number } = {}
 	local catches: { [string]: number } = {}
 	local wallets: { [string]: number } = {}
@@ -145,6 +149,7 @@ function ScoreService.finish(survived: boolean): Results
 			if award > 0 then
 				ProfileStore.addDiamonds(player, award)
 			end
+			ProgressService.nightEnded(player, survived, raided == true)
 		end
 		diamondsRun[userId] = (diamondsRun[userId] or 0) + award
 		diamonds[key] = award

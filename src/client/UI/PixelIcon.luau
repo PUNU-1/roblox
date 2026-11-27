@@ -694,6 +694,51 @@ Icons.Fire = {
 	palette = { K = OUTLINE, r = "FF4040" },
 }
 
+-- Этап 6, блок H1: задания (планшет со списком — две галочки и одно незаконченное) и достижение (медаль на ленте)
+Icons.Quests = {
+	rows = {
+		"................",
+		".....KKKKKK.....",
+		"..KKKKyyyyKKKK..",
+		"..KbbKKKKKKbbK..",
+		"..KbwwwwwwwwbK..",
+		"..KbwGGwkkkkbK..",
+		"..KbwGGwwwwwbK..",
+		"..KbwwwwwwwwbK..",
+		"..KbwGGwkkkkbK..",
+		"..KbwGGwwwwwbK..",
+		"..KbwwwwwwwwbK..",
+		"..KbwrrwkkkkbK..",
+		"..KbwrrwwwwwbK..",
+		"..KbwwwwwwwwbK..",
+		"..KbbbbbbbbbbK..",
+		"..KKKKKKKKKKKK..",
+	},
+	palette = { K = OUTLINE, y = GOLD, b = "8B5A2B", w = "F1E6CC", G = "3FB56B", k = "6B6255", r = "E0575B" },
+}
+
+Icons.Medal = {
+	rows = {
+		"................",
+		"..KKK......KKK..",
+		"..KrrK....KbbK..",
+		"...KrrK..KbbK...",
+		"....KrrKKbbK....",
+		".....KrrbbK.....",
+		".....KKKKKK.....",
+		"....KyyyyyyK....",
+		"...KyYYYYYYyK...",
+		"...KyYyyyyYyK...",
+		"...KyYyddyYyK...",
+		"...KyYyddyYyK...",
+		"...KyYyyyyYyK...",
+		"...KyYYYYYYyK...",
+		"....KyyyyyyK....",
+		".....KKKKKK.....",
+	},
+	palette = { K = OUTLINE, r = "E0575B", b = "6FA8FF", y = GOLD, Y = GOLD_LIGHT, d = GOLD_DARK },
+}
+
 PixelIcon.Icons = Icons
 
 local function resolve(icon: Icon | string): Icon

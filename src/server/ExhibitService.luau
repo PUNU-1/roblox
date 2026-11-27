@@ -18,6 +18,7 @@ local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local Purchase = require(Server:WaitForChild("Purchase"))
 local ShopService = require(Server:WaitForChild("ShopService"))
+local ProgressService = require(Server:WaitForChild("ProgressService"))
 
 local ExhibitConfig = Config.Exhibits
 
@@ -891,6 +892,7 @@ local function contribute(slot: Slot, player: Player, base: BasePart, fromShop: 
 	end
 	slot.paid += amount
 	if slot.paid >= slot.price then
+		ProgressService.teamBought(Purchase.backers(base), "Exhibit")
 		placeExhibit(slot)
 	else
 		refreshSlot(slot)

@@ -502,6 +502,83 @@ local Config = {
 		DaySeconds = 86400, -- длина дня (новый день — в 00:00 UTC)
 	},
 
+	-- Опыт, уровни и звания (этап 6, блок H1, решение 85). Хранятся в профиле (ProfileStore, PlayerProfile_v1),
+	-- общие для хаба и музея. Считает и сохраняет только сервер (ProgressService).
+	Progress = {
+		XpNight = 50, -- баланс: опыт каждому на смене за пережитую ночь
+		XpArrest = 10, -- баланс: за свой арест (вор, сдавшийся или оглушённый грабитель)
+		XpTeamBuy = 5, -- баланс: за покупку для команды (крыло, зал, экспонат, камера, сетка, сигнализация) — каждому, кто вложил
+		XpRevive = 20, -- баланс: за подъём друга
+		-- Сколько опыта нужно, чтобы с уровня L перейти на L+1: Base * L ^ Power (уровень 2 — 25, 5 — ~380 всего,
+		-- 10 — ~2300, 20 — ~13 000, 50 — ~120 000; ночь с 5 арестами — 100)
+		LevelBase = 25,
+		LevelPower = 1.4,
+		MaxLevel = 100,
+		LevelDiamonds = 10, -- баланс: алмазов 💎 за каждый новый уровень
+		RankDiamonds = 50, -- баланс: алмазов 💎 за новое звание (вдобавок к уровню)
+		-- Звания по уровням: от какого уровня, цвет плашки над головой
+		Ranks = {
+			{ Name = "ROOKIE", Level = 1, Color = Color3.fromHex("A9B4C6") },
+			{ Name = "GUARD", Level = 5, Color = Color3.fromHex("3BC6C1") },
+			{ Name = "SENIOR GUARD", Level = 10, Color = Color3.fromHex("3FB56B") },
+			{ Name = "SERGEANT", Level = 15, Color = Color3.fromHex("6FA8FF") },
+			{ Name = "LIEUTENANT", Level = 20, Color = Color3.fromHex("B07CFF") },
+			{ Name = "CAPTAIN", Level = 30, Color = Color3.fromHex("E8913A") },
+			{ Name = "CHIEF", Level = 40, Color = Color3.fromHex("E0575B") },
+			{ Name = "LEGEND", Level = 50, Color = Color3.fromHex("FFD34D") },
+		},
+		Plate = { -- плашка над головой (BillboardGui)
+			Height = 2.7, -- стадов над серединой головы (выше имени Roblox)
+			MaxDistance = 70,
+			TextSize = 8, -- пиксельный шрифт, кратно 8
+		},
+		Salute = { -- салют на новом уровне
+			Particles = 70,
+			Colors = { Color3.fromHex("FFD34D"), Color3.fromHex("3BC6C1"), Color3.fromHex("E0575B"), Color3.fromHex("6FE3FF"), Color3.fromHex("3FB56B") },
+		},
+		DayCheckSeconds = 60, -- раз в столько секунд сервер проверяет, не начался ли новый день (новые задания)
+		-- Подарок новичку: новый профиль сразу получает алмазы и бесплатный забег любым некупленным классом
+		NewbieDiamonds = 40,
+		NewbieFreeTries = 1,
+	},
+
+	-- Ежедневные задания (этап 6, блок H1): 3 в день, день — по UTC, как у подарков. Выбираются случайно из списка
+	-- (одинаково на всех серверах: зерно — игрок и день), сложность — индекс в Goals, награда — тот же индекс в Rewards.
+	-- Прогресс считает сервер и сразу сохраняет в профиль. %d — цель, %s — класс.
+	Quests = {
+		PerDay = 3,
+		List = {
+			{ Kind = "Arrest", Text = "ARREST %d THIEVES", TextOne = "ARREST A THIEF", Goals = { 3, 6, 10 }, Rewards = { 15, 25, 40 } },
+			{ Kind = "Survive", Text = "SURVIVE %d NIGHTS", TextOne = "SURVIVE A NIGHT", Goals = { 2, 3, 5 }, Rewards = { 15, 25, 40 } },
+			{ Kind = "BuyWing", Text = "HELP BUY %d WINGS", TextOne = "HELP BUY A WING", Goals = { 1, 2 }, Rewards = { 20, 35 } },
+			{ Kind = "Taser", Text = "STUN %d THIEVES WITH A TASER", TextOne = "STUN A THIEF WITH A TASER", Goals = { 1, 3 }, Rewards = { 15, 30 } },
+			{ Kind = "Repair", Text = "REPAIR %d CAMERAS", TextOne = "REPAIR A CAMERA", Goals = { 1, 2 }, Rewards = { 20, 30 } },
+			{ Kind = "Revive", Text = "REVIVE %d TEAMMATES", TextOne = "REVIVE A TEAMMATE", Goals = { 1, 2 }, Rewards = { 20, 35 } },
+			{ Kind = "BuyExhibit", Text = "HELP BUY %d EXHIBITS", TextOne = "HELP BUY AN EXHIBIT", Goals = { 1, 3 }, Rewards = { 15, 30 } },
+			{ Kind = "PlayClass", Text = "PLAY %d NIGHTS AS %s", TextOne = "PLAY A NIGHT AS %s", Goals = { 1, 2 }, Rewards = { 15, 25 } },
+		},
+	},
+
+	-- Достижения (этап 6, блок H1). Засчитываются в профиле всегда; BadgeId — номер значка Roblox (создаёт владелец:
+	-- Creator Hub → игра → Badges → Create, картинка 512 × 512). 0 — значка пока нет, достижение видно только в игре.
+	-- Stat — счётчик профиля: nights (пережитые ночи), arrests, revives, runs (забеги), raids (пережитые ночи с налётом),
+	-- wingsRun (больше всего крыльев за один забег, в которые игрок вложил), kinds (сколько видов воров арестовал;
+	-- Goal = 0 — все виды из ThiefOrder).
+	Badges = {
+		Order = { "FirstArrest", "Nights5", "Nights10", "Nights20", "AllThieves", "RaidSurvivor", "Hero", "ShopLover", "NightOwl" },
+		FirstArrest = { Title = "FIRST ARREST", Text = "Arrest your first thief", Stat = "arrests", Goal = 1, BadgeId = 0 },
+		Nights5 = { Title = "5 NIGHTS", Text = "Survive 5 nights", Stat = "nights", Goal = 5, BadgeId = 0 },
+		Nights10 = { Title = "10 NIGHTS", Text = "Survive 10 nights", Stat = "nights", Goal = 10, BadgeId = 0 },
+		Nights20 = { Title = "20 NIGHTS", Text = "Survive 20 nights", Stat = "nights", Goal = 20, BadgeId = 0 },
+		AllThieves = { Title = "CAUGHT THEM ALL", Text = "Arrest every kind of thief", Stat = "kinds", Goal = 0, BadgeId = 0 },
+		RaidSurvivor = { Title = "RAID SURVIVOR", Text = "Survive a night with a raid", Stat = "raids", Goal = 1, BadgeId = 0 },
+		Hero = { Title = "HERO", Text = "Revive 10 teammates", Stat = "revives", Goal = 10, BadgeId = 0 },
+		ShopLover = { Title = "SHOP LOVER", Text = "Help buy all 4 wings in one run", Stat = "wingsRun", Goal = 4, BadgeId = 0 },
+		NightOwl = { Title = "NIGHT OWL", Text = "Play 10 runs", Stat = "runs", Goal = 10, BadgeId = 0 },
+		Retries = 3, -- попыток выдать значок Roblox (BadgeService, pcall с повтором)
+		RetryDelay = 2,
+	},
+
 	-- Награды за группу и «Избранное» (этап 5, блок A): группы пока нет — кнопки показывают «Coming soon!».
 	Rewards = {
 		GroupId = 0, -- номер группы Roblox; владелец пришлёт — награду сделаем отдельно

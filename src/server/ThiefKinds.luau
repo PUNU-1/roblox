@@ -12,6 +12,7 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local Uniform = require(Server:WaitForChild("Uniform"))
+local ProgressService = require(Server:WaitForChild("ProgressService"))
 
 local ThiefKinds = {}
 
@@ -523,6 +524,9 @@ function ThiefKinds.build(kind: string, disguise: Player?): Model?
 	if model then
 		model.Name = "Thief"
 		model:SetAttribute(GameState.ThiefAttr.Kind, kind)
+		if kind == "FakeGuard" and disguise then
+			ProgressService.attachPlate(model, disguise) -- плашка «LV 7 GUARD» как у настоящего (этап 6, блок H1)
+		end
 	end
 	return model
 end

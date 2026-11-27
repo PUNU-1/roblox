@@ -19,6 +19,7 @@ local Audio = require(Server:WaitForChild("Audio"))
 local Purchase = require(Server:WaitForChild("Purchase"))
 local ExhibitService = require(Server:WaitForChild("ExhibitService"))
 local ShopService = require(Server:WaitForChild("ShopService"))
+local ProgressService = require(Server:WaitForChild("ProgressService"))
 
 local HallConfig = Config.Halls
 
@@ -131,6 +132,7 @@ local function contribute(door: Door, player: Player, fromShop: boolean?): numbe
 	door.paid += amount
 	updateSign(door)
 	if door.paid >= door.price then
+		ProgressService.teamBought(Purchase.backers(panel), "Hall")
 		openHall(door)
 	end
 	return amount

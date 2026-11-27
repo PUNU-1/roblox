@@ -20,6 +20,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Server = script.Parent
 local RoleService = require(Server:WaitForChild("RoleService"))
 local Audio = require(Server:WaitForChild("Audio"))
+local ProgressService = require(Server:WaitForChild("ProgressService"))
 
 local PlayerAttr = GameState.PlayerAttr
 local Settings = Config.Health
@@ -146,6 +147,7 @@ local function revive(target: Player, reviver: Player?)
 	end
 	if reviver then
 		bannerRemote:FireAllClients(("%s IS BACK UP!"):format(string.upper(target.DisplayName)), "info")
+		ProgressService.revived(reviver) -- опыт и задание «подними друга» (этап 6, блок H1)
 	end
 	HealthService.Revived:Fire(target)
 end

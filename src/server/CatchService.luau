@@ -141,7 +141,7 @@ local function tryArrest(player: Player, model: Model, prompt: ProximityPrompt, 
 	end
 
 	prompt.Enabled = false
-	ScoreService.addCatch(player)
+	ScoreService.addCatch(player, model:GetAttribute(GameState.ThiefAttr.Kind))
 	attachHandcuffs(model)
 	showReward(model)
 	Audio.playOnce(Config.Sounds.Arrest, thiefRoot, Config.Sounds.ArrestVolume)

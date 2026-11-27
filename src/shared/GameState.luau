@@ -356,6 +356,13 @@ GameState.PlayerAttr = {
 	RunSpent = "RunSpent", -- number, сколько долларов игрок потратил за забег (пишет Purchase; шаг «купи»)
 	RunArrests = "RunArrests", -- number, сколько воров игрок арестовал за забег (пишет ScoreService; шаг «арестуй»)
 	ShopOpen = "ShopOpen", -- boolean, ТОЛЬКО НА КЛИЕНТЕ: открыто окно магазина (пишет Shop.client, читает Tutorial)
+	-- этап 6, блок H1: прогресс игрока (пишет ProfileStore; сохраняется навсегда, shared/Progress)
+	Xp = "Xp", -- number, весь опыт
+	Level = "Level", -- number, уровень (по опыту)
+	Quests = "Quests", -- string, JSON: день и 3 задания дня с прогрессом (Progress.decodeQuests)
+	Stats = "Stats", -- string, JSON: счётчики, виды арестованных воров, достижения (Progress.decodeStats)
+	FreeTries = "FreeTries", -- number, сколько осталось бесплатных забегов некупленным классом (подарок новичку)
+	TrialClass = "TrialClass", -- string, музей: класс этого забега взят на пробу (после забега снова закрыт); "" — нет
 }
 
 -- Профиль игрока (этап 4, блок 1): загружен ли он из DataStore.

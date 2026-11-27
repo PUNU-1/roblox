@@ -2,6 +2,8 @@
 --  • слева пиксельные кнопки без рамки и фона: SHOP, CLASSES, GIFTS, HOW TO PLAY, GROUP, FAVORITE — каждая
 --    открывает своё окно (на телефоне — двумя столбиками сверху, чтобы не мешать джойстику);
 --  • справа вверху — алмазы пиксельной иконкой и числом;
+--  • слева сверху — уровень, звание и полоска опыта (этап 6, блок H1, LevelBar); надписи LEVEL UP и «Quest done»
+--    рисует UI/ProgressFx;
 --  • сверху по центру — свой класс и, если стоишь в круге, команда и отсчёт;
 --  • панель создателя команды (START — F, FRIENDS ONLY — G, на телефоне — кнопки) — только у создателя, пока он в круге;
 --  • крупные надписи и затемнение «Teleporting to the museum».
@@ -28,6 +30,8 @@ local ClassShop = require(script.Parent:WaitForChild("ClassShop"))
 local ClassesWindow = require(script.Parent:WaitForChild("ClassesWindow"))
 local HowToPlay = require(script.Parent:WaitForChild("HowToPlay"))
 local Gifts = require(script.Parent:WaitForChild("Gifts"))
+local LevelBar = require(script.Parent:WaitForChild("LevelBar"))
+local ProgressFx = require(UI:WaitForChild("ProgressFx"))
 
 local PadAttr = GameState.PadAttr
 local PadState = GameState.PadState
@@ -42,6 +46,14 @@ local gui = Theme.screenGui("HubHUD", 1)
 
 -- На телефоне и планшете без клавиатуры вместо клавиш — кнопки на экране
 local touchOnly = Theme.touchOnly()
+
+ProgressFx.start() -- LEVEL UP, «Quest done», достижения, подарок новичку (этап 6, блок H1)
+
+-- Уровень и полоска опыта слева сверху, под кнопками Roblox (этап 6, блок H1); кнопки меню — под ней
+local LEVEL_TOP = if touchOnly then 60 else 64
+local levelBar = LevelBar.new(gui, touchOnly)
+levelBar.frame.Position = UDim2.fromOffset(if touchOnly then 8 else 12, LEVEL_TOP)
+local MENU_TOP = LEVEL_TOP + levelBar.height + 10
 
 -- Свой круг и его состояние (nil — не в команде).
 local function myPad(): BasePart?
@@ -275,14 +287,14 @@ for index, item in ITEMS do
 	table.insert(buttonList, button)
 end
 
--- Раскладка: на компьютере — столбик по центру высоты слева, на телефоне — 2 столбика сверху слева
--- (внизу слева джойстик). Клетка иконки — целое число пикселей, на маленьком экране меньше.
+-- Раскладка: на компьютере — столбик по центру высоты слева (но не выше полоски уровня), на телефоне — 2 столбика
+-- сверху слева под полоской уровня (внизу слева джойстик). Клетка иконки — целое число пикселей, на маленьком экране меньше.
 local COLUMNS = if touchOnly then 2 else 1
 local ROWS = math.ceil(#buttonList / COLUMNS)
 local function layoutMenu()
 	local camera = Workspace.CurrentCamera
 	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
-	local room = if touchOnly then viewport.Y * 0.62 else viewport.Y * 0.86
+	local room = if touchOnly then viewport.Y * 0.62 - levelBar.height else viewport.Y - MENU_TOP - 12
 	local cell = Config.PixelUI.MinCell
 	for try = Config.PixelUI.Cell, Config.PixelUI.MinCell, -1 do
 		buttonList[1].setCell(try)
@@ -303,12 +315,12 @@ local function layoutMenu()
 		button.root.Position = UDim2.fromOffset(column * width, row * (height + cell))
 	end
 	menu.Size = UDim2.fromOffset(COLUMNS * width, ROWS * height + (ROWS - 1) * cell)
+	menu.AnchorPoint = Vector2.new(0, 0)
 	if touchOnly then
-		menu.AnchorPoint = Vector2.new(0, 0)
-		menu.Position = UDim2.fromOffset(8, 64)
+		menu.Position = UDim2.fromOffset(8, MENU_TOP)
 	else
-		menu.AnchorPoint = Vector2.new(0, 0.5)
-		menu.Position = UDim2.new(0, 12, 0.5, 0)
+		-- По центру высоты, если влезает под полоской уровня, иначе сразу под ней
+		menu.Position = UDim2.fromOffset(12, math.max(MENU_TOP, math.floor((viewport.Y - menu.Size.Y.Offset) / 2)))
 	end
 end
 layoutMenu()

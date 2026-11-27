@@ -21,6 +21,10 @@ local BuyPrompt = GameState.BuyPrompt
 
 local Purchase = {}
 
+-- Кто вкладывал в каждую покупку вскладчину (этап 6, блок H1): опыт и задания «помоги купить» — всем вкладчикам.
+-- Ключ — деталь покупки (part), слабые ключи: удалённая деталь не держится в памяти.
+local backers: { [BasePart]: { [Player]: boolean } } = setmetatable({}, { __mode = "k" }) :: any
+
 -- Сколько уже вложено и сколько стоит: клиент по ним пишет текст на кнопке.
 function Purchase.setProgress(prompt: ProximityPrompt, paid: number, price: number)
 	prompt:SetAttribute(BuyPrompt.Price, price)
@@ -125,7 +129,33 @@ function Purchase.take(player: Player, part: BasePart, paid: number, price: numb
 	player:SetAttribute(GameState.PlayerAttr.Money, money - amount)
 	addSpent(player, amount)
 	Audio.purchase(part)
+	local set = backers[part]
+	if not set then
+		set = {}
+		backers[part] = set
+	end
+	set[player] = true
 	return amount
+end
+
+-- Покупка вскладчину закончена: кто в неё вкладывал (кто ещё на сервере). Список забывается.
+function Purchase.backers(part: BasePart): { Player }
+	local list = {}
+	local set = backers[part]
+	if set then
+		for player in pairs(set) do
+			if player.Parent then
+				table.insert(list, player)
+			end
+		end
+	end
+	backers[part] = nil
+	return list
+end
+
+-- Новый забег: вклады в недокупленное забыты.
+function Purchase.clearBackers()
+	table.clear(backers)
 end
 
 return Purchase

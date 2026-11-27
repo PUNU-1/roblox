@@ -19,6 +19,7 @@ local ExhibitService = require(Server:WaitForChild("ExhibitService"))
 local Audio = require(Server:WaitForChild("Audio"))
 local Purchase = require(Server:WaitForChild("Purchase"))
 local ShopService = require(Server:WaitForChild("ShopService"))
+local ProgressService = require(Server:WaitForChild("ProgressService"))
 
 local Laser = Config.Traps.LaserGrid
 local Alarm = Config.Traps.Alarm
@@ -289,6 +290,7 @@ local function contributeGrid(grid: Grid, player: Player, fromShop: boolean): nu
 	if amount > 0 then
 		grid.paid += amount
 		if grid.paid >= Laser.Price then
+			ProgressService.teamBought(Purchase.backers(part), "Trap")
 			buildFence(grid)
 		end
 		refreshGridPrompt(grid)
@@ -422,6 +424,7 @@ local function contributeAlarm(player: Player, fromShop: boolean): number
 	if amount > 0 then
 		alarmPaid += amount
 		if alarmPaid >= Alarm.Price then
+			ProgressService.teamBought(Purchase.backers(part), "Trap")
 			alarmOwned = true
 			bannerRemote:FireAllClients("MONA LISA ALARM INSTALLED", "info")
 		end
