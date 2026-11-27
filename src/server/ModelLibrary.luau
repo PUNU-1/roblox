@@ -238,6 +238,34 @@ function ModelLibrary.setCollisionGroup(root: Instance, group: string)
 	end)
 end
 
+-- Деталь одежды или снаряжения на часть тела персонажа (вор, турист, охранник). offset — относительно центра
+-- этой части (для головы −Z — лицо, для кисти −Y — к пальцам). Каждая деталь приваривается Weld с явным C0
+-- (не WeldConstraint: тот запоминает положение в момент входа в workspace), поэтому держится, где бы ни стоял
+-- персонаж, и двигается вместе с костью: суставы Motor6D не трогаются. nil — если такой части тела нет.
+function ModelLibrary.attachTo(model: Model, partName: string, name: string, stub: { StubPart }, offset: CFrame): PVInstance?
+	local bodyPart = model:FindFirstChild(partName)
+	if not (bodyPart and bodyPart:IsA("BasePart")) then
+		return nil
+	end
+	local prop = ModelLibrary.build(name, stub)
+	prop:PivotTo(bodyPart.CFrame * offset)
+	forEachPart(prop, function(part)
+		part.Anchored = false
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.Massless = true
+		local weld = Instance.new("Weld")
+		weld.Name = "PropWeld"
+		weld.Part0 = bodyPart
+		weld.Part1 = part
+		weld.C0 = bodyPart.CFrame:ToObjectSpace(part.CFrame)
+		weld.Parent = part
+	end)
+	prop.Parent = model
+	return prop
+end
+
 -- Приваривает модель к детали персонажа: модель встаёт в cframe и двигается вместе с ней.
 function ModelLibrary.weldTo(instance: PVInstance, target: BasePart, cframe: CFrame)
 	instance:PivotTo(cframe)

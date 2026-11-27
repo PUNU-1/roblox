@@ -345,8 +345,9 @@ local function onPlayerAdded(player: Player)
 			onCharacterAdded(player, character)
 		end),
 		player.CharacterAppearanceLoaded:Connect(function(character)
-			Uniform.apply(character) -- форма охраны, шапки и волосы остаются (решение 55)
+			Uniform.apply(character) -- форма охраны и костюм класса, шапки и волосы остаются (решения 55, 82)
 		end),
+		Uniform.watch(player), -- выбрал другой класс в лобби — костюм переодевается
 	}
 	GameState.set(GameState.Attr.Solo, RoleService.isSolo())
 end

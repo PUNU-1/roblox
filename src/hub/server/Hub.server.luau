@@ -58,7 +58,7 @@ end)
 
 ---------------------------------------------------------------- игроки
 
-local connections: { [Player]: RBXScriptConnection } = {}
+local connections: { [Player]: { RBXScriptConnection } } = {}
 
 local function onPlayerAdded(player: Player)
 	-- Вид от третьего лица (решение 75): обычная камера Roblox, мышь свободна. В музее — от первого лица.
@@ -68,9 +68,12 @@ local function onPlayerAdded(player: Player)
 	player.CameraMaxZoomDistance = camera.MaxZoom
 	player:SetAttribute(PlayerAttr.Role, Config.Classes.Default)
 	-- Форма охраны: в хабе все уже в смене (шапки и волосы остаются)
-	connections[player] = player.CharacterAppearanceLoaded:Connect(function(character)
-		Uniform.apply(character)
-	end)
+	connections[player] = {
+		player.CharacterAppearanceLoaded:Connect(function(character)
+			Uniform.apply(character) -- форма и костюм класса (решение 82)
+		end),
+		Uniform.watch(player), -- выбрал другой класс — костюм переодевается
+	}
 	-- Вернулся из музея — «Welcome back» и сколько ночей продержалась команда.
 	-- Место музея может ещё искаться (PlaceFinder) — ждём в отдельном потоке.
 	task.spawn(function()
@@ -96,9 +99,11 @@ for _, player in Players:GetPlayers() do
 	end
 end
 Players.PlayerRemoving:Connect(function(player)
-	local connection = connections[player]
-	if connection then
-		connection:Disconnect()
+	local list = connections[player]
+	if list then
+		for _, connection in list do
+			connection:Disconnect()
+		end
 		connections[player] = nil
 	end
 end)

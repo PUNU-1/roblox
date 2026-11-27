@@ -1,17 +1,59 @@
--- Форма охраны (решения 12 и 55): убираем свою одежду и аксессуары на теле, красим тело в тёмно-синюю
--- форму, надеваем значок. Шапки, волосы, очки и брови игрока остаются.
--- Общая для музея (RoleService) и хаба (Hub.server, блок 6).
+-- Форма охраны (решения 12, 55, 82): убираем свою одежду и аксессуары на теле, красим тело в тёмно-синюю
+-- форму, надеваем значок, рубашку с карманами и ремень. Шапки, волосы, очки и брови игрока остаются.
+-- Поверх формы — костюм класса (этап 5, блок F1): у каждого класса своя деталь, видная издалека.
+--   Patrol      — светоотражающие полосы на груди, руках и ногах, яркие кроссовки;
+--   Operator    — гарнитура с микрофоном (на голове, а если там шапка или волосы — на шее) и планшет на поясе;
+--   Technician  — жёлтая каска (на голове, а если голова занята — на поясе сзади) и пояс с инструментами;
+--   DogHandler  — чёрный жилет K-9 с жёлтыми полосами и красный поводок на поясе;
+--   Assault     — тяжёлый стально-синий тактический жилет с наплечниками и наколенники.
+-- Класс поменялся (в лобби, в хабе) — костюм переодевается. Все детали — Weld с явным C0 к костям тела
+-- (ModelLibrary.attachTo), суставы Motor6D не трогаются: Guards.client двигает персонажа как раньше.
+-- Модель друга с тем же именем в ReplicatedStorage/Models заменяет заглушку (имена — GEMINI.md).
+-- Общая для музея (RoleService, ThiefKinds — Фальшивый охранник) и хаба (Hub.server, блок 6).
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local GameState = require(Shared:WaitForChild("GameState"))
 local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local ModelLibrary = require(script.Parent:WaitForChild("ModelLibrary"))
 
 local Uniform = {}
 
-local BADGE_STUB: { ModelLibrary.StubPart } = {
+type Stub = { ModelLibrary.StubPart }
+
+local KIT_ATTR = "UniformKit" -- у деталей формы и костюма класса: снимаются при переодевании
+
+local function hex(value: string): Color3
+	return Color3.fromHex(value)
+end
+
+local C = {
+	Navy = Config.Uniform.Torso,
+	NavyDark = hex("141C30"),
+	Gold = hex("F5C542"),
+	Silver = hex("D6DCE4"),
+	Black = hex("15171C"),
+	Leather = hex("2A2320"),
+	Brown = hex("6B4A2E"),
+	BrownDark = hex("4E3420"),
+	Lime = hex("D4F53C"), -- светоотражающие полосы патруля
+	White = hex("F7F7F2"),
+	Red = hex("E63946"),
+	Yellow = hex("FFC21A"),
+	YellowDark = hex("D99A0E"),
+	Steel = hex("8D9BB2"),
+	Screen = hex("4FC3F7"),
+	K9 = hex("1C1F26"),
+	K9Yellow = hex("FFD036"),
+	Armor = hex("3A4F7A"), -- стально-синий: штурмовика не спутать с грабителем в чёрном жилете
+	ArmorDark = hex("26344F"),
+}
+Uniform.Colors = C
+
+local BADGE_STUB: Stub = {
 	{ name = "Shield", size = Vector3.new(0.48, 0.52, 0.08), offset = CFrame.identity, color = Color3.fromHex("F5C542"), material = Enum.Material.Metal, reflectance = 0.35 },
 	{ name = "Core", size = Vector3.new(0.34, 0.36, 0.09), offset = CFrame.new(0, 0, -0.01), color = Color3.fromHex("243B6B"), material = Enum.Material.SmoothPlastic },
 	{ name = "Star", size = Vector3.new(0.18, 0.18, 0.1), offset = CFrame.new(0, 0.02, -0.02) * CFrame.Angles(0, 0, math.rad(45)), color = Color3.fromHex("FFE066"), material = Enum.Material.Neon },
@@ -48,6 +90,361 @@ local function isHeadAccessory(accessory: Accessory): boolean
 	return false
 end
 
+-- Есть ли на голове что-то своё (шапка, волосы, очки): тогда деталь класса для головы идёт на тело.
+-- Брови и ресницы не считаются — под каской и гарнитурой их и так видно.
+local function headIsBusy(character: Model): boolean
+	for _, child in character:GetChildren() do
+		if child:IsA("Accessory") and isHeadAccessory(child)
+			and child.AccessoryType ~= Enum.AccessoryType.Eyebrow and child.AccessoryType ~= Enum.AccessoryType.Eyelash
+		then
+			return true
+		end
+	end
+	return false
+end
+
+local function sizeOf(character: Model, partName: string): Vector3
+	local part = character:FindFirstChild(partName)
+	return if part and part:IsA("BasePart") then part.Size else Vector3.new(1, 1, 1)
+end
+
+-- Надеть деталь формы на часть тела (снимется при следующем переодевании).
+local function wear(character: Model, partName: string, name: string, stub: Stub, offset: CFrame?): PVInstance?
+	local prop = ModelLibrary.attachTo(character, partName, name, stub, offset or CFrame.identity)
+	if prop then
+		prop:SetAttribute(KIT_ATTR, true)
+	end
+	return prop
+end
+
+-- Надпись на грани детали (K-9, SECURITY).
+local function label(prop: Instance?, partName: string, face: Enum.NormalId, text: string, color: Color3)
+	local part = prop and prop:FindFirstChild(partName, true)
+	if not (part and part:IsA("BasePart")) or part:FindFirstChildOfClass("SurfaceGui") then
+		return -- у модели друга надпись может быть своя
+	end
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 50
+	gui.LightInfluence = 1
+	local text_ = Instance.new("TextLabel")
+	text_.BackgroundTransparency = 1
+	text_.Size = UDim2.fromScale(1, 1)
+	text_.Text = text
+	text_.TextScaled = true
+	text_.Font = Enum.Font.FredokaOne
+	text_.TextColor3 = color
+	text_.Parent = gui
+	gui.Parent = part
+end
+
+---------------------------------------------------------------- общая форма
+
+local function shirt(character: Model)
+	local t = sizeOf(character, "UpperTorso")
+	local front = -t.Z * 0.5 - 0.025
+	local stub: Stub = {
+		-- Воротник уголками у шеи
+		{ name = "CollarL", size = Vector3.new(t.X * 0.2, t.Y * 0.11, 0.06), offset = CFrame.new(-t.X * 0.11, t.Y * 0.44, front) * CFrame.Angles(0, 0, -0.45), color = C.NavyDark },
+		{ name = "CollarR", size = Vector3.new(t.X * 0.2, t.Y * 0.11, 0.06), offset = CFrame.new(t.X * 0.11, t.Y * 0.44, front) * CFrame.Angles(0, 0, 0.45), color = C.NavyDark },
+		{ name = "CollarBack", size = Vector3.new(t.X * 0.42, t.Y * 0.1, 0.06), offset = CFrame.new(0, t.Y * 0.46, -front), color = C.NavyDark },
+		-- Нагрудные карманы с клапанами и пуговками (значок — между ними)
+		{ name = "PocketL", size = Vector3.new(t.X * 0.2, t.Y * 0.19, 0.05), offset = CFrame.new(-t.X * 0.24, t.Y * 0.16, front), color = C.NavyDark, material = Enum.Material.Fabric },
+		{ name = "PocketR", size = Vector3.new(t.X * 0.2, t.Y * 0.19, 0.05), offset = CFrame.new(t.X * 0.24, t.Y * 0.16, front), color = C.NavyDark, material = Enum.Material.Fabric },
+		{ name = "FlapL", size = Vector3.new(t.X * 0.21, t.Y * 0.06, 0.07), offset = CFrame.new(-t.X * 0.24, t.Y * 0.27, front), color = C.Navy, material = Enum.Material.Fabric },
+		{ name = "FlapR", size = Vector3.new(t.X * 0.21, t.Y * 0.06, 0.07), offset = CFrame.new(t.X * 0.24, t.Y * 0.27, front), color = C.Navy, material = Enum.Material.Fabric },
+		{ name = "ButtonL", size = Vector3.new(0.08, 0.08, 0.08), offset = CFrame.new(-t.X * 0.24, t.Y * 0.25, front - 0.04), color = C.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ name = "ButtonR", size = Vector3.new(0.08, 0.08, 0.08), offset = CFrame.new(t.X * 0.24, t.Y * 0.25, front - 0.04), color = C.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		-- Погоны с золотой пуговкой
+		{ name = "EpauletL", size = Vector3.new(t.X * 0.2, 0.06, t.Z * 0.55), offset = CFrame.new(-t.X * 0.37, t.Y * 0.5 + 0.02, 0), color = C.NavyDark },
+		{ name = "EpauletR", size = Vector3.new(t.X * 0.2, 0.06, t.Z * 0.55), offset = CFrame.new(t.X * 0.37, t.Y * 0.5 + 0.02, 0), color = C.NavyDark },
+		{ name = "EpButtonL", size = Vector3.new(0.09, 0.05, 0.09), offset = CFrame.new(-t.X * 0.3, t.Y * 0.5 + 0.06, -t.Z * 0.15), color = C.Gold, material = Enum.Material.Metal },
+		{ name = "EpButtonR", size = Vector3.new(0.09, 0.05, 0.09), offset = CFrame.new(t.X * 0.3, t.Y * 0.5 + 0.06, -t.Z * 0.15), color = C.Gold, material = Enum.Material.Metal },
+	}
+	wear(character, "UpperTorso", "guard_shirt_01", stub)
+	-- Нашивка SECURITY на плечах (снаружи руки)
+	for _, side in { "Left", "Right" } do
+		local a = sizeOf(character, side .. "UpperArm")
+		local x = if side == "Left" then -a.X * 0.5 - 0.02 else a.X * 0.5 + 0.02
+		wear(character, side .. "UpperArm", "guard_patch_01", {
+			{ name = "Patch", size = Vector3.new(0.05, a.Y * 0.3, a.Z * 0.5), offset = CFrame.new(x, a.Y * 0.18, 0), color = C.Gold },
+			{ name = "Inner", size = Vector3.new(0.06, a.Y * 0.22, a.Z * 0.38), offset = CFrame.new(x, a.Y * 0.18, 0), color = C.NavyDark },
+		})
+	end
+end
+
+local function belt(character: Model)
+	local l = sizeOf(character, "LowerTorso")
+	wear(character, "LowerTorso", "guard_belt_01", {
+		{ name = "Belt", size = Vector3.new(l.X * 1.05, math.min(0.26, l.Y * 0.6), l.Z * 1.06), offset = CFrame.new(0, l.Y * 0.18, 0), color = C.Black, material = Enum.Material.Leather },
+		{ name = "Buckle", size = Vector3.new(0.32, math.min(0.22, l.Y * 0.5), 0.07), offset = CFrame.new(0, l.Y * 0.18, -l.Z * 0.53 - 0.02), color = C.Silver, material = Enum.Material.Metal },
+		{ name = "Keys", size = Vector3.new(0.18, 0.26, 0.06), offset = CFrame.new(-l.X * 0.2, -l.Y * 0.2, -l.Z * 0.55), color = C.Silver, material = Enum.Material.Metal },
+	})
+end
+
+---------------------------------------------------------------- классы
+
+local function patrol(character: Model, _headBusy: boolean)
+	local t = sizeOf(character, "UpperTorso")
+	local band = function(y: number, name: string): { ModelLibrary.StubPart }
+		return {
+			{ name = name, size = Vector3.new(t.X * 1.03, t.Y * 0.1, t.Z * 1.06), offset = CFrame.new(0, y, 0), color = C.Lime },
+			{ name = name .. "Shine", size = Vector3.new(t.X * 1.035, t.Y * 0.035, t.Z * 1.065), offset = CFrame.new(0, y, 0), color = C.Silver, material = Enum.Material.Metal, reflectance = 0.5 },
+		}
+	end
+	local stub: Stub = {}
+	-- Две полосы вокруг груди и живота (значок между ними) и две полосы через плечи
+	for _, part in band(t.Y * 0.34, "ChestBand") do
+		table.insert(stub, part)
+	end
+	for _, part in band(-t.Y * 0.4, "WaistBand") do
+		table.insert(stub, part)
+	end
+	for _, x in { -t.X * 0.4, t.X * 0.4 } do
+		table.insert(stub, { name = "Strap", size = Vector3.new(t.X * 0.08, t.Y * 0.62, 0.05), offset = CFrame.new(x, -t.Y * 0.03, -t.Z * 0.53), color = C.Lime })
+		table.insert(stub, { name = "Strap", size = Vector3.new(t.X * 0.08, t.Y * 0.62, 0.05), offset = CFrame.new(x, -t.Y * 0.03, t.Z * 0.53), color = C.Lime })
+	end
+	wear(character, "UpperTorso", "guard_patrol_stripes_01", stub)
+	-- Светоотражающие кольца на руках и голенях
+	for _, part in { "LeftUpperArm", "RightUpperArm", "LeftLowerLeg", "RightLowerLeg" } do
+		local s = sizeOf(character, part)
+		local y = if string.find(part, "Arm") then -s.Y * 0.28 else -s.Y * 0.12
+		wear(character, part, "guard_patrol_band_01", {
+			{ name = "Band", size = Vector3.new(s.X * 1.07, s.Y * 0.14, s.Z * 1.07), offset = CFrame.new(0, y, 0), color = C.Lime },
+			{ name = "Shine", size = Vector3.new(s.X * 1.075, s.Y * 0.05, s.Z * 1.075), offset = CFrame.new(0, y, 0), color = C.Silver, material = Enum.Material.Metal, reflectance = 0.5 },
+		})
+	end
+	-- Кроссовки: белая подошва, красный верх, белый носок, полоса по бокам и шнурки
+	for _, foot in { "LeftFoot", "RightFoot" } do
+		local f = sizeOf(character, foot)
+		wear(character, foot, "guard_patrol_sneaker_01", {
+			{ name = "Sole", size = Vector3.new(f.X * 1.12, f.Y * 0.42, f.Z * 1.2), offset = CFrame.new(0, -f.Y * 0.32, -f.Z * 0.06), color = C.White, material = Enum.Material.Rubber },
+			{ name = "Upper", size = Vector3.new(f.X * 1.08, f.Y * 0.8, f.Z * 1.12), offset = CFrame.new(0, f.Y * 0.18, -f.Z * 0.03), color = C.Red },
+			{ name = "Toe", size = Vector3.new(f.X * 1.0, f.Y * 0.55, f.Z * 0.28), offset = CFrame.new(0, f.Y * 0.02, -f.Z * 0.52), color = C.White },
+			{ name = "Stripe", size = Vector3.new(f.X * 1.1, f.Y * 0.2, f.Z * 0.55), offset = CFrame.new(0, f.Y * 0.14, f.Z * 0.04), color = C.White },
+			{ name = "Laces", size = Vector3.new(f.X * 0.45, 0.06, f.Z * 0.42), offset = CFrame.new(0, f.Y * 0.6, -f.Z * 0.18), color = C.White, material = Enum.Material.Fabric },
+			{ name = "Heel", size = Vector3.new(f.X * 0.7, f.Y * 0.5, 0.08), offset = CFrame.new(0, f.Y * 0.25, f.Z * 0.58), color = C.Lime },
+		})
+	end
+end
+
+local function operator(character: Model, headBusy: boolean)
+	local cup = hex("23262E")
+	if not headBusy then
+		-- Гарнитура: дуга через макушку, две чашки, штанга с микрофоном ко рту, зелёный огонёк
+		local h = sizeOf(character, "Head")
+		wear(character, "Head", "guard_operator_headset_01", {
+			{ name = "Band", size = Vector3.new(h.X * 0.9, 0.12, h.Z * 0.2), offset = CFrame.new(0, h.Y * 0.56, 0), color = cup },
+			{ name = "BandL", size = Vector3.new(0.12, h.Y * 0.42, h.Z * 0.18), offset = CFrame.new(-h.X * 0.5, h.Y * 0.36, 0) * CFrame.Angles(0, 0, -0.35), color = cup },
+			{ name = "BandR", size = Vector3.new(0.12, h.Y * 0.42, h.Z * 0.18), offset = CFrame.new(h.X * 0.5, h.Y * 0.36, 0) * CFrame.Angles(0, 0, 0.35), color = cup },
+			{ name = "CupL", size = Vector3.new(0.2, h.Y * 0.44, h.Y * 0.44), offset = CFrame.new(-h.X * 0.56, 0, 0), color = cup, shape = Enum.PartType.Cylinder },
+			{ name = "CupR", size = Vector3.new(0.2, h.Y * 0.44, h.Y * 0.44), offset = CFrame.new(h.X * 0.56, 0, 0), color = cup, shape = Enum.PartType.Cylinder },
+			{ name = "CapL", size = Vector3.new(0.06, h.Y * 0.3, h.Y * 0.3), offset = CFrame.new(-h.X * 0.67, 0, 0), color = C.Screen, shape = Enum.PartType.Cylinder },
+			{ name = "CapR", size = Vector3.new(0.06, h.Y * 0.3, h.Y * 0.3), offset = CFrame.new(h.X * 0.67, 0, 0), color = C.Screen, shape = Enum.PartType.Cylinder },
+			{ name = "Boom", size = Vector3.new(0.06, 0.06, h.Z * 0.62), offset = CFrame.new(-h.X * 0.5, -h.Y * 0.18, -h.Z * 0.28) * CFrame.Angles(0, -0.5, 0), color = cup },
+			{ name = "Mic", size = Vector3.new(0.18, 0.14, 0.14), offset = CFrame.new(-h.X * 0.32, -h.Y * 0.22, -h.Z * 0.56), color = C.Black, material = Enum.Material.Fabric, sphere = true },
+			{ name = "Led", size = Vector3.new(0.05, 0.08, 0.08), offset = CFrame.new(-h.X * 0.7, h.Y * 0.12, -h.Z * 0.08), color = hex("38F28A"), material = Enum.Material.Neon },
+		})
+	else
+		-- Голова занята (шапка, волосы) — гарнитура висит на шее: дуга сзади, чашки на ключицах
+		local t = sizeOf(character, "UpperTorso")
+		local y = t.Y * 0.5 + 0.08
+		wear(character, "UpperTorso", "guard_operator_headset_neck_01", {
+			{ name = "Band", size = Vector3.new(t.X * 0.42, 0.1, 0.12), offset = CFrame.new(0, y + 0.04, t.Z * 0.32), color = cup },
+			{ name = "CupL", size = Vector3.new(0.18, 0.4, 0.4), offset = CFrame.new(-t.X * 0.2, y, -t.Z * 0.12) * CFrame.Angles(0, 0, math.pi / 2), color = cup, shape = Enum.PartType.Cylinder },
+			{ name = "CupR", size = Vector3.new(0.18, 0.4, 0.4), offset = CFrame.new(t.X * 0.2, y, -t.Z * 0.12) * CFrame.Angles(0, 0, math.pi / 2), color = cup, shape = Enum.PartType.Cylinder },
+			{ name = "CapL", size = Vector3.new(0.05, 0.28, 0.28), offset = CFrame.new(-t.X * 0.2, y + 0.1, -t.Z * 0.12) * CFrame.Angles(0, 0, math.pi / 2), color = C.Screen, shape = Enum.PartType.Cylinder },
+			{ name = "CapR", size = Vector3.new(0.05, 0.28, 0.28), offset = CFrame.new(t.X * 0.2, y + 0.1, -t.Z * 0.12) * CFrame.Angles(0, 0, math.pi / 2), color = C.Screen, shape = Enum.PartType.Cylinder },
+			{ name = "Boom", size = Vector3.new(0.06, 0.06, 0.5), offset = CFrame.new(-t.X * 0.14, y + 0.02, -t.Z * 0.42) * CFrame.Angles(0, 0.4, 0), color = cup },
+			{ name = "Mic", size = Vector3.new(0.16, 0.13, 0.13), offset = CFrame.new(-t.X * 0.06, y + 0.02, -t.Z * 0.62), color = C.Black, material = Enum.Material.Fabric, sphere = true },
+		})
+	end
+	-- Планшет на поясе спереди слева: чехол, светящийся экран с картинкой камеры, клипса на ремне.
+	-- Слева сбоку висит шокер, справа — пистолет (WeaponService), поэтому планшет — спереди.
+	local l = sizeOf(character, "LowerTorso")
+	local front = -l.Z * 0.5 - 0.1
+	local x = -l.X * 0.26
+	local yTop = -l.Y * 0.1
+	wear(character, "LowerTorso", "guard_operator_tablet_01", {
+		{ name = "Case", size = Vector3.new(0.8, 1.0, 0.12), offset = CFrame.new(x, yTop - 0.45, front) * CFrame.Angles(0, 0, 0.12), color = C.Black, material = Enum.Material.Leather },
+		{ name = "Tablet", size = Vector3.new(0.68, 0.86, 0.06), offset = CFrame.new(x, yTop - 0.43, front - 0.07) * CFrame.Angles(0, 0, 0.12), color = hex("2E3545") },
+		{ name = "Screen", size = Vector3.new(0.58, 0.66, 0.02), offset = CFrame.new(x, yTop - 0.41, front - 0.105) * CFrame.Angles(0, 0, 0.12), color = C.Screen, material = Enum.Material.Neon },
+		{ name = "ScreenCam", size = Vector3.new(0.2, 0.14, 0.02), offset = CFrame.new(x + 0.05, yTop - 0.34, front - 0.12) * CFrame.Angles(0, 0, 0.12), color = hex("1A5C8A"), material = Enum.Material.Neon },
+		{ name = "Rec", size = Vector3.new(0.06, 0.06, 0.02), offset = CFrame.new(x - 0.16, yTop - 0.18, front - 0.12), color = hex("FF3B4E"), material = Enum.Material.Neon },
+		{ name = "Clip", size = Vector3.new(0.26, 0.34, 0.08), offset = CFrame.new(x, yTop + 0.08, front + 0.02), color = C.Silver, material = Enum.Material.Metal },
+	})
+end
+
+-- Каска: купол, козырёк спереди, ребро по макушке, наклейка. scale — меньше, когда висит на поясе.
+local function hardhatStub(h: Vector3): Stub
+	return {
+		{ name = "Dome", size = Vector3.new(h.X * 1.16, h.Y * 0.82, h.Z * 1.16), offset = CFrame.new(0, h.Y * 0.32, 0), color = C.Yellow, sphere = true },
+		{ name = "Rim", size = Vector3.new(0.08, h.X * 1.24, h.Z * 1.24), offset = CFrame.new(0, h.Y * 0.12, 0) * CFrame.Angles(0, 0, math.pi / 2), color = C.YellowDark, shape = Enum.PartType.Cylinder },
+		{ name = "Visor", size = Vector3.new(h.X * 0.95, 0.08, h.Z * 0.42), offset = CFrame.new(0, h.Y * 0.12, -h.Z * 0.66), color = C.Yellow },
+		{ name = "Ridge", size = Vector3.new(0.16, h.Y * 0.14, h.Z * 0.96), offset = CFrame.new(0, h.Y * 0.68, 0), color = C.YellowDark },
+		{ name = "Sticker", size = Vector3.new(h.X * 0.3, h.Y * 0.16, 0.04), offset = CFrame.new(0, h.Y * 0.38, -h.Z * 0.57) * CFrame.Angles(-0.35, 0, 0), color = C.Navy },
+		{ name = "Bolt", size = Vector3.new(0.08, 0.08, 0.04), offset = CFrame.new(0, h.Y * 0.38, -h.Z * 0.6) * CFrame.Angles(-0.35, 0, 0), color = C.Gold, material = Enum.Material.Metal },
+	}
+end
+
+local function technician(character: Model, headBusy: boolean)
+	local h = sizeOf(character, "Head")
+	local l = sizeOf(character, "LowerTorso")
+	if not headBusy then
+		wear(character, "Head", "guard_tech_hardhat_01", hardhatStub(h))
+	else
+		-- Голова занята — каска пристёгнута к поясу сзади слева, куполом назад
+		wear(character, "LowerTorso", "guard_tech_hardhat_clip_01", hardhatStub(h * 0.8),
+			CFrame.new(-l.X * 0.24, -l.Y * 0.3 - 0.25, l.Z * 0.5 + 0.08) * CFrame.Angles(math.pi / 2, 0, 0))
+	end
+	-- Пояс с инструментами (вместо обычного ремня): кожаные подсумки спереди, гаечный ключ и отвёртка
+	-- торчат из них, молоток и рулетка сзади. По бокам — место для пистолета и шокера.
+	local front = -l.Z * 0.5 - 0.17
+	local back = l.Z * 0.5 + 0.15
+	wear(character, "LowerTorso", "guard_tech_toolbelt_01", {
+		{ name = "Belt", size = Vector3.new(l.X * 1.07, math.max(0.28, l.Y * 0.7), l.Z * 1.09), offset = CFrame.new(0, l.Y * 0.1, 0), color = C.Brown, material = Enum.Material.Leather },
+		{ name = "Buckle", size = Vector3.new(0.34, 0.24, 0.07), offset = CFrame.new(0, l.Y * 0.1, -l.Z * 0.55 - 0.02), color = C.Silver, material = Enum.Material.Metal },
+		{ name = "PouchL", size = Vector3.new(0.5, 0.6, 0.3), offset = CFrame.new(-l.X * 0.3, -0.25, front), color = C.BrownDark, material = Enum.Material.Leather },
+		{ name = "PouchR", size = Vector3.new(0.5, 0.6, 0.3), offset = CFrame.new(l.X * 0.3, -0.25, front), color = C.BrownDark, material = Enum.Material.Leather },
+		{ name = "FlapL", size = Vector3.new(0.52, 0.1, 0.32), offset = CFrame.new(-l.X * 0.3, 0.04, front), color = C.Brown, material = Enum.Material.Leather },
+		-- Гаечный ключ из правого подсумка: ручка и раскрытая головка
+		{ name = "WrenchHandle", size = Vector3.new(0.12, 0.7, 0.07), offset = CFrame.new(l.X * 0.3 + 0.06, 0.2, front - 0.04) * CFrame.Angles(0, 0, -0.15), color = C.Steel, material = Enum.Material.Metal },
+		{ name = "WrenchHead", size = Vector3.new(0.34, 0.16, 0.08), offset = CFrame.new(l.X * 0.3 + 0.12, 0.56, front - 0.04) * CFrame.Angles(0, 0, -0.15), color = C.Steel, material = Enum.Material.Metal },
+		-- Отвёртка из левого: жёлтая ручка и жало
+		{ name = "DriverGrip", size = Vector3.new(0.14, 0.3, 0.14), offset = CFrame.new(-l.X * 0.3 - 0.1, 0.22, front - 0.04), color = C.Yellow, material = Enum.Material.Rubber },
+		{ name = "DriverTip", size = Vector3.new(0.05, 0.3, 0.05), offset = CFrame.new(-l.X * 0.3 - 0.1, -0.05, front - 0.04), color = C.Steel, material = Enum.Material.Metal },
+		-- Молоток сзади: ручка вниз, головка у ремня
+		{ name = "HammerHandle", size = Vector3.new(0.13, 0.8, 0.13), offset = CFrame.new(l.X * 0.22, -0.35, back), color = hex("A8763E"), material = Enum.Material.Wood },
+		{ name = "HammerHead", size = Vector3.new(0.5, 0.18, 0.18), offset = CFrame.new(l.X * 0.22, 0.06, back), color = C.Steel, material = Enum.Material.Metal },
+		-- Рулетка
+		{ name = "Tape", size = Vector3.new(0.22, 0.42, 0.42), offset = CFrame.new(-l.X * 0.12, -0.2, back + 0.02) * CFrame.Angles(0, math.pi / 2, 0), color = C.Yellow, shape = Enum.PartType.Cylinder },
+	})
+end
+
+local function dogHandler(character: Model, _headBusy: boolean)
+	local t = sizeOf(character, "UpperTorso")
+	local front = -t.Z * 0.5 - 0.12
+	local back = t.Z * 0.5 + 0.12
+	-- Жилет K-9 поверх рубашки (значок на жилете свой): чёрный, жёлтые полосы, нашивка K-9 спереди, большая надпись сзади
+	local vest = wear(character, "UpperTorso", "guard_k9_vest_01", {
+		{ name = "Front", size = Vector3.new(t.X * 0.92, t.Y * 0.84, 0.16), offset = CFrame.new(0, -t.Y * 0.05, front), color = C.K9, material = Enum.Material.Fabric },
+		{ name = "Back", size = Vector3.new(t.X * 0.94, t.Y * 0.86, 0.16), offset = CFrame.new(0, -t.Y * 0.04, back), color = C.K9, material = Enum.Material.Fabric },
+		{ name = "StrapL", size = Vector3.new(t.X * 0.2, 0.12, t.Z * 1.28), offset = CFrame.new(-t.X * 0.28, t.Y * 0.47, 0), color = C.K9, material = Enum.Material.Fabric },
+		{ name = "StrapR", size = Vector3.new(t.X * 0.2, 0.12, t.Z * 1.28), offset = CFrame.new(t.X * 0.28, t.Y * 0.47, 0), color = C.K9, material = Enum.Material.Fabric },
+		{ name = "SideL", size = Vector3.new(0.1, t.Y * 0.4, t.Z * 1.24), offset = CFrame.new(-t.X * 0.5 - 0.04, -t.Y * 0.2, 0), color = C.K9, material = Enum.Material.Fabric },
+		{ name = "SideR", size = Vector3.new(0.1, t.Y * 0.4, t.Z * 1.24), offset = CFrame.new(t.X * 0.5 + 0.04, -t.Y * 0.2, 0), color = C.K9, material = Enum.Material.Fabric },
+		{ name = "StripeFront", size = Vector3.new(t.X * 0.93, t.Y * 0.07, 0.17), offset = CFrame.new(0, -t.Y * 0.36, front - 0.005), color = C.K9Yellow },
+		{ name = "StripeBack", size = Vector3.new(t.X * 0.95, t.Y * 0.07, 0.17), offset = CFrame.new(0, -t.Y * 0.36, back + 0.005), color = C.K9Yellow },
+		{ name = "Patch", size = Vector3.new(t.X * 0.36, t.Y * 0.2, 0.04), offset = CFrame.new(t.X * 0.22, t.Y * 0.16, front - 0.09), color = C.K9Yellow },
+		{ name = "Badge", size = Vector3.new(0.34, 0.38, 0.05), offset = CFrame.new(-t.X * 0.24, t.Y * 0.16, front - 0.1), color = C.Gold, material = Enum.Material.Metal },
+		{ name = "BackLabel", size = Vector3.new(t.X * 0.8, t.Y * 0.4, 0.02), offset = CFrame.new(0, t.Y * 0.1, back + 0.09), color = C.K9, material = Enum.Material.Fabric },
+		{ name = "Whistle", size = Vector3.new(0.1, 0.1, 0.3), offset = CFrame.new(t.X * 0.06, t.Y * 0.32, front - 0.12), color = C.Silver, material = Enum.Material.Metal },
+	})
+	label(vest, "Patch", Enum.NormalId.Front, "K-9", C.K9)
+	label(vest, "BackLabel", Enum.NormalId.Back, "K-9", C.K9Yellow)
+	-- Поводок на поясе спереди слева: красный моток (как ошейник собаки), карабин и свисающий конец;
+	-- сзади справа — зелёная сумочка с лакомствами
+	local l = sizeOf(character, "LowerTorso")
+	local lf = -l.Z * 0.5 - 0.12
+	local x = -l.X * 0.28
+	wear(character, "LowerTorso", "guard_k9_leash_01", {
+		{ name = "Coil", size = Vector3.new(0.16, 0.62, 0.62), offset = CFrame.new(x, -0.3, lf) * CFrame.Angles(0, math.pi / 2, 0), color = C.Red, material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder },
+		{ name = "CoilHole", size = Vector3.new(0.18, 0.3, 0.3), offset = CFrame.new(x, -0.3, lf) * CFrame.Angles(0, math.pi / 2, 0), color = C.Navy, material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder },
+		{ name = "Clip", size = Vector3.new(0.12, 0.26, 0.08), offset = CFrame.new(x, 0.04, lf + 0.02), color = C.Silver, material = Enum.Material.Metal },
+		{ name = "Tail", size = Vector3.new(0.08, 0.7, 0.06), offset = CFrame.new(x + 0.2, -0.85, lf - 0.02) * CFrame.Angles(0, 0, 0.12), color = C.Red, material = Enum.Material.Fabric },
+		{ name = "Hook", size = Vector3.new(0.12, 0.18, 0.08), offset = CFrame.new(x + 0.24, -1.24, lf - 0.02), color = C.Silver, material = Enum.Material.Metal },
+		{ name = "TreatBag", size = Vector3.new(0.42, 0.42, 0.28), offset = CFrame.new(l.X * 0.26, -0.22, l.Z * 0.5 + 0.15), color = hex("2E9E5B"), material = Enum.Material.Fabric },
+		{ name = "TreatFlap", size = Vector3.new(0.44, 0.1, 0.3), offset = CFrame.new(l.X * 0.26, 0.02, l.Z * 0.5 + 0.15), color = hex("23794A"), material = Enum.Material.Fabric },
+	})
+end
+
+local function assault(character: Model, _headBusy: boolean)
+	local t = sizeOf(character, "UpperTorso")
+	-- Толще бронежилета из оружейной (WeaponModels.vestSpecs): купленный прячется внутри и не мерцает
+	local front = -t.Z * 0.5 - 0.17
+	local back = t.Z * 0.5 + 0.17
+	local stub: Stub = {
+		{ name = "FrontPlate", size = Vector3.new(t.X * 0.98, t.Y * 0.9, 0.3), offset = CFrame.new(0, -t.Y * 0.03, front), color = C.Armor, material = Enum.Material.Fabric },
+		{ name = "BackPlate", size = Vector3.new(t.X * 1.0, t.Y * 0.92, 0.3), offset = CFrame.new(0, -t.Y * 0.02, back), color = C.Armor, material = Enum.Material.Fabric },
+		{ name = "SideL", size = Vector3.new(0.18, t.Y * 0.56, t.Z * 1.36), offset = CFrame.new(-t.X * 0.5 - 0.08, -t.Y * 0.16, 0), color = C.ArmorDark, material = Enum.Material.Fabric },
+		{ name = "SideR", size = Vector3.new(0.18, t.Y * 0.56, t.Z * 1.36), offset = CFrame.new(t.X * 0.5 + 0.08, -t.Y * 0.16, 0), color = C.ArmorDark, material = Enum.Material.Fabric },
+		-- Высокий воротник спереди и сзади (посередине — шея)
+		{ name = "CollarFront", size = Vector3.new(t.X * 0.62, 0.24, 0.16), offset = CFrame.new(0, t.Y * 0.5 + 0.04, -t.Z * 0.5 - 0.06), color = C.ArmorDark, material = Enum.Material.Fabric },
+		{ name = "CollarBack", size = Vector3.new(t.X * 0.66, 0.3, 0.16), offset = CFrame.new(0, t.Y * 0.5 + 0.07, t.Z * 0.5 + 0.06), color = C.ArmorDark, material = Enum.Material.Fabric },
+		-- Наплечники
+		{ name = "PadL", size = Vector3.new(t.X * 0.3, 0.24, t.Z * 1.2), offset = CFrame.new(-t.X * 0.42, t.Y * 0.5 + 0.1, 0) * CFrame.Angles(0, 0, 0.2), color = C.Armor, material = Enum.Material.Fabric },
+		{ name = "PadR", size = Vector3.new(t.X * 0.3, 0.24, t.Z * 1.2), offset = CFrame.new(t.X * 0.42, t.Y * 0.5 + 0.1, 0) * CFrame.Angles(0, 0, -0.2), color = C.Armor, material = Enum.Material.Fabric },
+		-- Жёлтая кайма по низу
+		{ name = "TrimFront", size = Vector3.new(t.X * 0.99, 0.08, 0.31), offset = CFrame.new(0, -t.Y * 0.47, front), color = C.K9Yellow },
+		{ name = "TrimBack", size = Vector3.new(t.X * 1.01, 0.08, 0.31), offset = CFrame.new(0, -t.Y * 0.47, back), color = C.K9Yellow },
+		-- Значок, рация, нож-фонарь
+		{ name = "Badge", size = Vector3.new(0.36, 0.4, 0.05), offset = CFrame.new(-t.X * 0.26, t.Y * 0.22, front - 0.17), color = C.Gold, material = Enum.Material.Metal },
+		{ name = "Radio", size = Vector3.new(0.24, 0.4, 0.16), offset = CFrame.new(t.X * 0.27, t.Y * 0.2, front - 0.22), color = C.Black },
+		{ name = "Antenna", size = Vector3.new(0.05, 0.44, 0.05), offset = CFrame.new(t.X * 0.32, t.Y * 0.5, front - 0.22), color = C.Black },
+		{ name = "BackLabel", size = Vector3.new(t.X * 0.86, t.Y * 0.28, 0.02), offset = CFrame.new(0, t.Y * 0.18, back + 0.16), color = C.Armor, material = Enum.Material.Fabric },
+	}
+	-- Три подсумка с магазинами спереди внизу
+	for index = -1, 1 do
+		local x = index * t.X * 0.29
+		table.insert(stub, { name = "Pouch", size = Vector3.new(t.X * 0.24, t.Y * 0.3, 0.22), offset = CFrame.new(x, -t.Y * 0.24, front - 0.25), color = C.ArmorDark, material = Enum.Material.Fabric })
+		table.insert(stub, { name = "Mag", size = Vector3.new(t.X * 0.14, t.Y * 0.08, 0.12), offset = CFrame.new(x, -t.Y * 0.05, front - 0.25), color = C.Black })
+	end
+	local vest = wear(character, "UpperTorso", "guard_assault_vest_01", stub)
+	label(vest, "BackLabel", Enum.NormalId.Back, "SECURITY", C.White)
+	-- Наколенники: чёрная подушка, серая чашка, ремешок вокруг голени
+	for _, leg in { "LeftLowerLeg", "RightLowerLeg" } do
+		local s = sizeOf(character, leg)
+		local y = s.Y * 0.34
+		wear(character, leg, "guard_assault_kneepad_01", {
+			{ name = "Pad", size = Vector3.new(s.X * 0.86, s.Y * 0.34, 0.26), offset = CFrame.new(0, y, -s.Z * 0.5 - 0.06), color = C.Black, material = Enum.Material.Rubber },
+			{ name = "Cap", size = Vector3.new(s.X * 0.62, s.Y * 0.22, 0.1), offset = CFrame.new(0, y + 0.02, -s.Z * 0.5 - 0.22), color = C.Armor },
+			{ name = "Strap", size = Vector3.new(s.X * 1.06, 0.1, s.Z * 1.06), offset = CFrame.new(0, y - s.Y * 0.1, 0), color = C.Black, material = Enum.Material.Fabric },
+		})
+	end
+end
+
+local CLASS_KITS: { [string]: (Model, boolean) -> () } = {
+	[GameState.Role.Patrol] = patrol,
+	[GameState.Role.Operator] = operator,
+	[GameState.Role.Technician] = technician,
+	[GameState.Role.DogHandler] = dogHandler,
+	[GameState.Role.Assault] = assault,
+}
+
+---------------------------------------------------------------- переодевание
+
+-- Снимает рубашку, ремень и костюм класса (значок и тело не трогает).
+local function undress(character: Model)
+	for _, child in character:GetChildren() do
+		if child:GetAttribute(KIT_ATTR) then
+			child:Destroy()
+		end
+	end
+end
+
+-- Рубашка, ремень и костюм класса role. Персонаж может быть и копией игрока (Фальшивый охранник).
+function Uniform.dressClass(character: Model, role: string)
+	undress(character)
+	if not character:FindFirstChild("UpperTorso") then
+		return -- не R15: на старом теле детали не встанут
+	end
+	shirt(character)
+	if role ~= GameState.Role.Technician then
+		belt(character) -- у техника вместо ремня пояс с инструментами
+	end
+	local kit = CLASS_KITS[role] or patrol
+	kit(character, headIsBusy(character))
+end
+
+-- Значок охраны на груди.
+function Uniform.badge(character: Model)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid:AddAccessory(ModelLibrary.accessory(MapSchema.Models.GuardBadge, BADGE_STUB, "BodyFrontAttachment"))
+	end
+end
+
 -- Надевает форму на персонажа (после CharacterAppearanceLoaded, когда одежда уже пришла).
 function Uniform.apply(character: Model)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -67,7 +464,20 @@ function Uniform.apply(character: Model)
 		bodyColors.LeftLegColor3 = Config.Uniform.Legs
 		bodyColors.RightLegColor3 = Config.Uniform.Legs
 	end
-	humanoid:AddAccessory(ModelLibrary.accessory(MapSchema.Models.GuardBadge, BADGE_STUB, "BodyFrontAttachment"))
+	Uniform.badge(character)
+	local player = Players:GetPlayerFromCharacter(character)
+	Uniform.dressClass(character, if player then GameState.roleOf(player) else Config.Classes.Default)
+end
+
+-- Класс игрока поменялся (карточки в лобби или в хабе) — переодеть текущего персонажа.
+-- Возвращает подключение: отключить, когда игрок вышел.
+function Uniform.watch(player: Player): RBXScriptConnection
+	return player:GetAttributeChangedSignal(GameState.PlayerAttr.Role):Connect(function()
+		local character = player.Character
+		if character and character.Parent and player:HasAppearanceLoaded() then
+			Uniform.dressClass(character, GameState.roleOf(player))
+		end
+	end)
 end
 
 return Uniform

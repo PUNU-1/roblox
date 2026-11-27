@@ -11,6 +11,7 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 
 local Server = script.Parent
 local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
+local Uniform = require(Server:WaitForChild("Uniform"))
 
 local ThiefKinds = {}
 
@@ -56,27 +57,7 @@ end
 -- Деталь снаряжения на части тела. offset — относительно центра этой части (для головы −Z — лицо,
 -- для кисти −Y — к пальцам). Приваривается Weld с явным C0, поэтому держится, где бы ни стоял вор.
 function ThiefKinds.attach(model: Model, partName: string, name: string, stub: { ModelLibrary.StubPart }, offset: CFrame): PVInstance?
-	local bodyPart = model:FindFirstChild(partName)
-	if not (bodyPart and bodyPart:IsA("BasePart")) then
-		return nil
-	end
-	local prop = ModelLibrary.build(name, stub)
-	prop:PivotTo(bodyPart.CFrame * offset)
-	ModelLibrary.forEachPart(prop, function(part)
-		part.Anchored = false
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-		part.Massless = true
-		local weld = Instance.new("Weld")
-		weld.Name = "PropWeld"
-		weld.Part0 = bodyPart
-		weld.Part1 = part
-		weld.C0 = bodyPart.CFrame:ToObjectSpace(part.CFrame)
-		weld.Parent = part
-	end)
-	prop.Parent = model
-	return prop
+	return ModelLibrary.attachTo(model, partName, name, stub, offset) -- общий помощник (им же одевает охрану Uniform)
 end
 
 ---------------------------------------------------------------- виды
@@ -325,12 +306,8 @@ local HEAD_TYPES: { [Enum.AccessoryType]: boolean } = {
 	[Enum.AccessoryType.Eyelash] = true,
 }
 
-local BADGE_STUB: { ModelLibrary.StubPart } = {
-	{ size = Vector3.new(0.45, 0.45, 0.08), offset = CFrame.identity, color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal },
-}
-
 -- Фальшивый охранник: аватар игрока (лицо, голова, шапки, волосы, рост) в тёмно-синей форме охраны,
--- со значком и фонариком — как настоящий охранник на смене.
+-- со значком, костюмом его класса и фонариком — как настоящий охранник на смене.
 local function fakeGuard(player: Player?): Model?
 	local description: HumanoidDescription? = nil
 	local character = player and player.Character
@@ -373,7 +350,9 @@ local function fakeGuard(player: Player?): Model?
 	if not (model and rigHumanoid) then
 		return model
 	end
-	rigHumanoid:AddAccessory(ModelLibrary.accessory(MapSchema.Models.GuardBadge, BADGE_STUB, "BodyFrontAttachment"))
+	-- Значок, рубашка, ремень и костюм того же класса, что у игрока (блок F1): копию не отличить по одежде
+	Uniform.badge(model)
+	Uniform.dressClass(model, if player then GameState.roleOf(player) else Config.Classes.Default)
 	-- Фонарик из головы, как у охранников (FlashlightController рисует такие же у настоящих)
 	local head = model:FindFirstChild("Head")
 	if head and head:IsA("BasePart") then
