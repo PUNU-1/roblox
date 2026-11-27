@@ -1,5 +1,5 @@
 -- Экран хаба (блок 6; этап 5, блок A — «как в настоящих играх», решение 75). Чистый экран:
---  • слева пиксельные кнопки без рамки и фона: SHOP, CLASSES, GIFTS, HOW TO PLAY, GROUP, FAVORITE — каждая
+--  • слева пиксельные кнопки без рамки и фона: SHOP, CLASSES, GIFTS, QUESTS (этап 6), HOW TO PLAY, GROUP, FAVORITE — каждая
 --    открывает своё окно (на телефоне — двумя столбиками сверху, чтобы не мешать джойстику);
 --  • справа вверху — алмазы пиксельной иконкой и числом;
 --  • слева сверху — уровень, звание и полоска опыта (этап 6, блок H1, LevelBar); надписи LEVEL UP и «Quest done»
@@ -7,7 +7,7 @@
 --  • сверху по центру — свой класс и, если стоишь в круге, команда и отсчёт;
 --  • панель создателя команды (START — F, FRIENDS ONLY — G, на телефоне — кнопки) — только у создателя, пока он в круге;
 --  • крупные надписи и затемнение «Teleporting to the museum».
--- Клавиши: B — магазин классов, C — окно классов (пока оно открыто — 1–5). Клиент только показывает и шлёт
+-- Клавиши: B — магазин классов, C — окно классов (пока оно открыто — 1–5), Q — задания и достижения. Клиент только показывает и шлёт
 -- намерения; всё решает сервер (PadService, ProfileStore).
 
 local Players = game:GetService("Players")
@@ -31,6 +31,7 @@ local ClassesWindow = require(script.Parent:WaitForChild("ClassesWindow"))
 local HowToPlay = require(script.Parent:WaitForChild("HowToPlay"))
 local Gifts = require(script.Parent:WaitForChild("Gifts"))
 local LevelBar = require(script.Parent:WaitForChild("LevelBar"))
+local Quests = require(script.Parent:WaitForChild("Quests"))
 local ProgressFx = require(UI:WaitForChild("ProgressFx"))
 
 local PadAttr = GameState.PadAttr
@@ -249,6 +250,7 @@ local ITEMS: { MenuItem } = {
 		label = "GIFTS",
 		action = Gifts.toggle,
 	},
+	{ icon = "Quests", label = "QUESTS", key = "Q", action = Quests.toggle }, -- задания и достижения (этап 6, блок H1)
 	{
 		icon = "HowToPlay",
 		label = "HOW TO PLAY",
@@ -445,6 +447,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	elseif input.KeyCode == Enum.KeyCode.C then
 		openClasses()
+		return
+	elseif input.KeyCode == Enum.KeyCode.Q and not launching() then
+		Quests.toggle()
 		return
 	end
 	if ClassesWindow.isOpen() then
