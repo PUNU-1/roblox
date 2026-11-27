@@ -109,7 +109,7 @@ local function sizeOf(character: Model, partName: string): Vector3
 end
 
 -- Надеть деталь формы на часть тела (снимется при следующем переодевании).
-local function wear(character: Model, partName: string, name: string, stub: Stub, offset: CFrame?): PVInstance?
+local function wear(character: Model, partName: string, name: string, stub: Stub, offset: CFrame?): Instance?
 	local prop = ModelLibrary.attachTo(character, partName, name, stub, offset or CFrame.identity)
 	if prop then
 		prop:SetAttribute(KIT_ATTR, true)

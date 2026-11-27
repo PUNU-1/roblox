@@ -49,7 +49,7 @@ end
 
 -- Деталь снаряжения на части тела. offset — относительно центра этой части (для головы −Z — лицо,
 -- для кисти −Y — к пальцам). Приваривается Weld с явным C0, поэтому держится, где бы ни стоял вор.
-function ThiefKinds.attach(model: Model, partName: string, name: string, stub: { ModelLibrary.StubPart }, offset: CFrame): PVInstance?
+function ThiefKinds.attach(model: Model, partName: string, name: string, stub: { ModelLibrary.StubPart }, offset: CFrame): Instance?
 	return ModelLibrary.attachTo(model, partName, name, stub, offset) -- общий помощник (им же одевает охрану Uniform)
 end
 

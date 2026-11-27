@@ -242,10 +242,18 @@ end
 -- этой части (для головы −Z — лицо, для кисти −Y — к пальцам). Каждая деталь приваривается Weld с явным C0
 -- (не WeldConstraint: тот запоминает положение в момент входа в workspace), поэтому держится, где бы ни стоял
 -- персонаж, и двигается вместе с костью: суставы Motor6D не трогаются. nil — если такой части тела нет.
-function ModelLibrary.attachTo(model: Model, partName: string, name: string, stub: { StubPart }, offset: CFrame): PVInstance?
+-- Если друг сделал эту вещь как Accessory (со своим Attachment в Handle), она надевается через AddAccessory.
+function ModelLibrary.attachTo(model: Model, partName: string, name: string, stub: { StubPart }, offset: CFrame): Instance?
 	local bodyPart = model:FindFirstChild(partName)
 	if not (bodyPart and bodyPart:IsA("BasePart")) then
 		return nil
+	end
+	local template = findTemplate(name)
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if template and template:IsA("Accessory") and humanoid then
+		local accessory = ModelLibrary.accessory(name, stub, "")
+		humanoid:AddAccessory(accessory)
+		return accessory
 	end
 	local prop = ModelLibrary.build(name, stub)
 	prop:PivotTo(bodyPart.CFrame * offset)
