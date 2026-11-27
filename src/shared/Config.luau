@@ -467,7 +467,7 @@ local Config = {
 		-- Картинки лежат в assets/icons/*.png: загрузи их в Roblox (Creator Hub или Studio -> Asset Manager -> Import)
 		-- и впиши сюда id в виде "rbxassetid://1234567890".
 		Real = {
-			Enabled = true,
+			Enabled = false, -- владелец 27.11: в музее пиксельный стиль, как в хабе (решение 83)
 			Font = "rbxasset://fonts/families/GothamSSm.json", -- гладкий шрифт надписей в музее
 			ShadowTransparency = 0.55, -- мягкая тень под картинкой иконки
 			ShadowOffset = 0.05, -- сдвиг тени вниз-вправо (доля размера иконки)
