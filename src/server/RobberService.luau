@@ -867,51 +867,82 @@ local function sizeOf(model: Model, partName: string): Vector3
 	return if part and part:IsA("BasePart") then part.Size else Vector3.new(1, 1, 1)
 end
 
--- Балаклава: вязаная маска на всю голову с прорезями для глаз и рта, рубчик у шеи; у хватальщика — красная полоса.
+-- Балаклава: вязаная маска на всю голову с прорезями для глаз и рта, рубчик у шеи.
+-- У стрелка — тактические баллистические очки и гарнитура связи; у хватальщика — яркая красная полоса.
 local function balaclava(model: Model, colors: any, stripe: Color3?)
 	local h = sizeOf(model, "Head")
 	local skin = Settings.Colors.Skin
+	local darkMetal = Color3.fromHex("2B303A")
 	local specs: { ModelLibrary.StubPart } = {
-		{ name = "Mask", size = Vector3.new(h.X * 1.08, h.Y * 1.08, h.Z * 1.08), offset = CFrame.new(0, h.Y * 0.03, 0), color = colors.Mask, material = Enum.Material.Fabric, sphere = true },
-		{ name = "Top", size = Vector3.new(h.X * 0.9, h.Y * 0.3, h.Z * 0.9), offset = CFrame.new(0, h.Y * 0.46, 0), color = colors.Mask, material = Enum.Material.Fabric, sphere = true },
+		{ name = "Mask", size = Vector3.new(h.X * 1.09, h.Y * 1.08, h.Z * 1.09), offset = CFrame.new(0, h.Y * 0.03, 0), color = colors.Mask, material = Enum.Material.Fabric, sphere = true },
+		{ name = "Top", size = Vector3.new(h.X * 0.92, h.Y * 0.3, h.Z * 0.92), offset = CFrame.new(0, h.Y * 0.46, 0), color = colors.Mask, material = Enum.Material.Fabric, sphere = true },
 		{ name = "EyeSlit", size = Vector3.new(h.X * 0.66, h.Y * 0.18, 0.06), offset = CFrame.new(0, h.Y * 0.1, -h.Z * 0.53), color = skin },
-		{ name = "EyeL", size = Vector3.new(h.X * 0.12, h.Y * 0.12, 0.04), offset = CFrame.new(-h.X * 0.17, h.Y * 0.1, -h.Z * 0.56), color = Color3.fromHex("141414") },
-		{ name = "EyeR", size = Vector3.new(h.X * 0.12, h.Y * 0.12, 0.04), offset = CFrame.new(h.X * 0.17, h.Y * 0.1, -h.Z * 0.56), color = Color3.fromHex("141414") },
-		{ name = "Brows", size = Vector3.new(h.X * 0.6, h.Y * 0.05, 0.05), offset = CFrame.new(0, h.Y * 0.21, -h.Z * 0.555) * CFrame.Angles(0, 0, 0), color = colors.Mask:Lerp(Color3.new(0, 0, 0), 0.3) },
+		{ name = "EyeL", size = Vector3.new(h.X * 0.13, h.Y * 0.11, 0.04), offset = CFrame.new(-h.X * 0.17, h.Y * 0.1, -h.Z * 0.56), color = Color3.fromHex("F4F4F0") },
+		{ name = "EyeR", size = Vector3.new(h.X * 0.13, h.Y * 0.11, 0.04), offset = CFrame.new(h.X * 0.17, h.Y * 0.1, -h.Z * 0.56), color = Color3.fromHex("F4F4F0") },
+		{ name = "PupilL", size = Vector3.new(h.X * 0.07, h.Y * 0.08, 0.04), offset = CFrame.new(-h.X * 0.16, h.Y * 0.1, -h.Z * 0.575), color = Color3.fromHex("141414") },
+		{ name = "PupilR", size = Vector3.new(h.X * 0.07, h.Y * 0.08, 0.04), offset = CFrame.new(h.X * 0.16, h.Y * 0.1, -h.Z * 0.575), color = Color3.fromHex("141414") },
+		{ name = "Brows", size = Vector3.new(h.X * 0.62, h.Y * 0.055, 0.05), offset = CFrame.new(0, h.Y * 0.21, -h.Z * 0.555), color = colors.Mask:Lerp(Color3.new(0, 0, 0), 0.35) },
 		{ name = "Mouth", size = Vector3.new(h.X * 0.28, h.Y * 0.1, 0.06), offset = CFrame.new(0, -h.Y * 0.24, -h.Z * 0.53), color = skin },
-		{ name = "Rim", size = Vector3.new(0.18, h.X * 0.95, h.Z * 0.95), offset = CFrame.new(0, -h.Y * 0.5, 0) * CFrame.Angles(0, 0, math.pi / 2), color = colors.Mask:Lerp(Color3.new(1, 1, 1), 0.08), material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder },
+		{ name = "Rim", size = Vector3.new(0.2, h.X * 0.96, h.Z * 0.96), offset = CFrame.new(0, -h.Y * 0.5, 0) * CFrame.Angles(0, 0, math.pi / 2), color = colors.Mask:Lerp(Color3.new(1, 1, 1), 0.1), material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder },
 	}
 	if stripe then
-		table.insert(specs, { name = "Stripe", size = Vector3.new(h.X * 1.1, h.Y * 0.12, h.Z * 1.1), offset = CFrame.new(0, h.Y * 0.32, 0), color = stripe, material = Enum.Material.Fabric })
+		table.insert(specs, { name = "Stripe", size = Vector3.new(h.X * 1.12, h.Y * 0.14, h.Z * 1.12), offset = CFrame.new(0, h.Y * 0.32, 0), color = stripe, material = Enum.Material.Fabric })
+		table.insert(specs, { name = "Seam", size = Vector3.new(0.06, h.Y * 0.45, h.Z * 0.95), offset = CFrame.new(0, h.Y * 0.42, 0), color = colors.Mask:Lerp(Color3.new(1, 1, 1), 0.12), material = Enum.Material.Fabric })
+	else
+		-- Стрелок: баллистический визор поверх прорези глаз и радиогарнитура с микрофоном
+		table.insert(specs, { name = "GoggleBand", size = Vector3.new(h.X * 1.11, h.Y * 0.11, h.Z * 1.11), offset = CFrame.new(0, h.Y * 0.11, 0), color = Color3.fromHex("1E2124"), material = Enum.Material.Fabric })
+		table.insert(specs, { name = "GoggleFrame", size = Vector3.new(h.X * 0.78, h.Y * 0.24, 0.1), offset = CFrame.new(0, h.Y * 0.11, -h.Z * 0.57), color = darkMetal, material = Enum.Material.Rubber })
+		table.insert(specs, { name = "VisorGlass", size = Vector3.new(h.X * 0.7, h.Y * 0.17, 0.06), offset = CFrame.new(0, h.Y * 0.11, -h.Z * 0.61), color = Color3.fromHex("3BC6C1"), material = Enum.Material.Glass, transparency = 0.55 })
+		table.insert(specs, { name = "Earpiece", size = Vector3.new(0.14, h.Y * 0.34, h.Y * 0.34), offset = CFrame.new(-h.X * 0.56, 0, 0), color = darkMetal, material = Enum.Material.Rubber, shape = Enum.PartType.Cylinder })
+		table.insert(specs, { name = "Boom", size = Vector3.new(0.05, 0.05, h.Z * 0.55), offset = CFrame.new(-h.X * 0.5, -h.Y * 0.18, -h.Z * 0.26) * CFrame.Angles(0, -0.45, 0), color = darkMetal })
+		table.insert(specs, { name = "Mic", size = Vector3.new(0.13, 0.11, 0.11), offset = CFrame.new(-h.X * 0.32, -h.Y * 0.2, -h.Z * 0.53), color = Color3.fromHex("141518"), material = Enum.Material.Fabric, sphere = true })
+		table.insert(specs, { name = "Led", size = Vector3.new(0.04, 0.06, 0.06), offset = CFrame.new(-h.X * 0.64, h.Y * 0.08, -0.05), color = Color3.fromHex("FF3B4E"), material = Enum.Material.Neon })
 	end
 	ThiefKinds.attach(model, "Head", if stripe then "robber_balaclava_red_01" else "robber_balaclava_01", specs, CFrame.identity)
 end
 
--- Тактический жилет: пластины, подсумки, лямки; у стрелка — рация и дымовая шашка на груди.
+-- Тактический жилет: фасочные бронепластины, подсумки; у стрелка — рация с огоньком, магазины и шашка,
+-- у хватальщика — светлый жилет-разгрузка с карманами, молнией и стяжками.
 local function vest(model: Model, colors: any, gunner: boolean)
 	local t = sizeOf(model, "UpperTorso")
 	local front = -t.Z * 0.5 - 0.1
 	local back = t.Z * 0.5 + 0.1
 	local pouch = colors.Vest:Lerp(Color3.new(0, 0, 0), 0.25)
+	local steel = Color3.fromHex("7E889B")
 	local specs: { ModelLibrary.StubPart } = {
-		{ name = "Front", size = Vector3.new(t.X * 0.88, t.Y * 0.86, 0.22), offset = CFrame.new(0, -t.Y * 0.03, front), color = colors.Vest, material = Enum.Material.Fabric },
-		{ name = "Back", size = Vector3.new(t.X * 0.9, t.Y * 0.88, 0.22), offset = CFrame.new(0, -t.Y * 0.02, back), color = colors.Vest, material = Enum.Material.Fabric },
+		{ name = "Front", size = Vector3.new(t.X * 0.88, t.Y * 0.84, 0.22), offset = CFrame.new(0, -t.Y * 0.04, front), color = colors.Vest, material = Enum.Material.Fabric },
+		{ name = "FrontBevel", size = Vector3.new(t.X * 0.72, t.Y * 0.16, 0.2), offset = CFrame.new(0, t.Y * 0.42, front + 0.01), color = colors.Vest, material = Enum.Material.Fabric, wedge = true },
+		{ name = "Back", size = Vector3.new(t.X * 0.9, t.Y * 0.86, 0.22), offset = CFrame.new(0, -t.Y * 0.03, back), color = colors.Vest, material = Enum.Material.Fabric },
+		{ name = "BackBevel", size = Vector3.new(t.X * 0.74, t.Y * 0.16, 0.2), offset = CFrame.new(0, t.Y * 0.43, back - 0.01) * CFrame.Angles(0, math.pi, 0), color = colors.Vest, material = Enum.Material.Fabric, wedge = true },
 		{ name = "StrapL", size = Vector3.new(t.X * 0.2, 0.14, t.Z * 1.26), offset = CFrame.new(-t.X * 0.27, t.Y * 0.47, 0), color = pouch, material = Enum.Material.Fabric },
 		{ name = "StrapR", size = Vector3.new(t.X * 0.2, 0.14, t.Z * 1.26), offset = CFrame.new(t.X * 0.27, t.Y * 0.47, 0), color = pouch, material = Enum.Material.Fabric },
 		{ name = "SideL", size = Vector3.new(0.12, t.Y * 0.44, t.Z * 1.22), offset = CFrame.new(-t.X * 0.5 - 0.05, -t.Y * 0.18, 0), color = pouch, material = Enum.Material.Fabric },
 		{ name = "SideR", size = Vector3.new(0.12, t.Y * 0.44, t.Z * 1.22), offset = CFrame.new(t.X * 0.5 + 0.05, -t.Y * 0.18, 0), color = pouch, material = Enum.Material.Fabric },
+		{ name = "BuckleL", size = Vector3.new(0.05, 0.14, 0.18), offset = CFrame.new(-t.X * 0.5 - 0.12, -t.Y * 0.18, -t.Z * 0.2), color = steel, material = Enum.Material.Metal },
+		{ name = "BuckleR", size = Vector3.new(0.05, 0.14, 0.18), offset = CFrame.new(t.X * 0.5 + 0.12, -t.Y * 0.18, -t.Z * 0.2), color = steel, material = Enum.Material.Metal },
 	}
 	for index = -1, 1 do
-		table.insert(specs, { name = "Pouch", size = Vector3.new(t.X * 0.22, t.Y * 0.3, 0.2), offset = CFrame.new(index * t.X * 0.26, -t.Y * 0.24, front - 0.19), color = pouch, material = Enum.Material.Fabric })
-		table.insert(specs, { name = "Flap", size = Vector3.new(t.X * 0.23, 0.06, 0.22), offset = CFrame.new(index * t.X * 0.26, -t.Y * 0.08, front - 0.19), color = colors.Vest, material = Enum.Material.Fabric })
+		local x = index * t.X * 0.26
+		table.insert(specs, { name = "Pouch", size = Vector3.new(t.X * 0.22, t.Y * 0.3, 0.2), offset = CFrame.new(x, -t.Y * 0.24, front - 0.19), color = pouch, material = Enum.Material.Fabric })
+		table.insert(specs, { name = "Flap", size = Vector3.new(t.X * 0.23, 0.06, 0.22), offset = CFrame.new(x, -t.Y * 0.08, front - 0.19), color = colors.Vest, material = Enum.Material.Fabric })
+		if gunner then
+			table.insert(specs, { name = "MagTop", size = Vector3.new(t.X * 0.13, 0.09, 0.11), offset = CFrame.new(x, -t.Y * 0.01, front - 0.19), color = Color3.fromHex("141518") })
+		end
 	end
 	if gunner then
 		table.insert(specs, { name = "Radio", size = Vector3.new(0.22, 0.36, 0.14), offset = CFrame.new(t.X * 0.27, t.Y * 0.18, front - 0.17), color = Color3.fromHex("141518") })
-		table.insert(specs, { name = "Antenna", size = Vector3.new(0.04, 0.4, 0.04), offset = CFrame.new(t.X * 0.32, t.Y * 0.45, front - 0.17), color = Color3.fromHex("141518") })
+		table.insert(specs, { name = "Antenna", size = Vector3.new(0.04, 0.42, 0.04), offset = CFrame.new(t.X * 0.32, t.Y * 0.46, front - 0.17), color = Color3.fromHex("141518") })
+		table.insert(specs, { name = "RadioLed", size = Vector3.new(0.04, 0.04, 0.04), offset = CFrame.new(t.X * 0.22, t.Y * 0.34, front - 0.17), color = Color3.fromHex("FF3B4E"), material = Enum.Material.Neon })
+		table.insert(specs, { name = "DragHandle", size = Vector3.new(t.X * 0.34, 0.08, 0.1), offset = CFrame.new(0, t.Y * 0.36, back + 0.14), color = pouch, material = Enum.Material.Fabric })
 	else
-		-- Хватальщик: светлый жилет с большими карманами
-		table.insert(specs, { name = "PocketL", size = Vector3.new(t.X * 0.3, t.Y * 0.3, 0.12), offset = CFrame.new(-t.X * 0.24, t.Y * 0.15, front - 0.15), color = pouch, material = Enum.Material.Fabric })
-		table.insert(specs, { name = "PocketR", size = Vector3.new(t.X * 0.3, t.Y * 0.3, 0.12), offset = CFrame.new(t.X * 0.24, t.Y * 0.15, front - 0.15), color = pouch, material = Enum.Material.Fabric })
+		-- Хватальщик: светлый жилет с карманами на кнопках, центральной молнией и пластиковыми стяжками
+		table.insert(specs, { name = "Zip", size = Vector3.new(0.06, t.Y * 0.8, 0.04), offset = CFrame.new(0, -t.Y * 0.03, front - 0.115), color = steel, material = Enum.Material.Metal })
+		table.insert(specs, { name = "PocketL", size = Vector3.new(t.X * 0.3, t.Y * 0.28, 0.12), offset = CFrame.new(-t.X * 0.24, t.Y * 0.14, front - 0.15), color = pouch, material = Enum.Material.Fabric })
+		table.insert(specs, { name = "PocketR", size = Vector3.new(t.X * 0.3, t.Y * 0.28, 0.12), offset = CFrame.new(t.X * 0.24, t.Y * 0.14, front - 0.15), color = pouch, material = Enum.Material.Fabric })
+		table.insert(specs, { name = "SnapL", size = Vector3.new(0.07, 0.07, 0.04), offset = CFrame.new(-t.X * 0.24, t.Y * 0.24, front - 0.21), color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal })
+		table.insert(specs, { name = "SnapR", size = Vector3.new(0.07, 0.07, 0.04), offset = CFrame.new(t.X * 0.24, t.Y * 0.24, front - 0.21), color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal })
+		table.insert(specs, { name = "ZipTie1", size = Vector3.new(0.04, 0.42, 0.04), offset = CFrame.new(t.X * 0.31, t.Y * 0.3, front - 0.21) * CFrame.Angles(0, 0, -0.15), color = Color3.fromHex("F4F4F0") })
+		table.insert(specs, { name = "ZipTie2", size = Vector3.new(0.04, 0.42, 0.04), offset = CFrame.new(t.X * 0.26, t.Y * 0.3, front - 0.21) * CFrame.Angles(0, 0, -0.15), color = Color3.fromHex("F4F4F0") })
 	end
 	ThiefKinds.attach(model, "UpperTorso", if gunner then "robber_vest_01" else "robber_vest_light_01", specs, CFrame.identity)
 	if gunner then
@@ -926,19 +957,27 @@ local function vest(model: Model, colors: any, gunner: boolean)
 	end
 end
 
--- Мешок для добычи за спиной хватальщика, со знаком $ и завязкой.
+-- Мешок для добычи за спиной хватальщика: набитый силуэт, заплатки, верёвочная завязка,
+-- уголок золотой рамы и монеты сверху, крупный знак «$» сзади на Sack.
 local function lootBag(model: Model)
 	local t = sizeOf(model, "UpperTorso")
+	local gold = Color3.fromHex("D4A93A")
+	local leather = Color3.fromHex("6B4A2E")
 	local bag = ThiefKinds.attach(model, "UpperTorso", "robber_bag_01", {
-		{ name = "Sack", size = Vector3.new(t.X * 1.12, t.Y * 1.55, 1.5), offset = CFrame.new(0, t.Y * 0.02, t.Z * 0.5 + 0.85), color = Color3.fromHex("B89B6A"), material = Enum.Material.Fabric, sphere = true },
-		{ name = "Patch", size = Vector3.new(0.5, 0.4, 0.06), offset = CFrame.new(-t.X * 0.3, -t.Y * 0.3, t.Z * 0.5 + 1.42) * CFrame.Angles(0, 0, 0.2), color = Color3.fromHex("8C7450"), material = Enum.Material.Fabric },
-		{ name = "Neck", size = Vector3.new(0.55, 0.65, 0.55), offset = CFrame.new(0, t.Y * 0.84, t.Z * 0.5 + 0.8), color = Color3.fromHex("A0845A"), material = Enum.Material.Fabric },
-		{ name = "Tie", size = Vector3.new(0.12, 0.68, 0.68), offset = CFrame.new(0, t.Y * 0.72, t.Z * 0.5 + 0.8) * CFrame.Angles(0, 0, math.pi / 2), color = Color3.fromHex("6B4A2E"), material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder },
-		-- Из мешка торчит уголок золотой рамы и падает монета: сразу понятно, что внутри добыча
-		{ name = "FrameCorner", size = Vector3.new(0.6, 0.12, 0.12), offset = CFrame.new(t.X * 0.18, t.Y * 1.05, t.Z * 0.5 + 0.7) * CFrame.Angles(0, 0, 0.5), color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal },
-		{ name = "FrameCorner2", size = Vector3.new(0.12, 0.45, 0.12), offset = CFrame.new(t.X * 0.3, t.Y * 1.0, t.Z * 0.5 + 0.7) * CFrame.Angles(0, 0, 0.5), color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal },
-		{ name = "StrapL", size = Vector3.new(0.16, t.Y * 1.0, 0.08), offset = CFrame.new(-t.X * 0.3, 0, -t.Z * 0.5 - 0.06), color = Color3.fromHex("6B4A2E"), material = Enum.Material.Fabric },
-		{ name = "StrapR", size = Vector3.new(0.16, t.Y * 1.0, 0.08), offset = CFrame.new(t.X * 0.3, 0, -t.Z * 0.5 - 0.06), color = Color3.fromHex("6B4A2E"), material = Enum.Material.Fabric },
+		{ name = "Sack", size = Vector3.new(t.X * 1.14, t.Y * 1.56, 1.52), offset = CFrame.new(0, t.Y * 0.02, t.Z * 0.5 + 0.85), color = Color3.fromHex("B89B6A"), material = Enum.Material.Fabric, sphere = true },
+		{ name = "SackBase", size = Vector3.new(t.X * 1.06, t.Y * 0.7, 1.38), offset = CFrame.new(0, -t.Y * 0.42, t.Z * 0.5 + 0.82), color = Color3.fromHex("A88C5C"), material = Enum.Material.Fabric, sphere = true },
+		{ name = "Patch", size = Vector3.new(0.48, 0.38, 0.06), offset = CFrame.new(-t.X * 0.32, -t.Y * 0.32, t.Z * 0.5 + 1.44) * CFrame.Angles(0, 0, 0.2), color = Color3.fromHex("8C7450"), material = Enum.Material.Fabric },
+		{ name = "Patch2", size = Vector3.new(0.36, 0.28, 0.06), offset = CFrame.new(t.X * 0.3, t.Y * 0.24, t.Z * 0.5 + 1.38) * CFrame.Angles(0, 0, -0.25), color = Color3.fromHex("8C7450"), material = Enum.Material.Fabric },
+		{ name = "Neck", size = Vector3.new(0.58, 0.66, 0.58), offset = CFrame.new(0, t.Y * 0.84, t.Z * 0.5 + 0.8), color = Color3.fromHex("A0845A"), material = Enum.Material.Fabric },
+		{ name = "Tie", size = Vector3.new(0.14, 0.72, 0.72), offset = CFrame.new(0, t.Y * 0.72, t.Z * 0.5 + 0.8) * CFrame.Angles(0, 0, math.pi / 2), color = leather, material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder },
+		{ name = "TieKnot", size = Vector3.new(0.2, 0.2, 0.2), offset = CFrame.new(0, t.Y * 0.72, t.Z * 0.5 + 1.15), color = leather, material = Enum.Material.Fabric, shape = Enum.PartType.Ball },
+		{ name = "FrameCorner", size = Vector3.new(0.64, 0.13, 0.13), offset = CFrame.new(t.X * 0.18, t.Y * 1.06, t.Z * 0.5 + 0.7) * CFrame.Angles(0, 0, 0.5), color = gold, material = Enum.Material.Metal },
+		{ name = "FrameCorner2", size = Vector3.new(0.13, 0.48, 0.13), offset = CFrame.new(t.X * 0.3, t.Y * 1.0, t.Z * 0.5 + 0.7) * CFrame.Angles(0, 0, 0.5), color = gold, material = Enum.Material.Metal },
+		{ name = "GoldCoin1", size = Vector3.new(0.06, 0.26, 0.26), offset = CFrame.new(-t.X * 0.16, t.Y * 1.02, t.Z * 0.5 + 0.82) * CFrame.Angles(0.2, 0.4, 0), color = Color3.fromHex("FFE066"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "StrapL", size = Vector3.new(0.17, t.Y * 1.02, 0.08), offset = CFrame.new(-t.X * 0.3, 0, -t.Z * 0.5 - 0.06), color = leather, material = Enum.Material.Leather },
+		{ name = "StrapR", size = Vector3.new(0.17, t.Y * 1.02, 0.08), offset = CFrame.new(t.X * 0.3, 0, -t.Z * 0.5 - 0.06), color = leather, material = Enum.Material.Leather },
+		{ name = "BuckleL", size = Vector3.new(0.21, 0.11, 0.1), offset = CFrame.new(-t.X * 0.3, -t.Y * 0.25, -t.Z * 0.5 - 0.07), color = gold, material = Enum.Material.Metal },
+		{ name = "BuckleR", size = Vector3.new(0.21, 0.11, 0.1), offset = CFrame.new(t.X * 0.3, -t.Y * 0.25, -t.Z * 0.5 - 0.07), color = gold, material = Enum.Material.Metal },
 	}, CFrame.identity)
 	local sack = bag and bag:FindFirstChild("Sack")
 	if sack and sack:IsA("BasePart") then
@@ -958,20 +997,27 @@ local function lootBag(model: Model)
 	end
 end
 
--- Стрелок: наколенники и ремень с кобурой на бедре; хватальщик: ремень с подсумками.
+-- Стрелок: усиленные наколенники с чашкой и ремень с кобурой на бедре;
+-- хватальщик: ремень с подсумками и ломиком.
 local function legGear(model: Model, gunner: boolean)
 	local l = sizeOf(model, "LowerTorso")
 	local belt: { ModelLibrary.StubPart } = {
-		{ name = "Belt", size = Vector3.new(l.X * 1.06, math.max(0.26, l.Y * 0.6), l.Z * 1.08), offset = CFrame.new(0, l.Y * 0.1, 0), color = Color3.fromHex("141518"), material = Enum.Material.Fabric },
-		{ name = "Buckle", size = Vector3.new(0.3, 0.22, 0.07), offset = CFrame.new(0, l.Y * 0.1, -l.Z * 0.56), color = Color3.fromHex("5A6070"), material = Enum.Material.Metal },
-		{ name = "PouchBack", size = Vector3.new(0.5, 0.4, 0.26), offset = CFrame.new(0, -0.1, l.Z * 0.5 + 0.12), color = Color3.fromHex("23262B"), material = Enum.Material.Fabric },
+		{ name = "Belt", size = Vector3.new(l.X * 1.06, math.max(0.26, l.Y * 0.62), l.Z * 1.08), offset = CFrame.new(0, l.Y * 0.1, 0), color = Color3.fromHex("141518"), material = Enum.Material.Fabric },
+		{ name = "Buckle", size = Vector3.new(0.32, 0.24, 0.08), offset = CFrame.new(0, l.Y * 0.1, -l.Z * 0.56), color = Color3.fromHex("7E889B"), material = Enum.Material.Metal },
+		{ name = "PouchBack", size = Vector3.new(0.52, 0.42, 0.26), offset = CFrame.new(0, -0.1, l.Z * 0.5 + 0.12), color = Color3.fromHex("23262B"), material = Enum.Material.Fabric },
+		{ name = "FlapBack", size = Vector3.new(0.54, 0.1, 0.28), offset = CFrame.new(0, 0.12, l.Z * 0.5 + 0.12), color = Color3.fromHex("141518"), material = Enum.Material.Fabric },
 	}
 	if gunner then
-		table.insert(belt, { name = "Holster", size = Vector3.new(0.3, 0.75, 0.5), offset = CFrame.new(l.X * 0.58, -0.45, 0), color = Color3.fromHex("141518"), material = Enum.Material.Leather })
-		table.insert(belt, { name = "LegStrap", size = Vector3.new(0.34, 0.1, 0.56), offset = CFrame.new(l.X * 0.58, -0.7, 0), color = Color3.fromHex("23262B"), material = Enum.Material.Fabric })
+		table.insert(belt, { name = "Holster", size = Vector3.new(0.3, 0.76, 0.5), offset = CFrame.new(l.X * 0.58, -0.45, 0), color = Color3.fromHex("141518"), material = Enum.Material.Leather })
+		table.insert(belt, { name = "HolsterStrap", size = Vector3.new(0.34, 0.1, 0.24), offset = CFrame.new(l.X * 0.58, -0.2, 0), color = Color3.fromHex("2E3545"), material = Enum.Material.Fabric })
+		table.insert(belt, { name = "LegStrap", size = Vector3.new(0.34, 0.11, 0.56), offset = CFrame.new(l.X * 0.58, -0.7, 0), color = Color3.fromHex("23262B"), material = Enum.Material.Fabric })
+		table.insert(belt, { name = "SpareMag", size = Vector3.new(0.18, 0.36, 0.14), offset = CFrame.new(-l.X * 0.42, -0.16, -l.Z * 0.52), color = Color3.fromHex("23262B"), material = Enum.Material.Fabric })
 	else
-		table.insert(belt, { name = "PouchL", size = Vector3.new(0.4, 0.42, 0.26), offset = CFrame.new(-l.X * 0.3, -0.18, -l.Z * 0.5 - 0.12), color = Color3.fromHex("6B5A40"), material = Enum.Material.Fabric })
-		table.insert(belt, { name = "PouchR", size = Vector3.new(0.4, 0.42, 0.26), offset = CFrame.new(l.X * 0.3, -0.18, -l.Z * 0.5 - 0.12), color = Color3.fromHex("6B5A40"), material = Enum.Material.Fabric })
+		table.insert(belt, { name = "PouchL", size = Vector3.new(0.42, 0.44, 0.26), offset = CFrame.new(-l.X * 0.3, -0.18, -l.Z * 0.5 - 0.12), color = Color3.fromHex("6B5A40"), material = Enum.Material.Fabric })
+		table.insert(belt, { name = "PouchR", size = Vector3.new(0.42, 0.44, 0.26), offset = CFrame.new(l.X * 0.3, -0.18, -l.Z * 0.5 - 0.12), color = Color3.fromHex("6B5A40"), material = Enum.Material.Fabric })
+		table.insert(belt, { name = "FlapL", size = Vector3.new(0.44, 0.09, 0.28), offset = CFrame.new(-l.X * 0.3, 0.05, -l.Z * 0.5 - 0.12), color = Color3.fromHex("8C7A5A"), material = Enum.Material.Fabric })
+		table.insert(belt, { name = "FlapR", size = Vector3.new(0.44, 0.09, 0.28), offset = CFrame.new(l.X * 0.3, 0.05, -l.Z * 0.5 - 0.12), color = Color3.fromHex("8C7A5A"), material = Enum.Material.Fabric })
+		table.insert(belt, { name = "PryTool", size = Vector3.new(0.1, 0.65, 0.1), offset = CFrame.new(-l.X * 0.56, -0.15, 0.1) * CFrame.Angles(0.2, 0, 0), color = Color3.fromHex("C8343A"), material = Enum.Material.Metal })
 	end
 	ThiefKinds.attach(model, "LowerTorso", "robber_belt_01", belt, CFrame.identity)
 	if not gunner then
@@ -980,7 +1026,10 @@ local function legGear(model: Model, gunner: boolean)
 	for _, leg in { "LeftLowerLeg", "RightLowerLeg" } do
 		local s = sizeOf(model, leg)
 		ThiefKinds.attach(model, leg, "robber_kneepad_01", {
-			{ name = "Pad", size = Vector3.new(s.X * 0.84, s.Y * 0.32, 0.24), offset = CFrame.new(0, s.Y * 0.34, -s.Z * 0.5 - 0.06), color = Color3.fromHex("1E2124"), material = Enum.Material.Rubber },
+			{ name = "Pad", size = Vector3.new(s.X * 0.86, s.Y * 0.34, 0.24), offset = CFrame.new(0, s.Y * 0.34, -s.Z * 0.5 - 0.06), color = Color3.fromHex("1E2124"), material = Enum.Material.Rubber },
+			{ name = "Cap", size = Vector3.new(s.X * 0.64, s.Y * 0.24, 0.1), offset = CFrame.new(0, s.Y * 0.35, -s.Z * 0.5 - 0.2), color = Color3.fromHex("2E3545") },
+			{ name = "RivetL", size = Vector3.new(0.06, 0.06, 0.04), offset = CFrame.new(-s.X * 0.24, s.Y * 0.35, -s.Z * 0.5 - 0.25), color = Color3.fromHex("7E889B"), material = Enum.Material.Metal },
+			{ name = "RivetR", size = Vector3.new(0.06, 0.06, 0.04), offset = CFrame.new(s.X * 0.24, s.Y * 0.35, -s.Z * 0.5 - 0.25), color = Color3.fromHex("7E889B"), material = Enum.Material.Metal },
 			{ name = "Strap", size = Vector3.new(s.X * 1.06, 0.1, s.Z * 1.06), offset = CFrame.new(0, s.Y * 0.26, 0), color = Color3.fromHex("141518"), material = Enum.Material.Fabric },
 		}, CFrame.identity)
 	end
@@ -991,12 +1040,16 @@ local function gloves(model: Model)
 		local g = sizeOf(model, hand)
 		ThiefKinds.attach(model, hand, "robber_glove_01", {
 			{ name = "Glove", size = Vector3.new(g.X * 1.18, g.Y * 1.3, g.Z * 1.18), offset = CFrame.identity, color = Color3.fromHex("141518"), material = Enum.Material.Leather },
+			{ name = "Cuff", size = Vector3.new(g.X * 1.24, g.Y * 0.4, g.Z * 1.24), offset = CFrame.new(0, g.Y * 0.58, 0), color = Color3.fromHex("23262B"), material = Enum.Material.Fabric },
+			{ name = "Knuckle", size = Vector3.new(g.X * 1.06, g.Y * 0.22, g.Z * 0.22), offset = CFrame.new(0, -g.Y * 0.14, -g.Z * 0.54), color = Color3.fromHex("2E3545"), material = Enum.Material.Rubber },
 		}, CFrame.identity)
 	end
 	for _, foot in { "LeftFoot", "RightFoot" } do
 		local f = sizeOf(model, foot)
 		ThiefKinds.attach(model, foot, "robber_boot_01", {
-			{ name = "Boot", size = Vector3.new(f.X * 1.12, f.Y * 1.2, f.Z * 1.15), offset = CFrame.new(0, 0, -f.Z * 0.05), color = Color3.fromHex("1C1A18"), material = Enum.Material.Leather },
+			{ name = "Boot", size = Vector3.new(f.X * 1.12, f.Y * 1.15, f.Z * 1.14), offset = CFrame.new(0, f.Y * 0.04, -f.Z * 0.04), color = Color3.fromHex("1C1A18"), material = Enum.Material.Leather },
+			{ name = "Toe", size = Vector3.new(f.X * 1.08, f.Y * 0.72, f.Z * 0.42), offset = CFrame.new(0, -f.Y * 0.06, -f.Z * 0.48), color = Color3.fromHex("141312"), material = Enum.Material.Leather, sphere = true },
+			{ name = "Sole", size = Vector3.new(f.X * 1.18, f.Y * 0.34, f.Z * 1.22), offset = CFrame.new(0, -f.Y * 0.36, -f.Z * 0.06), color = Color3.fromHex("0E0E10"), material = Enum.Material.Rubber },
 		}, CFrame.identity)
 	end
 end
