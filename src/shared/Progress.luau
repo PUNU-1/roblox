@@ -418,6 +418,97 @@ function Progress.subtract(pending: Delta, sent: Delta)
 	end
 end
 
+---------------------------------------------------------------- ближайшая награда (этап 6, блок H2)
+
+export type Goal = {
+	kind: string, -- "Class" | "Level" | "Quest"
+	icon: string, -- пиксельная иконка (UI/PixelIcon)
+	text: string, -- надпись на полоске: «38/150 TO TECHNICIAN»
+	near: string, -- крупно на GAME OVER: «112 MORE TO TECHNICIAN»
+	have: number,
+	need: number,
+	fraction: number, -- 0..1
+	ready: boolean, -- уже можно забрать (класс по карману)
+}
+
+-- Самая близкая награда: класс за алмазы, следующий уровень или задание дня. Выбирается та, где пройдено больше
+-- всего (доля). Класс, на который уже хватает алмазов, — сразу он. quests — задания СЕГОДНЯШНЕГО дня (вчерашние не
+-- передавать); owns(role) — куплен ли класс. Одинаково у клиента (по атрибутам) и сервера.
+function Progress.nearestGoal(xp: number, quests: { Quest }, diamonds: number, owns: (role: string) -> boolean): Goal?
+	local best: Goal? = nil
+	local function consider(goal: Goal)
+		if not best or goal.fraction > (best :: Goal).fraction then
+			best = goal
+		end
+	end
+	-- Класс: самый дешёвый некупленный (у него доля больше всех); хватает — «можно купить»
+	for _, role in Config.Classes.Order do
+		local info = (Config.Classes :: any)[role]
+		local price = math.max(0, tonumber(info and info.Price) or 0)
+		if price > 0 and not owns(role) then
+			local title = string.upper(tostring(info.Title))
+			if diamonds >= price then
+				return {
+					kind = "Class",
+					icon = "Diamond",
+					text = ("%s IS READY - BUY IT IN THE SHOP!"):format(title),
+					near = ("YOU CAN BUY %s NOW!"):format(title),
+					have = price,
+					need = price,
+					fraction = 1,
+					ready = true,
+				}
+			end
+			consider({
+				kind = "Class",
+				icon = "Diamond",
+				text = ("%d/%d TO %s"):format(diamonds, price, title),
+				near = ("%d MORE TO %s"):format(price - diamonds, title),
+				have = diamonds,
+				need = price,
+				fraction = diamonds / price,
+				ready = false,
+			})
+			break
+		end
+	end
+	-- Задание дня: незаконченное, где сделано больше всего
+	for _, q in quests do
+		if not q.d and q.g > 0 then
+			local fraction = q.p / q.g
+			if not best or fraction > (best :: Goal).fraction then
+				consider({
+					kind = "Quest",
+					icon = "Quests",
+					text = ("QUEST %d/%d: %s"):format(q.p, q.g, Progress.questText(q)),
+					near = if q.g - q.p <= 2
+						then ("QUEST ALMOST DONE: %d/%d"):format(q.p, q.g)
+						else ("QUEST: %d/%d %s"):format(q.p, q.g, Progress.questText(q)),
+					have = q.p,
+					need = q.g,
+					fraction = fraction,
+					ready = false,
+				})
+			end
+		end
+	end
+	-- Следующий уровень
+	local level, have, need = Progress.levelOf(xp)
+	if need > 0 then
+		consider({
+			kind = "Level",
+			icon = "Medal",
+			text = ("LV %d > %d: %d/%d XP"):format(level, level + 1, have, need),
+			near = ("%d XP TO LEVEL %d"):format(need - have, level + 1),
+			have = have,
+			need = need,
+			fraction = have / need,
+			ready = false,
+		})
+	end
+	return best
+end
+
 ---------------------------------------------------------------- для атрибутов игрока
 
 -- Задания → строка JSON для атрибута Quests (атрибут не может быть таблицей).

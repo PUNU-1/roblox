@@ -14,6 +14,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
 local ClassCards = require(script.Parent:WaitForChild("UI"):WaitForChild("ClassCards"))
 local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelButton"))
+local GoalBar = require(script.Parent:WaitForChild("UI"):WaitForChild("GoalBar"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -148,27 +149,28 @@ local resultsFrame = Theme.new("Frame", {
 	Parent = gui,
 })
 
+-- Этап 6, блок H2: панель выше — внизу место под полоску награды, сундук и «чуть-чуть не хватило»
 local resultsPanel = Theme.new("Frame", {
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromScale(0.55, 0.7),
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.fromScale(0.5, 0.03),
+	Size = UDim2.fromScale(0.58, 0.8),
 	BackgroundColor3 = Colors.Navy,
 	ZIndex = 5,
 	Parent = resultsFrame,
-}, { Theme.corner(18), Theme.stroke(Colors.Gold, 3), Theme.padding(16), Theme.new("UISizeConstraint", { MinSize = Vector2.new(320, 300) }) })
+}, { Theme.corner(18), Theme.stroke(Colors.Gold, 3), Theme.padding(16), Theme.new("UISizeConstraint", { MinSize = Vector2.new(400, 420) }) })
 
-local resultsTitle = Theme.label({ Size = UDim2.fromScale(1, 0.18), MaxTextSize = 60, ZIndex = 5, Parent = resultsPanel })
+local resultsTitle = Theme.label({ Size = UDim2.fromScale(1, 0.13), MaxTextSize = 56, ZIndex = 5, Parent = resultsPanel })
 local resultsCaught = Theme.label({
-	Position = UDim2.fromScale(0, 0.2),
-	Size = UDim2.fromScale(1, 0.1),
+	Position = UDim2.fromScale(0, 0.14),
+	Size = UDim2.fromScale(1, 0.08),
 	TextColor3 = Colors.Marble,
 	ZIndex = 5,
 	Parent = resultsPanel,
 })
 -- «Thieves used: Decoy, Pincer» — какие планы были у воров (блок 3; заранее о планах ничего не говорится)
 local resultsPlans = Theme.label({
-	Position = UDim2.fromScale(0, 0.3),
-	Size = UDim2.fromScale(1, 0.06),
+	Position = UDim2.fromScale(0, 0.22),
+	Size = UDim2.fromScale(1, 0.05),
 	Font = Theme.BodyFont,
 	TextColor3 = Colors.Gold,
 	MaxTextSize = 20,
@@ -177,8 +179,8 @@ local resultsPlans = Theme.label({
 })
 -- Алмазы 💎 (этап 4, блок 1): «+12 💎» за эту ночь или «Diamonds this run: +46 💎» на GAME OVER
 local resultsDiamonds = Theme.label({
-	Position = UDim2.fromScale(0, 0.365),
-	Size = UDim2.fromScale(1, 0.075),
+	Position = UDim2.fromScale(0, 0.275),
+	Size = UDim2.fromScale(1, 0.065),
 	RichText = true,
 	TextColor3 = Colors.Diamond,
 	MaxTextSize = 30,
@@ -187,13 +189,25 @@ local resultsDiamonds = Theme.label({
 })
 Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = resultsDiamonds })
 local resultsList = Theme.new("Frame", {
-	Position = UDim2.fromScale(0, 0.46),
-	Size = UDim2.fromScale(1, 0.43),
+	Position = UDim2.fromScale(0, 0.35),
+	Size = UDim2.fromScale(1, 0.27),
 	BackgroundTransparency = 1,
 	ZIndex = 5,
 	Parent = resultsPanel,
 })
-Theme.new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = resultsList })
+Theme.new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = resultsList })
+-- Низ панели (этап 6, блок H2): полоска до ближайшей награды, сундук после ночи, «чуть-чуть не хватило» на GAME OVER
+local resultsExtras = Theme.new("Frame", {
+	Name = "Extras",
+	Position = UDim2.fromScale(0, 0.63),
+	Size = UDim2.fromScale(1, 0.27),
+	BackgroundTransparency = 1,
+	ZIndex = 5,
+	Parent = resultsPanel,
+})
+local resultsGoal = GoalBar.new(resultsExtras, { width = 380, zIndex = 6 })
+resultsGoal.frame.AnchorPoint = Vector2.new(0.5, 0)
+resultsGoal.frame.Position = UDim2.fromScale(0.5, 0)
 local resultsFooter = Theme.label({
 	Position = UDim2.fromScale(0, 0.9),
 	Size = UDim2.fromScale(1, 0.1),
@@ -213,7 +227,7 @@ local resultsGameOver = false
 local choiceBar = Theme.new("Frame", {
 	Name = "GameOverChoice",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0.865, 0),
+	Position = UDim2.new(0.5, 0, 0.85, 0),
 	Size = UDim2.new(0.42, 0, 0, 56),
 	BackgroundTransparency = 1,
 	Visible = false,
@@ -367,9 +381,9 @@ local function showResults(results: { [string]: any })
 			LayoutOrder = order,
 			Font = Theme.BodyFont,
 			RichText = true,
-			Size = UDim2.new(1, 0, 0, 30),
+			Size = UDim2.new(1, 0, 0, 24),
 			TextXAlignment = Enum.TextXAlignment.Left,
-			MaxTextSize = 22,
+			MaxTextSize = 18,
 			ZIndex = 5,
 			-- Имя, поймал (и сколько заработал арестами), сколько денег у него сейчас, алмазы за ночь
 			Text = ('%s   caught: %d <font color="#3FB56B">(+$%d)</font>   money: <font color="#D4A93A">$%d</font>   <font color="#%s">+%d 💎</font>%s'):format(
@@ -384,6 +398,7 @@ local function showResults(results: { [string]: any })
 			Parent = resultsList,
 		})
 	end
+	resultsGoal.refresh()
 	resultsFrame.Visible = true
 end
 

@@ -4,7 +4,8 @@
 --  • справа вверху — алмазы пиксельной иконкой и числом;
 --  • слева сверху — уровень, звание и полоска опыта (этап 6, блок H1, LevelBar); надписи LEVEL UP и «Quest done»
 --    рисует UI/ProgressFx;
---  • сверху по центру — свой класс и, если стоишь в круге, команда и отсчёт;
+--  • сверху по центру — свой класс и, если стоишь в круге, команда и отсчёт; под ними — полоска до ближайшей награды
+--    (этап 6, блок H2, UI/GoalBar);
 --  • панель создателя команды (START — F, FRIENDS ONLY — G, на телефоне — кнопки) — только у создателя, пока он в круге;
 --  • крупные надписи и затемнение «Teleporting to the museum».
 -- Клавиши: B — магазин классов, C — окно классов (пока оно открыто — 1–5), Q — задания и достижения. Клиент только показывает и шлёт
@@ -33,6 +34,7 @@ local Gifts = require(script.Parent:WaitForChild("Gifts"))
 local LevelBar = require(script.Parent:WaitForChild("LevelBar"))
 local Quests = require(script.Parent:WaitForChild("Quests"))
 local ProgressFx = require(UI:WaitForChild("ProgressFx"))
+local GoalBar = require(UI:WaitForChild("GoalBar"))
 
 local PadAttr = GameState.PadAttr
 local PadState = GameState.PadState
@@ -93,6 +95,11 @@ local teamLine = Theme.pixelLabel({
 	TextWrapped = true,
 	Parent = gui,
 }, 16)
+
+-- Полоска до ближайшей награды (этап 6, блок H2): под строками класса и команды
+local goalBar = GoalBar.new(gui, { width = if touchOnly then 300 else 380 })
+goalBar.frame.AnchorPoint = Vector2.new(0.5, 0)
+goalBar.frame.Position = UDim2.new(0.5, 0, 0, 68)
 
 ---------------------------------------------------------------- алмазы 💎 (этап 4, блок 1)
 -- Справа вверху: пиксельный алмаз и число (сохраняются навсегда). В Studio без доступа к API — пометка.
