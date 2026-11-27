@@ -372,7 +372,7 @@
 - [x] (код) Блок H1: опыт, уровни и звания над головой, 3 ежедневных задания (окно QUESTS), достижения со значками Roblox (номера пока 0), подарок новичку — 40 💎 и TRY FREE (27.11, решение 85, «Решил Claude» пункт 42). В Studio не проверено: Studio не была подключена
 - [x] (код) Блок H2: полоска до ближайшей награды, коллекция (окно COLLECTION), бесплатный сундук после ночи, «чуть-чуть не хватило» на GAME OVER, +25 % алмазов с другом, рекорды друзей (27.11, решение 86, «Решил Claude» пункт 43). В Studio не проверено
 - [x] (код) Блок I: режим зрителя (I1), таблица статистики (I2), экран MVP в итоге ночи (I3) (27.11, решение 87, «Решил Gemini» пункты 44–46). В Studio не проверено
-- [ ] Блок J: меню настроек, переходы — делает Gemini друга по `FRIEND_TASKS.md` (задания J1–J2); ремодель моделей — там же (R1–R4)
+- [ ] Блок J: меню настроек (J1 — сделано в коде, 27.11, «Решил Gemini» пункт 47), переходы (J2) — делает Gemini друга по `FRIEND_TASKS.md`; ремодель моделей — там же (R1–R4)
 
 ## Этап 1: прототип (готов)
 
@@ -719,6 +719,13 @@
     - Вращение витрины делается орбитой `Camera` и `LightDirection` через `RenderStepped` (чтобы не ломать позы R15-суставов `Motor6D`), корона слегка покачивается; при закрытии окна итога (или при 0 арестов) `RenderStepped` отключается, а клон и сцена уничтожаются.
     - Панель итога ночи в `HUD.client.luau` переведена на двухколоночную вёрстку (`860 × 570` с MVP справа, `640 × 570` без MVP) с общим `UIScale`, чтобы `OPEN FREE CHEST`, `GoalBar` и кнопки GAME OVER не перекрывались на компьютере и телефоне.
 
+47. **Решил Gemini — меню настроек (этап 6, блок J1, 27.11):** проверено сборкой Rojo и `luau-lsp`, в Studio не проверено.
+    - `Config.Settings`: значения по умолчанию (`DefaultMusic = 1`, `DefaultEffects = 1`, `DefaultSensitivity = 1`, `DefaultLowGraphics = false`), шаги и диапазоны (`0..1` шаг `0.1`, чувствительность `0.3..2.0` шаг `0.1`), `SaveCooldown = 2`, `ShadowSizeThreshold = 2`, `LowAtmosphereDensity = 0.05`, окно `560 × 410`, клавиша `M` (`Key = Enum.KeyCode.M`).
+    - Общий модуль `client/UI/SettingsWindow.luau` (подключается и в хабе, и в музее): применяет настройки сразу при входе и по репликации атрибутов (`SettingMusic`, `SettingEffects`, `SettingSensitivity`, `SettingLowGraphics`), объединяет быстрые нажатия `−` / `+` на клиенте перед отправкой `SaveSettings`, чтобы серверный лимит 2 сек не терял последнее нажатие; в музее при открытии ставит `Modal = true` на крестик окна, чтобы освободить курсор от `LockFirstPerson`.
+    - `Audio.luau` подключён и в `hub.project.json`, создаёт в `SoundService` группы `Music` и `Effects`; все серверные и клиентские звуки (`PixelButton`, `ProgressFx`, `Shop`, `Abilities`, `CameraController`, `Tutorial`, `Fx`, `DogAnimator`, `ClassShop`, `Gifts`) привязаны к `Effects` (`Theme.bindEffects`), чтобы громкость эффектов управляла и ими.
+    - Графика `LOW` выключает `CastShadow` у `BasePart` с максимальной осью `< 2` стадов, `ParticleEmitter.Enabled`, `BloomEffect.Enabled` и снижает `Atmosphere.Density` до `0.05`, отслеживает новые объекты (`DescendantAdded`) и смену `Atmosphere.Density` сервером при переходе день/ночь и возвращает сохранённые исходные значения при переключении обратно на `HIGH`.
+    - В хабе (`HubHUD.client.luau`) добавлена 9-я кнопка `SETTINGS` с новой пиксельной иконкой-шестерёнкой (`Icons.Settings` в `PixelIcon.luau`); `layoutMenu()` при нехватке высоты автоматически переходит на +1 столбец (3 × 3 на телефоне над джойстиком). В музее (`HUD.client.luau`) кнопка `SETTINGS` на `DisplayOrder = 5` сдвигается слева от `SHOP` и `STATS` (`12 + slot * (width + 6)`) без перекрытия.
+
 **Позже** (не делать без запроса): батарейка фонарика, покупка алмазов за Robux, Хранитель.
 
 Не добавляй ничего сверх списка без запроса владельца.
@@ -727,7 +734,7 @@
 
 Синхронизация со Studio через **Rojo**. Два места одной игры (блок 6):
 - `default.project.json` — место **Museum** (`src/server`, `src/client`, `src/shared`);
-- `hub.project.json` — место **Hub** (`src/hub/server`, `src/hub/client`). Общее не дублируется, а подключается в проекте хаба: `src/shared` целиком, из `src/server` — `ModelLibrary`, `MapBuilder` + `MapDecor` (помощники стен и украшений), `Uniform`, `RecordStore`, `Teleporter`, `PlaceFinder`, `Retry`, `ProfileStore`, `ProgressService`, `FriendService`; из `src/client` — `UI/` (тема, карточки классов, пиксельные иконки, кнопки и окна) и `DogAnimator`.
+- `hub.project.json` — место **Hub** (`src/hub/server`, `src/hub/client`). Общее не дублируется, а подключается в проекте хаба: `src/shared` целиком, из `src/server` — `ModelLibrary`, `MapBuilder` + `MapDecor` (помощники стен и украшений), `Uniform`, `RecordStore`, `Teleporter`, `PlaceFinder`, `Retry`, `ProfileStore`, `ProgressService`, `FriendService`, `Audio`; из `src/client` — `UI/` (тема, карточки классов, пиксельные иконки, кнопки и окна) и `DogAnimator`.
 
 ```
 src/
@@ -738,7 +745,7 @@ src/
       PadService.luau         — 5 кругов-команд: кто в круге (раз в 0.2 сек), создатель, отсчёт 30 сек, START, Friends only, телепорт команды
       LeaderboardService.luau — доска рекордов: топ-10 команд за всё время и за неделю (RecordStore), имена через UserService
     client/
-      HubHUD.client.luau      — экран хаба (этап 5, блок A): 6 пиксельных кнопок слева, алмазы, «Your class» и команда сверху, панель создателя (START — F, Friends only — G), надписи, клавиши B / C
+      HubHUD.client.luau      — экран хаба (этап 5, блок A): 9 пиксельных кнопок слева (с SETTINGS [M]), алмазы, «Your class» и команда сверху, панель создателя (START — F, Friends only — G), надписи, клавиши B / C / Q / M
       HubPads.client.luau     — цвет кругов и таблички над ними: Team N/5, имена, отсчёт, FRIENDS ONLY
       MonitorWall.client.luau — оживляет стену мониторов: мигающий REC, часы, помехи
       ClassShop.luau          — магазин классов (этап 4, блок 1): окно CLASS SHOP (B, кнопка SHOP), модели и таблички витрины
@@ -755,7 +762,7 @@ src/
     PlaceFinder.luau          — номера мест (общий с хабом): список мест игры (GetGamePlacesAsync), второе место — другое место игры, Config.Places — запасной путь
     RecordStore.luau          — рекорды команд (общий с хабом): OrderedDataStore за всё время и за неделю, ключ — состав команды, pcall с повтором
     Retry.luau                — повтор вызова в pcall (DataStore, телепорт)
-    ProfileStore.luau         — профиль игрока (общий с хабом, этап 4, блок 1): алмазы, купленные классы и ежедневный подарок навсегда, DataStore PlayerProfile_v1, покупка класса, подарок дня, настройка «обучение выключено» (Remote SetTutorial, этап 5, блок C); прогресс разницей, подарок новичку, бесплатный забег (этап 6, блок H1)
+    ProfileStore.luau         — профиль игрока (общий с хабом, этап 4, блок 1): алмазы, купленные классы и ежедневный подарок навсегда, DataStore PlayerProfile_v1, покупка класса, подарок дня, настройка «обучение выключено» (Remote SetTutorial, этап 5, блок C); прогресс разницей, подарок новичку, бесплатный забег (этап 6, блок H1); настройки звука, чувствительности и графики (Remote SaveSettings, блок J1)
     ProgressService.luau      — прогресс (общий с хабом, этап 6, блок H1): опыт и счётчики заданий за события музея, плашка «LV 7 GUARD» над головой, салют, значки Roblox (BadgeService), Remote ProgressEvent; карточки коллекции и личный рекорд (блок H2)
     FriendService.luau        — друзья (общий с хабом, этап 6, блок H2): бонус +25 % алмазов с другом (IsFriendsWithAsync с кэшем), рекорды друзей из их профилей (атрибут FriendRecords)
     ChestService.luau         — сундук после ночи (этап 6, блок H2): бесплатный, случай на сервере, Remote OpenChest / ChestResult
@@ -789,9 +796,9 @@ src/
     CommsService.luau         — метки и готовые фразы
     TouristService.luau       — туристы днём: билеты, прогулка по музею, уход за дверь и таяние, разные выходы, застревание (этап 5, блок E)
     ScoreService.luau         — счёт, деньги, итог ночи
-    Audio.luau                — звуки: сирена, касса, музыка дня и ночи (адреса в Config.Sounds)
+    Audio.luau                — звуки (общий с хабом): сирена, касса, музыка дня и ночи (адреса в Config.Sounds), группы SoundGroup «Music» и «Effects» (блок J1)
   client/
-    HUD.client.luau           — лобби (карточки классов, клавиши 1–5, «команда летит из хаба»), таймер, часы ночи, деньги, надписи, итог, кнопки Play again / Lobby в конце игры; на итоге (этап 6, блок H2) — полоска награды, сундук, бонус друга, «чуть-чуть не хватило», рекорд друга
+    HUD.client.luau           — лобби (карточки классов, клавиши 1–5, «команда летит из хаба»), таймер, часы ночи, деньги, надписи, итог, кнопки Play again / Lobby в конце игры; на итоге (этап 6, блок H2) — полоска награды, сундук, бонус друга, «чуть-чуть не хватило», рекорд друга; кнопка настроек SETTINGS рядом с SHOP/STATS (клавиша M, блок J1)
     Progress.client.luau      — надписи прогресса в музее (этап 6, блок H1): запускает UI/ProgressFx
     Tutorial.client.luau      — обучение в каждом забеге (этап 5, блок C): плашка шага сверху, шевроны по полу по PathfindingService, прыгающая стрелка над целью, SKIP (K)
     Abilities.client.luau     — умения классов на экране: кнопка умения с перезарядкой (Shift / G, на телефоне кнопка), эффект рывка, датчики (писк, стрелка, метка MOTION!), мгновенный перезапуск камер у техника
@@ -822,6 +829,7 @@ src/
     UI/ProgressFx.luau        — надписи прогресса (хаб и музей, этап 6, блок H1): LEVEL UP с конфетти, полоски «Quest done», достижение, новичок, «понравился класс?», «NEW IN COLLECTION» (блок H2)
     UI/GoalBar.luau           — полоска до ближайшей награды (хаб и итог ночи, этап 6, блок H2)
     UI/MvpShowcase.luau       — витрина MVP в итоге ночи (этап 6, блок I3): ViewportFrame 260×300 с копией персонажа на пьедестале и золотой короной
+    UI/SettingsWindow.luau    — окно настроек и применение на клиенте (общий для хаба и музея, этап 6, блок J1): Music/Effects volume, чувствительность камеры, графика High/Low, Tutorial ON/OFF
   shared/
     Config.luau               — все числа (время, скорость, цены) в одном месте
     Remotes.luau              — список всех RemoteEvent
