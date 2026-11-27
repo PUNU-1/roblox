@@ -528,7 +528,7 @@ end
 ---------------------------------------------------------------- выполнено ли
 
 -- «Уже делал в этом забеге»: окно магазина и камеры открываются ненадолго, поэтому запоминаем
-local seen = { shop = false, cameras = false, sensor = false }
+local seen = { shop = false, cameras = false, sensor = false, firstArrested = false }
 
 localPlayer:GetAttributeChangedSignal(PlayerAttr.ShopOpen):Connect(function()
 	if localPlayer:GetAttribute(PlayerAttr.ShopOpen) == true then
@@ -585,7 +585,9 @@ local function isDone(step: Step, target: Target?, rootPosition: Vector3?): bool
 	elseif done == "ThiefSeen" then
 		return (tonumber(GameState.get(Attr.ThievesSpawned)) or 0) > 0
 	elseif done == "Arrested" then
-		return (tonumber(localPlayer:GetAttribute(PlayerAttr.RunArrests)) or 0) > 0
+		-- Первого вора (к нему вела стрелка) арестовал товарищ — шаг тоже выполнен: иначе в команде он висел бы
+		-- без стрелки до конца ночи у всех, кто сам не успел арестовать (seen.firstArrested пишет tick)
+		return seen.firstArrested or (tonumber(localPlayer:GetAttribute(PlayerAttr.RunArrests)) or 0) > 0
 	elseif done == "WingOpen" then
 		return anyWingOpen()
 	elseif done == "HasTaser" then
@@ -657,7 +659,7 @@ end
 
 local function resetRun()
 	skipped = false
-	seen.shop, seen.cameras, seen.sensor = false, false, false
+	seen.shop, seen.cameras, seen.sensor, seen.firstArrested = false, false, false, false
 	firstThief = nil
 	firstThiefChosen = false
 	segmentIndex = 0
@@ -765,6 +767,10 @@ local function tick()
 	end
 	if phase == Phase.Night and night == 1 then
 		trackFirstThief()
+		local thief = firstThief
+		if thief and thief.Parent and thief:GetAttribute(GameState.NpcAttr.AnimState) == GameState.ThiefAnim.Arrest then
+			seen.firstArrested = true -- арестовал кто угодно из охраны
+		end
 	end
 
 	local step = currentStep()
