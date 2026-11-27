@@ -16,6 +16,7 @@ export type StubPart = {
 	shape: Enum.PartType?,
 	transparency: number?,
 	wedge: boolean?, -- клин (WedgePart): скос от верхнего заднего ребра к нижнему переднему
+	cornerWedge: boolean?, -- угловой клин (CornerWedgePart) для фасок и угловых скосов
 	sphere: boolean?, -- овал: шар, растянутый по размеру детали (SpecialMesh), для яиц, шлемов, планет
 	collide: boolean?, -- false — сквозь деталь можно пройти (мелкие украшения)
 	reflectance: number?, -- блеск поверхности (если не задан — подбирается по материалу)
@@ -65,6 +66,8 @@ local function newStubPart(spec: StubPart, index: number): BasePart
 	local part: BasePart
 	if spec.wedge then
 		part = Instance.new("WedgePart")
+	elseif spec.cornerWedge then
+		part = Instance.new("CornerWedgePart")
 	else
 		local block = Instance.new("Part")
 		if spec.shape then

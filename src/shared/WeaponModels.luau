@@ -20,6 +20,7 @@ export type Spec = {
 	shape: Enum.PartType?,
 	transparency: number?,
 	wedge: boolean?,
+	cornerWedge: boolean?,
 	sphere: boolean?,
 	neon: boolean?,
 }
@@ -62,6 +63,10 @@ local C = {
 	Flap = hex("1B2236"),
 	Clip = hex("4A5160"),
 	Green = hex("3FE07A"),
+	-- Добавлено в R1 (фаски, линзы и детализация крупным планом)
+	BrassDark = hex("C9922A"),
+	SteelDark = hex("2F3745"),
+	ShellTip = hex("961E29"),
 }
 WeaponModels.Colors = C
 
@@ -89,6 +94,10 @@ local function ball(name: string, d: number, offset: CFrame, color: Color3, mate
 	return { name = name, size = Vector3.new(d, d, d), offset = offset, color = color, material = material, shape = BALL }
 end
 
+local function wedge(name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?): Spec
+	return { name = name, size = size, offset = offset, color = color, material = material, wedge = true }
+end
+
 local function glow(spec: Spec): Spec
 	spec.neon = true
 	return spec
@@ -107,36 +116,57 @@ end
 
 ---------------------------------------------------------------- оружие
 
--- Шокер: жёлтый корпус с чёрной планкой и молнией на боках, рукоять с выемками под пальцы, сменный картридж
--- с двумя электродами, экран заряда сзади в рамке (Screen — его цвет меняет Weapons.client), лазер под стволом,
+-- Шокер: жёлтый корпус с фасками и чёрной планкой, светящаяся молния на боках, винты крепления, прицел
+-- со светящимися точками, рукоять с боковыми накладками и выемками под пальцы, сменный картридж с двумя
+-- электродами, экран заряда сзади в рамке (Screen — его цвет меняет Weapons.client), лазер под стволом,
 -- красный предохранитель.
 local TASER_GRIP = at(0, -0.1, 0.04) * CFrame.Angles(0.22, 0, 0)
 local TASER: { Spec } = {
 	box("Grip", v3(0.24, 0.56, 0.3), TASER_GRIP, C.PolymerDark, M.Fabric),
-	box("GripCap", v3(0.26, 0.07, 0.32), TASER_GRIP * at(0, -0.27, 0), C.Yellow),
-	box("Body", v3(0.28, 0.32, 0.78), at(0, 0.3, -0.24), C.Yellow),
-	box("Rail", v3(0.29, 0.06, 0.78), at(0, 0.48, -0.24), C.Black),
+	box("GripScale", v3(0.26, 0.42, 0.2), TASER_GRIP * at(0, 0, 0.01), C.Polymer, M.Fabric),
+	cyl("Backstrap", 0.52, 0.16, TASER_GRIP * at(0, 0, 0.11) * ALONG_Y, C.PolymerDark, M.Rubber),
+	box("GripCap", v3(0.27, 0.07, 0.33), TASER_GRIP * at(0, -0.27, 0), C.Yellow),
+	cyl("LanyardLoop", 0.04, 0.1, TASER_GRIP * at(0, -0.32, 0.08), C.SteelLight, M.Metal),
+	box("Body", v3(0.28, 0.3, 0.78), at(0, 0.29, -0.24), C.Yellow),
+	wedge("BodyBevelL", v3(0.78, 0.05, 0.05), at(-0.115, 0.465, -0.24) * CFrame.Angles(0, math.pi / 2, 0), C.Yellow),
+	wedge("BodyBevelR", v3(0.78, 0.05, 0.05), at(0.115, 0.465, -0.24) * CFrame.Angles(0, -math.pi / 2, 0), C.Yellow),
+	box("Rail", v3(0.19, 0.06, 0.78), at(0, 0.47, -0.24), C.Black),
 	box("Stripe", v3(0.29, 0.07, 0.36), at(0, 0.24, -0.06) * CFrame.Angles(-0.4, 0, 0), C.Black),
-	box("Safety", v3(0.3, 0.05, 0.07), at(0, 0.42, 0.06), C.Red),
+	box("SerialPlate", v3(0.02, 0.1, 0.24), at(-0.142, 0.37, -0.18), C.PolymerDark),
+	box("Safety", v3(0.31, 0.05, 0.07), at(0, 0.42, 0.06), C.Red),
+	glow(box("SafetyDot", v3(0.02, 0.025, 0.025), at(-0.155, 0.42, 0.06), C.Red)),
+	-- Прицельные приспособления сверху для вида от первого лица
+	box("RearSightL", v3(0.04, 0.045, 0.05), at(-0.045, 0.52, 0.09), C.Black),
+	box("RearSightR", v3(0.04, 0.045, 0.05), at(0.045, 0.52, 0.09), C.Black),
+	glow(box("RearDotL", v3(0.018, 0.018, 0.01), at(-0.045, 0.525, 0.117), C.Turquoise)),
+	glow(box("RearDotR", v3(0.018, 0.018, 0.01), at(0.045, 0.525, 0.117), C.Turquoise)),
+	box("FrontSight", v3(0.03, 0.05, 0.05), at(0, 0.52, -0.58), C.Black),
+	glow(box("FrontDot", v3(0.018, 0.018, 0.01), at(0, 0.525, -0.553), C.Yellow)),
 	-- Молния на обоих боках (одна деталь чуть шире корпуса видна с двух сторон)
 	glow(box("Bolt", v3(0.3, 0.14, 0.035), at(0, 0.365, -0.4) * CFrame.Angles(0.63, 0, 0), C.Electric)),
 	glow(box("Bolt", v3(0.3, 0.035, 0.08), at(0, 0.31, -0.41), C.Electric)),
 	glow(box("Bolt", v3(0.3, 0.14, 0.035), at(0, 0.25, -0.42) * CFrame.Angles(0.6, 0, 0), C.Electric)),
-	-- Картридж: тёмный, жёлтая полоса, лицевая панель с электродами
+	-- Крепёжные винты корпуса по бокам
+	cyl("ScrewF", 0.3, 0.04, at(0, 0.38, -0.56), C.SteelLight, M.Metal),
+	cyl("ScrewB", 0.3, 0.04, at(0, 0.2, -0.02), C.SteelLight, M.Metal),
+	-- Картридж: тёмный, жёлтая полоса, боковые защёлки, утопленные гнёзда и электроды
 	box("Cartridge", v3(0.3, 0.3, 0.24), at(0, 0.3, -0.74), C.Polymer),
 	box("CartridgeBand", v3(0.31, 0.07, 0.12), at(0, 0.41, -0.74), C.Yellow),
+	box("CartridgeLatch", v3(0.32, 0.08, 0.1), at(0, 0.26, -0.66), C.Steel, M.Metal),
 	box("CartridgeFace", v3(0.26, 0.26, 0.02), at(0, 0.3, -0.865), C.Black),
-	glow(cyl("ProngL", 0.08, 0.05, at(-0.07, 0.3, -0.87) * ALONG_Z, C.Electric)),
-	glow(cyl("ProngR", 0.08, 0.05, at(0.07, 0.3, -0.87) * ALONG_Z, C.Electric)),
+	cyl("WellL", 0.03, 0.09, at(-0.07, 0.3, -0.865) * ALONG_Z, C.SteelDark, M.Metal),
+	cyl("WellR", 0.03, 0.09, at(0.07, 0.3, -0.865) * ALONG_Z, C.SteelDark, M.Metal),
+	glow(cyl("ProngL", 0.08, 0.045, at(-0.07, 0.3, -0.875) * ALONG_Z, C.Electric)),
+	glow(cyl("ProngR", 0.08, 0.045, at(0.07, 0.3, -0.875) * ALONG_Z, C.Electric)),
 	-- Экран заряда сзади в чёрной рамке
-	box("Bezel", v3(0.22, 0.17, 0.016), at(0, 0.33, 0.152), C.Black),
-	glow(box("Screen", v3(0.18, 0.13, 0.02), at(0, 0.33, 0.155), C.Turquoise)),
+	box("Bezel", v3(0.22, 0.17, 0.016), at(0, 0.32, 0.152), C.Black),
+	glow(box("Screen", v3(0.18, 0.13, 0.02), at(0, 0.32, 0.155), C.Turquoise)),
 	-- Лазер в корпусе под стволом
-	box("LaserBox", v3(0.14, 0.1, 0.16), at(0, 0.16, -0.52), C.Black),
-	glow(ball("Laser", 0.07, at(0, 0.16, -0.6), C.Red)),
-	-- Спусковая скоба и курок
+	box("LaserBox", v3(0.14, 0.1, 0.18), at(0, 0.15, -0.52), C.Black),
+	glow(ball("Laser", 0.07, at(0, 0.15, -0.61), C.Red)),
+	-- Спусковая скоба с фаской и курок
 	box("Guard", v3(0.06, 0.04, 0.32), at(0, 0.04, -0.2), C.Black),
-	box("GuardFront", v3(0.06, 0.16, 0.04), at(0, 0.1, -0.36), C.Black),
+	wedge("GuardFront", v3(0.06, 0.16, 0.06), at(0, 0.1, -0.36), C.Black),
 	box("Trigger", v3(0.04, 0.12, 0.04), at(0, 0.11, -0.18) * CFrame.Angles(0.2, 0, 0), C.Yellow),
 }
 -- Выемки под пальцы спереди рукояти
@@ -144,31 +174,44 @@ addRow(TASER, 3, function(i)
 	return cyl("Finger", 0.25, 0.07, TASER_GRIP * at(0, 0.1 - i * 0.13, -0.15), C.Black, M.Rubber)
 end)
 
--- Пистолет: стальной затвор с насечками спереди и сзади, окно выброса с латунным стволом, целик с двумя точками
--- и мушка с точкой (всё на затворе — имя Slide, двигается при выстреле), рамка с планкой, рукоять с насечкой,
--- курок, курковый молоток, магазин с патроном сверху (виден, когда выпадает).
+-- Пистолет: затвор со скошенными гранями (Slide) и насечками спереди/сзади, окно выброса с латунным стволом
+-- и выбрасывателем, целик с двумя точками и мушка с точкой (всё Slide), дульный срез с каналом ствола,
+-- рамка с планкой Пикатинни и рычагами, рукоять с винтами, курок, молоток, магазин с патроном сверху (Mag).
 local PISTOL_GRIP = at(0, -0.1, 0.05) * CFrame.Angles(0.22, 0, 0)
 local PISTOL_MAG = at(0, -0.18, 0.08) * CFrame.Angles(0.22, 0, 0)
 local PISTOL: { Spec } = {
 	box("Grip", v3(0.22, 0.56, 0.3), PISTOL_GRIP, C.Polymer),
 	box("GripPanel", v3(0.24, 0.38, 0.22), at(0, -0.12, 0.06) * CFrame.Angles(0.22, 0, 0), C.PolymerDark, M.Fabric),
-	box("Beavertail", v3(0.2, 0.06, 0.16), at(0, 0.27, 0.2), C.Polymer),
+	cyl("GripScrewTop", 0.25, 0.045, PISTOL_GRIP * at(0, 0.11, 0.02), C.SteelLight, M.Metal),
+	cyl("GripScrewBot", 0.25, 0.045, PISTOL_GRIP * at(0, -0.13, 0.02), C.SteelLight, M.Metal),
+	wedge("Beavertail", v3(0.18, 0.07, 0.16), at(0, 0.26, 0.21), C.Polymer),
+	box("Magwell", v3(0.24, 0.05, 0.32), at(0, -0.36, 0.12) * CFrame.Angles(0.22, 0, 0), C.PolymerDark),
 	box("Mag", v3(0.18, 0.5, 0.24), PISTOL_MAG, C.Black),
 	box("Mag", v3(0.23, 0.06, 0.3), at(0, -0.43, 0.14) * CFrame.Angles(0.22, 0, 0), C.Polymer),
 	cyl("Mag", 0.14, 0.07, PISTOL_MAG * at(0, 0.26, -0.02) * ALONG_Z, C.Brass, M.Metal),
-	box("MagRelease", v3(0.235, 0.05, 0.06), at(0, 0.17, -0.03), C.Black),
+	box("MagRelease", v3(0.24, 0.05, 0.06), at(0, 0.17, -0.03), C.Black),
 	box("Frame", v3(0.2, 0.16, 0.84), at(0, 0.2, -0.27), C.Polymer),
-	box("Rail", v3(0.16, 0.05, 0.28), at(0, 0.1, -0.56), C.Black),
+	wedge("DustBevel", v3(0.18, 0.06, 0.1), at(0, 0.13, -0.71) * CFrame.Angles(math.pi, 0, 0), C.Polymer),
+	box("Rail", v3(0.16, 0.045, 0.3), at(0, 0.1, -0.56), C.Black),
+	box("RailSlot", v3(0.17, 0.02, 0.04), at(0, 0.08, -0.48), C.PolymerDark),
+	box("RailSlot", v3(0.17, 0.02, 0.04), at(0, 0.08, -0.62), C.PolymerDark),
 	box("Guard", v3(0.06, 0.04, 0.3), at(0, 0.05, -0.2), C.Polymer),
-	box("GuardFront", v3(0.06, 0.14, 0.04), at(0, 0.11, -0.35), C.Polymer),
+	wedge("GuardFront", v3(0.06, 0.14, 0.06), at(0, 0.11, -0.35), C.Polymer),
 	box("Trigger", v3(0.04, 0.11, 0.04), at(0, 0.12, -0.17) * CFrame.Angles(0.2, 0, 0), C.Black),
-	box("SlideStop", v3(0.24, 0.04, 0.12), at(0, 0.285, -0.06), C.Black),
+	box("SlideStop", v3(0.245, 0.04, 0.13), at(0, 0.285, -0.06), C.Black),
+	cyl("TakedownLever", 0.24, 0.05, at(0, 0.24, -0.42), C.Black, M.Metal),
 	box("Hammer", v3(0.06, 0.12, 0.07), at(0, 0.38, 0.24) * CFrame.Angles(-0.4, 0, 0), C.Black),
 	box("Accent", v3(0.235, 0.025, 0.55), at(0, 0.29, -0.42), C.Gold, M.Metal),
-	cyl("Barrel", 0.1, 0.12, at(0, 0.37, -0.82) * ALONG_Z, C.Black),
-	-- Затвор и всё, что на нём
-	box("Slide", v3(0.23, 0.2, 1.0), at(0, 0.37, -0.3), C.Steel, M.Metal),
-	box("Slide", v3(0.02, 0.09, 0.24), at(0.116, 0.4, -0.3), C.Brass, M.Metal), -- окно выброса: виден ствол
+	box("SerialPlate", v3(0.015, 0.07, 0.22), at(-0.106, 0.21, -0.38), C.PolymerDark),
+	cyl("Barrel", 0.12, 0.125, at(0, 0.37, -0.82) * ALONG_Z, C.SteelLight, M.Metal),
+	cyl("Bore", 0.04, 0.075, at(0, 0.37, -0.87) * ALONG_Z, C.Black),
+	-- Затвор со скошенными верхними гранями и всё, что двигается при выстреле (Slide)
+	box("Slide", v3(0.23, 0.16, 1.0), at(0, 0.35, -0.3), C.Steel, M.Metal),
+	box("Slide", v3(0.13, 0.04, 0.98), at(0, 0.45, -0.3), C.Steel, M.Metal),
+	wedge("Slide", v3(0.98, 0.04, 0.05), at(-0.09, 0.45, -0.3) * CFrame.Angles(0, math.pi / 2, 0), C.Steel, M.Metal),
+	wedge("Slide", v3(0.98, 0.04, 0.05), at(0.09, 0.45, -0.3) * CFrame.Angles(0, -math.pi / 2, 0), C.Steel, M.Metal),
+	box("Slide", v3(0.02, 0.09, 0.24), at(0.116, 0.39, -0.3), C.Brass, M.Metal), -- окно выброса: виден ствол
+	box("Slide", v3(0.02, 0.03, 0.12), at(0.118, 0.4, -0.14), C.Black), -- выбрасыватель
 	box("Slide", v3(0.05, 0.06, 0.05), at(-0.045, 0.5, 0.13), C.Black), -- целик из двух половинок
 	box("Slide", v3(0.05, 0.06, 0.05), at(0.045, 0.5, 0.13), C.Black),
 	glow(box("Slide", v3(0.02, 0.02, 0.01), at(-0.045, 0.51, 0.157), C.White)),
@@ -178,40 +221,50 @@ local PISTOL: { Spec } = {
 }
 -- Насечка на затворе: 4 полосы сзади, 2 спереди
 addRow(PISTOL, 4, function(i)
-	return box("Slide", v3(0.24, 0.15, 0.025), at(0, 0.37, 0.15 - i * 0.06), C.Black)
+	return box("Slide", v3(0.24, 0.13, 0.025), at(0, 0.35, 0.15 - i * 0.06), C.Black)
 end)
 addRow(PISTOL, 2, function(i)
-	return box("Slide", v3(0.24, 0.15, 0.025), at(0, 0.37, -0.6 - i * 0.06), C.Black)
+	return box("Slide", v3(0.24, 0.13, 0.025), at(0, 0.35, -0.6 - i * 0.06), C.Black)
 end)
 -- Насечка на рукояти
 addRow(PISTOL, 4, function(i)
 	return box("GripRidge", v3(0.25, 0.03, 0.2), PISTOL_GRIP * at(0, -0.2 + i * 0.08, 0.01), C.Black)
 end)
 
--- Помповый дробовик: деревянные приклад с насечкой и белой прокладкой, стальная ствольная коробка с золотой
--- гравировкой, ствол с прицельной планкой и латунной мушкой, трубка магазина с хомутом, деревянная помпа
--- с бороздками и тягами (всё Pump — двигается), патронташ на левом боку на 3 красных патрона.
+-- Помповый дробовик: деревянные приклад с гребнем, насечкой и белой прокладкой, стальная ствольная коробка
+-- с золотой гравировкой и затвором в окне выброса, ствол с вентилируемой планкой и латунной мушкой, трубка
+-- магазина с хомутом, деревянная помпа с бороздками и тягами (Pump), патронташ на левом боку на 3 патрона.
 local SHOTGUN_GRIP = at(0, -0.06, 0.08) * CFrame.Angles(0.35, 0, 0)
 local SHOTGUN_STOCK = at(0, 0.1, 0.82) * CFrame.Angles(-0.08, 0, 0)
 local SHOTGUN: { Spec } = {
 	box("Grip", v3(0.22, 0.48, 0.34), SHOTGUN_GRIP, C.Wood, M.Wood),
-	box("Stock", v3(0.25, 0.4, 1.1), SHOTGUN_STOCK, C.Wood, M.Wood),
+	box("GripCap", v3(0.23, 0.04, 0.35), SHOTGUN_GRIP * at(0, -0.23, 0), C.Black),
+	box("Stock", v3(0.25, 0.38, 1.1), SHOTGUN_STOCK, C.Wood, M.Wood),
+	wedge("StockComb", v3(0.23, 0.12, 0.9), SHOTGUN_STOCK * at(0, 0.25, 0.05) * CFrame.Angles(0, math.pi, 0), C.Wood, M.Wood),
 	box("StockInlay", v3(0.26, 0.06, 0.6), SHOTGUN_STOCK * at(0, 0.06, -0.05), C.WoodDark, M.Wood),
 	box("Spacer", v3(0.28, 0.53, 0.02), at(0, 0.06, 1.39) * CFrame.Angles(-0.08, 0, 0) * at(0, 0, -0.035), C.White), -- белая кайма у затыльника
 	box("Butt", v3(0.27, 0.52, 0.09), at(0, 0.06, 1.39) * CFrame.Angles(-0.08, 0, 0), C.Black, M.Rubber),
 	box("Swivel", v3(0.04, 0.1, 0.1), SHOTGUN_STOCK * at(0, -0.24, 0.3), C.SteelLight, M.Metal),
-	box("Receiver", v3(0.3, 0.38, 0.9), at(0, 0.32, -0.34), C.Steel, M.Metal),
+	box("Receiver", v3(0.3, 0.36, 0.9), at(0, 0.31, -0.34), C.Steel, M.Metal),
+	box("ReceiverTop", v3(0.22, 0.04, 0.88), at(0, 0.51, -0.34), C.Steel, M.Metal),
 	box("Engraving", v3(0.31, 0.03, 0.6), at(0, 0.24, -0.34), C.Gold, M.Metal),
 	box("Engraving", v3(0.31, 0.03, 0.3), at(0, 0.2, -0.49), C.Gold, M.Metal),
+	box("CaliberPlate", v3(0.015, 0.08, 0.26), at(-0.155, 0.19, -0.62), C.SteelDark),
 	box("Port", v3(0.02, 0.14, 0.34), at(0.155, 0.36, -0.3), C.Black),
+	box("Bolt", v3(0.02, 0.1, 0.26), at(0.158, 0.36, -0.34), C.SteelLight, M.Metal),
 	box("LoadPort", v3(0.2, 0.02, 0.4), at(0, 0.125, -0.45), C.Black),
-	cyl("Safety", 0.06, 0.08, at(0, 0.52, 0.05) * ALONG_Y, C.Red),
+	box("Lifter", v3(0.14, 0.02, 0.32), at(0, 0.12, -0.45), C.SteelLight, M.Metal),
+	cyl("PinF", 0.32, 0.04, at(0, 0.22, -0.2), C.SteelLight, M.Metal),
+	cyl("PinB", 0.32, 0.04, at(0, 0.2, -0.02), C.SteelLight, M.Metal),
+	cyl("Safety", 0.06, 0.08, at(0, 0.54, 0.05) * ALONG_Y, C.Red),
 	cyl("Barrel", 2.2, 0.16, at(0, 0.43, -1.9) * ALONG_Z, C.SteelLight, M.Metal),
-	box("Rib", v3(0.06, 0.04, 2.1), at(0, 0.53, -1.95), C.Black),
-	cyl("MuzzleRing", 0.06, 0.18, at(0, 0.43, -2.97) * ALONG_Z, C.Steel, M.Metal),
-	ball("Bead", 0.07, at(0, 0.57, -2.95), C.Brass, M.Metal),
+	box("Rib", v3(0.06, 0.035, 2.1), at(0, 0.545, -1.95), C.Black),
+	cyl("MuzzleRing", 0.07, 0.185, at(0, 0.43, -2.97) * ALONG_Z, C.Steel, M.Metal),
+	cyl("Bore", 0.04, 0.11, at(0, 0.43, -3.0) * ALONG_Z, C.Black),
+	ball("Bead", 0.07, at(0, 0.585, -2.95), C.Brass, M.Metal),
 	cyl("Tube", 1.7, 0.14, at(0, 0.24, -1.62) * ALONG_Z, C.Steel, M.Metal),
 	box("Clamp", v3(0.1, 0.32, 0.1), at(0, 0.335, -2.38), C.Steel, M.Metal),
+	cyl("ClampBolt", 0.13, 0.05, at(0, 0.335, -2.38), C.SteelLight, M.Metal),
 	cyl("Cap", 0.08, 0.17, at(0, 0.24, -2.49) * ALONG_Z, C.Black),
 	-- Помпа с бороздками и стальными тягами к ствольной коробке
 	box("Pump", v3(0.3, 0.26, 0.8), at(0, 0.24, -1.42), C.Wood, M.Wood),
@@ -223,23 +276,29 @@ local SHOTGUN: { Spec } = {
 	box("Guard", v3(0.06, 0.04, 0.32), at(0, 0.07, -0.18), C.Steel),
 	box("Trigger", v3(0.04, 0.12, 0.04), at(0, 0.14, -0.16) * CFrame.Angles(0.2, 0, 0), C.Black),
 	-- Патронташ на левом боку (его видно от первого лица)
-	box("Saddle", v3(0.03, 0.34, 0.5), at(-0.165, 0.34, -0.28), C.Black),
+	box("Saddle", v3(0.03, 0.34, 0.52), at(-0.165, 0.34, -0.28), C.Black),
 }
 addRow(SHOTGUN, 3, function(i)
-	return cyl("Shell", 0.3, 0.12, at(-0.22, 0.36, -0.12 - i * 0.16) * ALONG_Y, C.Red)
+	return cyl("Shell", 0.28, 0.12, at(-0.22, 0.35, -0.12 - i * 0.16) * ALONG_Y, C.Red)
 end)
 addRow(SHOTGUN, 3, function(i)
-	return cyl("ShellBase", 0.08, 0.125, at(-0.22, 0.22, -0.12 - i * 0.16) * ALONG_Y, C.Brass, M.Metal)
+	return cyl("ShellTip", 0.04, 0.11, at(-0.22, 0.51, -0.12 - i * 0.16) * ALONG_Y, C.ShellTip)
 end)
--- Насечка на шейке приклада
+addRow(SHOTGUN, 3, function(i)
+	return cyl("ShellBase", 0.08, 0.125, at(-0.22, 0.21, -0.12 - i * 0.16) * ALONG_Y, C.Brass, M.Metal)
+end)
+-- Стойки вентилируемой планки и насечка на шейке приклада
+addRow(SHOTGUN, 3, function(i)
+	return box("RibPost", v3(0.04, 0.03, 0.06), at(0, 0.52, -1.1 - i * 0.65), C.Steel, M.Metal)
+end)
 addRow(SHOTGUN, 3, function(i)
 	return box("GripRidge", v3(0.23, 0.03, 0.3), SHOTGUN_GRIP * at(0, -0.12 + i * 0.09, 0), C.WoodDark, M.Wood)
 end)
 
--- Автомат: верхняя стальная и нижняя тёмная ствольные коробки, окно выброса, переводчик огня, цевьё с прорезями
--- и планками, верхняя планка с зубцами, мушка в «ушах», ствол с дульным тормозом, коллиматор-трубка
--- с красной точкой сзади, изогнутый магазин с рёбрами и патроном сверху (Mag), рукоять затвора с «крыльями»
--- (Slide — двигается при перезарядке), приклад на буферной трубке с щекой и антабкой.
+-- Автомат: верхняя стальная и нижняя тёмная ствольные коробки с досылателем и шторкой выброса, цевьё
+-- со скошенным носом, газоотводом и прорезями, верхняя планка с зубцами, мушка в «ушах», дульный тормоз,
+-- коллиматор-трубка с тонированными линзами и красной точкой, изогнутый магазин с рёбрами и патроном (Mag),
+-- рукоять затвора (Slide), скелетный приклад на буферной трубке.
 local RIFLE_GRIP = at(0, -0.06, 0.05) * CFrame.Angles(0.3, 0, 0)
 local RIFLE_MAG = at(0, -0.02, -0.62) * CFrame.Angles(-0.12, 0, 0)
 local RIFLE: { Spec } = {
@@ -247,11 +306,16 @@ local RIFLE: { Spec } = {
 	box("Upper", v3(0.28, 0.18, 1.2), at(0, 0.41, -0.36), C.Steel, M.Metal),
 	box("Lower", v3(0.26, 0.2, 0.9), at(0, 0.22, -0.42), C.PolymerDark),
 	box("Magwell", v3(0.3, 0.12, 0.36), at(0, 0.12, -0.62), C.Polymer),
+	box("CaliberPlate", v3(0.015, 0.07, 0.2), at(-0.155, 0.12, -0.62), C.SteelDark),
 	box("Port", v3(0.02, 0.1, 0.28), at(0.145, 0.4, -0.3), C.Black),
+	box("DustCover", v3(0.02, 0.09, 0.28), at(0.155, 0.3, -0.3) * CFrame.Angles(0, 0, -0.2), C.SteelDark, M.Metal),
 	box("Deflector", v3(0.06, 0.1, 0.08), at(0.16, 0.41, -0.1), C.Steel, M.Metal),
+	cyl("ForwardAssist", 0.12, 0.08, at(0.15, 0.38, 0.04) * ALONG_Z, C.Black, M.Metal),
 	box("BoltRelease", v3(0.04, 0.1, 0.14), at(-0.14, 0.25, -0.75), C.Black),
 	glow(box("Selector", v3(0.02, 0.06, 0.06), at(-0.14, 0.25, -0.05), C.Red)),
-	box("Handguard", v3(0.34, 0.32, 1.0), at(0, 0.33, -1.42), C.Polymer),
+	box("Handguard", v3(0.34, 0.32, 0.96), at(0, 0.33, -1.4), C.Polymer),
+	wedge("HandguardNose", v3(0.32, 0.16, 0.14), at(0, 0.25, -1.94) * CFrame.Angles(math.pi, 0, 0), C.Polymer),
+	cyl("GasTube", 0.86, 0.05, at(0, 0.43, -1.42) * ALONG_Z, C.SteelLight, M.Metal),
 	box("RailL", v3(0.02, 0.05, 0.9), at(-0.175, 0.37, -1.42), C.Black),
 	box("RailR", v3(0.02, 0.05, 0.9), at(0.175, 0.37, -1.42), C.Black),
 	box("RailBottom", v3(0.14, 0.04, 0.7), at(0, 0.155, -1.45), C.Black),
@@ -259,6 +323,7 @@ local RIFLE: { Spec } = {
 	box("Accent", v3(0.345, 0.04, 0.5), at(0, 0.2, -1.42), C.Gold, M.Metal),
 	cyl("Barrel", 0.7, 0.14, at(0, 0.36, -2.25) * ALONG_Z, C.Black, M.Metal),
 	cyl("Brake", 0.22, 0.2, at(0, 0.36, -2.66) * ALONG_Z, C.Steel, M.Metal),
+	cyl("Bore", 0.04, 0.1, at(0, 0.36, -2.76) * ALONG_Z, C.Black),
 	cyl("BrakeRing", 0.03, 0.21, at(0, 0.36, -2.61) * ALONG_Z, C.Black),
 	cyl("BrakeRing", 0.03, 0.21, at(0, 0.36, -2.71) * ALONG_Z, C.Black),
 	-- Мушка: основание, два «уха» и столбик со светящейся точкой
@@ -267,14 +332,15 @@ local RIFLE: { Spec } = {
 	box("SightEar", v3(0.04, 0.18, 0.08), at(0.08, 0.7, -1.8), C.Black),
 	box("SightPost", v3(0.03, 0.14, 0.04), at(0, 0.67, -1.8), C.Black),
 	glow(box("SightTip", v3(0.03, 0.03, 0.01), at(0, 0.73, -1.778), C.Turquoise)),
-	-- Коллиматор: трубка с козырьком, барабанчик сбоку, сзади стекло с красной точкой
+	-- Коллиматор: трубка с козырьком, барабанчики, сзади стекло с красной точкой
 	box("OpticMount", v3(0.18, 0.1, 0.3), at(0, 0.53, -0.42), C.Black),
 	cyl("Optic", 0.5, 0.26, at(0, 0.7, -0.42) * ALONG_Z, C.PolymerDark),
 	cyl("OpticHood", 0.08, 0.3, at(0, 0.7, -0.65) * ALONG_Z, C.Black),
 	cyl("OpticRing", 0.06, 0.29, at(0, 0.7, -0.2) * ALONG_Z, C.Black),
 	cyl("OpticKnob", 0.06, 0.1, at(0.15, 0.7, -0.42), C.Black),
-	{ name = "Lens", size = v3(0.02, 0.2, 0.2), offset = at(0, 0.7, -0.692) * ALONG_Z, color = hex("FF7A7A"), material = M.Glass, transparency = 0.35, shape = CYL },
-	{ name = "LensBack", size = v3(0.02, 0.22, 0.22), offset = at(0, 0.7, -0.162) * ALONG_Z, color = hex("8FD8FF"), material = M.Glass, transparency = 0.25, shape = CYL },
+	cyl("OpticTopKnob", 0.06, 0.1, at(0, 0.85, -0.42) * ALONG_Y, C.Black),
+	{ name = "Lens", size = v3(0.02, 0.2, 0.2), offset = at(0, 0.7, -0.692) * ALONG_Z, color = hex("FF7A7A"), material = M.Glass, transparency = 0.55, shape = CYL },
+	{ name = "LensBack", size = v3(0.02, 0.22, 0.22), offset = at(0, 0.7, -0.162) * ALONG_Z, color = hex("8FD8FF"), material = M.Glass, transparency = 0.55, shape = CYL },
 	glow(box("Dot", v3(0.03, 0.03, 0.01), at(0, 0.7, -0.148), C.Red)),
 	-- Магазин: изогнутый, рёбра, патрон сверху (прячется в шахте)
 	box("Mag", v3(0.2, 0.46, 0.3), RIFLE_MAG, C.Black),
@@ -286,25 +352,25 @@ local RIFLE: { Spec } = {
 	-- Рукоять затвора с «крыльями»
 	box("Slide", v3(0.08, 0.05, 0.2), at(0, 0.53, 0.14), C.Black),
 	box("Slide", v3(0.28, 0.06, 0.07), at(0, 0.53, 0.24), C.Black),
-	-- Приклад на буферной трубке
-	cyl("Buffer", 0.45, 0.16, at(0, 0.38, 0.45) * ALONG_Z, C.Steel, M.Metal),
-	box("Stock", v3(0.22, 0.3, 0.5), at(0, 0.28, 0.83), C.Polymer),
-	box("Cheek", v3(0.18, 0.08, 0.4), at(0, 0.46, 0.85), C.PolymerDark),
-	box("StockPad", v3(0.25, 0.4, 0.1), at(0, 0.27, 1.13), C.Black, M.Rubber),
+	-- Приклад на буферной трубке с треугольным упором и щекой
+	cyl("Buffer", 0.5, 0.16, at(0, 0.38, 0.45) * ALONG_Z, C.Steel, M.Metal),
+	wedge("StockStrut", v3(0.2, 0.24, 0.52), at(0, 0.24, 0.84) * CFrame.Angles(0, math.pi, 0), C.Polymer),
+	box("Cheek", v3(0.18, 0.08, 0.42), at(0, 0.46, 0.85), C.PolymerDark),
+	box("StockPad", v3(0.24, 0.4, 0.1), at(0, 0.27, 1.13), C.Black, M.Rubber),
 	box("SlingLoop", v3(0.04, 0.1, 0.1), at(0, 0.09, 0.95), C.SteelLight, M.Metal),
 	box("Guard", v3(0.06, 0.04, 0.32), at(0, 0.07, -0.18), C.Polymer),
 	box("Trigger", v3(0.04, 0.12, 0.04), at(0, 0.14, -0.16) * CFrame.Angles(0.2, 0, 0), C.Black),
 }
 -- Прорези в цевье (насквозь — видны с обеих сторон) и зубцы верхней планки
-addRow(RIFLE, 3, function(i)
-	return box("Vent", v3(0.35, 0.06, 0.16), at(0, 0.27, -1.1 - i * 0.32), C.Black)
+addRow(RIFLE, 2, function(i)
+	return box("Vent", v3(0.35, 0.06, 0.18), at(0, 0.27, -1.16 - i * 0.38), C.Black)
 end)
-addRow(RIFLE, 6, function(i)
-	return box("RailTooth", v3(0.17, 0.03, 0.05), at(0, 0.545, -0.75 - i * 0.16), C.Black)
+addRow(RIFLE, 3, function(i)
+	return box("RailTooth", v3(0.17, 0.03, 0.05), at(0, 0.545, -0.82 - i * 0.24), C.Black)
 end)
 -- Насечка на рукояти
-addRow(RIFLE, 4, function(i)
-	return box("GripRidge", v3(0.23, 0.03, 0.24), RIFLE_GRIP * at(0, -0.18 + i * 0.08, 0.01), C.Black)
+addRow(RIFLE, 2, function(i)
+	return box("GripRidge", v3(0.23, 0.03, 0.24), RIFLE_GRIP * at(0, -0.14 + i * 0.14, 0.01), C.Black)
 end)
 
 ---------------------------------------------------------------- вещи
@@ -371,7 +437,7 @@ for _, spot in { { 0.08, 0 }, { -0.08, 0 }, { 0, 0.08 }, { 0, -0.08 } } do
 end
 
 -- Надпись на детали модели: SurfaceGui с текстом на грани face (если детали нет — ничего).
-local function labelPart(model: Instance, partName: string, face: Enum.NormalId, text: string, color: Color3, size: UDim2?, position: UDim2?)
+local function labelPart(model: Instance, partName: string, face: Enum.NormalId, text: string, color: Color3, size: UDim2?, position: UDim2?, pixelsPerStud: number?)
 	local part = model:FindFirstChild(partName, true)
 	if not (part and part:IsA("BasePart")) then
 		return
@@ -379,7 +445,7 @@ local function labelPart(model: Instance, partName: string, face: Enum.NormalId,
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = face
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 50
+	gui.PixelsPerStud = pixelsPerStud or 50
 	gui.LightInfluence = 1
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
@@ -393,7 +459,7 @@ local function labelPart(model: Instance, partName: string, face: Enum.NormalId,
 	gui.Parent = part
 end
 
-type Label = { part: string, face: Enum.NormalId, text: string, color: Color3 }
+type Label = { part: string, face: Enum.NormalId, text: string, color: Color3, pixelsPerStud: number? }
 type Info = { specs: { Spec }, muzzle: CFrame, support: CFrame, labels: { Label }? }
 
 WeaponModels.Names = {
@@ -407,10 +473,30 @@ WeaponModels.Names = {
 }
 
 local INFO: { [string]: Info } = {
-	Taser = { specs = TASER, muzzle = at(0, 0.3, -0.9), support = at(-0.12, -0.12, 0.08) },
-	Pistol = { specs = PISTOL, muzzle = at(0, 0.37, -0.9), support = at(-0.12, -0.12, 0.08) },
-	Shotgun = { specs = SHOTGUN, muzzle = at(0, 0.43, -3.02), support = at(0, 0.08, -1.42) },
-	Rifle = { specs = RIFLE, muzzle = at(0, 0.36, -2.78), support = at(0, 0.14, -1.45) },
+	Taser = {
+		specs = TASER,
+		muzzle = at(0, 0.3, -0.9),
+		support = at(-0.12, -0.12, 0.08),
+		labels = { { part = "SerialPlate", face = Enum.NormalId.Left, text = "X26", color = C.Yellow, pixelsPerStud = 240 } },
+	},
+	Pistol = {
+		specs = PISTOL,
+		muzzle = at(0, 0.37, -0.9),
+		support = at(-0.12, -0.12, 0.08),
+		labels = { { part = "SerialPlate", face = Enum.NormalId.Left, text = "9MM", color = C.Gold, pixelsPerStud = 240 } },
+	},
+	Shotgun = {
+		specs = SHOTGUN,
+		muzzle = at(0, 0.43, -3.02),
+		support = at(0, 0.08, -1.42),
+		labels = { { part = "CaliberPlate", face = Enum.NormalId.Left, text = "12 GA", color = C.Gold, pixelsPerStud = 240 } },
+	},
+	Rifle = {
+		specs = RIFLE,
+		muzzle = at(0, 0.36, -2.78),
+		support = at(0, 0.14, -1.45),
+		labels = { { part = "CaliberPlate", face = Enum.NormalId.Left, text = "5.56", color = C.Gold, pixelsPerStud = 240 } },
+	},
 	Medkit = { specs = MEDKIT, muzzle = at(0, -0.55, -0.3), support = at(-0.55, -0.55, 0) },
 	Baton = { specs = BATON, muzzle = at(0, 0, -1.9), support = at(0, 0, 0) },
 	Smoke = {
@@ -427,6 +513,8 @@ local function newPart(spec: Spec, index: number): BasePart
 	local part: BasePart
 	if spec.wedge then
 		part = Instance.new("WedgePart")
+	elseif spec.cornerWedge then
+		part = Instance.new("CornerWedgePart")
 	else
 		local block = Instance.new("Part")
 		if spec.shape then
@@ -530,7 +618,7 @@ function WeaponModels.build(kind: string): Built
 	local labels = info.labels
 	if labels then
 		for _, label in labels do
-			labelPart(built.model, label.part, label.face, label.text, label.color)
+			labelPart(built.model, label.part, label.face, label.text, label.color, nil, nil, label.pixelsPerStud)
 		end
 	end
 	return built
