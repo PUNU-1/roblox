@@ -419,6 +419,7 @@ local Config = {
 	Diamonds = {
 		PerNight = 10, -- баланс: каждому на смене за каждую пережитую ночь
 		PerArrest = 1, -- баланс: за каждый свой арест (вор, сдавшийся или оглушённый грабитель)
+		FriendsBonus = 0.25, -- этап 6, блок H2: в команде есть друг по Roblox — алмазы за ночь × (1 + это), вверх до целого
 		Store = "PlayerProfile_v1", -- DataStore профиля: ключ — UserId, данные { diamonds, ownedClasses }
 		Retries = 3, -- попыток каждого запроса к DataStore (Retry)
 		RetryDelay = 1.5, -- секунд между попытками (вторая — ×2)

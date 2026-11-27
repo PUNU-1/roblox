@@ -474,6 +474,14 @@ local function showResults(results: { [string]: any })
 	local nightDiamonds = if typeof(results.diamonds) == "table" then tonumber(results.diamonds[myKey]) else nil
 	local runDiamonds = if typeof(results.diamondsRun) == "table" then tonumber(results.diamondsRun[myKey]) else nil
 	local notSaved = if results.diamondsSaved == false then '  <font size="16" color="#8A93A6">(not saved in Studio)</font>' else ""
+	-- Бонус за друга в команде (этап 6, блок H2)
+	local bonus = if typeof(results.friendsBonus) == "table" then tonumber(results.friendsBonus[myKey]) or 0 else 0
+	if bonus > 0 then
+		notSaved = ('   <font size="18" color="#%s">Friends bonus +%d%%</font>'):format(
+			Colors.Turquoise:ToHex(),
+			math.floor(Config.Diamonds.FriendsBonus * 100 + 0.5)
+		) .. notSaved
+	end
 	if resultsGameOver and runDiamonds then
 		resultsDiamonds.Text = ("Diamonds this run: +%d 💎%s"):format(runDiamonds, notSaved)
 	elseif nightDiamonds then

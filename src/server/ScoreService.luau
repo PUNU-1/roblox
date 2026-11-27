@@ -3,6 +3,7 @@
 -- за пережитую ночь денег нет. Деньги живут только в атрибуте Player.Money и обнуляются в начале забега.
 -- Алмазы 💎 (этап 4, блок 1): в итоге каждой ночи +10 за пережитую ночь (тем, кто на смене) и +1 за каждый свой
 -- арест (Config.Diamonds). Они не обнуляются — ProfileStore сразу сохраняет их навсегда.
+-- Этап 6, блок H2: в команде есть друг по Roblox — алмазы за ночь +25 % (FriendService, дружба проверяется заранее).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,6 +13,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local ProfileStore = require(script.Parent:WaitForChild("ProfileStore"))
 local ProgressService = require(script.Parent:WaitForChild("ProgressService"))
+local FriendService = require(script.Parent:WaitForChild("FriendService"))
 
 local ScoreService = {}
 
@@ -41,6 +43,7 @@ export type Results = {
 	diamonds: { [string]: number }, -- userId (строкой) -> алмазы за эту ночь (этап 4, блок 1)
 	diamondsRun: { [string]: number }, -- userId (строкой) -> алмазы за весь забег
 	diamondsSaved: boolean, -- false — Studio без доступа к API: алмазы не сохраняются
+	friendsBonus: { [string]: number }, -- userId (строкой) -> сколько алмазов из них — бонус за друга (этап 6, блок H2)
 	chests: { [string]: boolean }?, -- userId (строкой) -> true: у игрока сундук после ночи (этап 6, блок H2, ChestService)
 	personalBest: { [string]: number }?, -- GAME OVER: userId (строкой) -> личный рекорд до этого забега (этап 6, блок H2)
 }
@@ -97,6 +100,7 @@ function ScoreService.beginNight(participants: { Player })
 		catchesByUser[player.UserId] = 0
 		arrestMoneyByUser[player.UserId] = 0
 	end
+	FriendService.warm(participants) -- бонус за друга (этап 6, блок H2): к итогу ночи ответ Roblox уже придёт
 	GameState.set(GameState.Attr.Caught, 0)
 	GameState.set(GameState.Attr.ThievesSpawned, 0)
 end
@@ -133,7 +137,16 @@ function ScoreService.finish(survived: boolean, raided: boolean?): Results
 	local wallets: { [string]: number } = {}
 	local diamonds: { [string]: number } = {}
 	local runDiamonds: { [string]: number } = {}
+	local friendsBonus: { [string]: number } = {}
 	local bestUserId, bestCount = 0, 0
+	-- Кто сейчас на смене (бонус за друга — только если друг тоже на смене)
+	local team: { Player } = {}
+	for _, userId in participantIds do
+		local player = Players:GetPlayerByUserId(userId)
+		if player and player:GetAttribute(GameState.PlayerAttr.InRound) == true then
+			table.insert(team, player)
+		end
+	end
 	for _, userId in participantIds do
 		local key = tostring(userId)
 		earnings[key] = arrestMoneyByUser[userId] or 0
@@ -148,6 +161,11 @@ function ScoreService.finish(survived: boolean, raided: boolean?): Results
 		local award = 0
 		if player and player:GetAttribute(GameState.PlayerAttr.InRound) == true then
 			award = caught * Config.Diamonds.PerArrest + (if survived then Config.Diamonds.PerNight else 0)
+			if award > 0 and FriendService.hasFriendIn(player, team) then
+				local bonus = math.ceil(award * Config.Diamonds.FriendsBonus)
+				award += bonus
+				friendsBonus[key] = bonus
+			end
 			if award > 0 then
 				ProfileStore.addDiamonds(player, award)
 			end
@@ -170,6 +188,7 @@ function ScoreService.finish(survived: boolean, raided: boolean?): Results
 		diamonds = diamonds,
 		diamondsRun = runDiamonds,
 		diamondsSaved = not ProfileStore.isOffline(),
+		friendsBonus = friendsBonus,
 	}
 end
 
