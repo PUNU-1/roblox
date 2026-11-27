@@ -370,8 +370,8 @@
 - [x] (код) Блок G: поиск багов этапа 5 по коду — 1 ошибка исправлена (шаг «арестуй» в команде), остальное сомнительное — в «Решил Claude» пункт 41. В Studio не проверено: Studio не была подключена (27.11)
 - [x] (код) Блок H1: опыт, уровни и звания над головой, 3 ежедневных задания (окно QUESTS), достижения со значками Roblox (номера пока 0), подарок новичку — 40 💎 и TRY FREE (27.11, решение 85, «Решил Claude» пункт 42). В Studio не проверено: Studio не была подключена
 - [ ] Блок H2: полоска до награды, коллекция, сундук после ночи, «чуть-чуть не хватило», бонус и рекорды друзей
-- [ ] Блок I: режим зрителя, таблица статистики, экран MVP
-- [ ] Блок J: меню настроек, переходы
+- [ ] Блок I: режим зрителя, таблица статистики, экран MVP — делает Gemini друга по `FRIEND_TASKS.md` (задания I1–I3)
+- [ ] Блок J: меню настроек, переходы — делает Gemini друга по `FRIEND_TASKS.md` (задания J1–J2); ремодель моделей — там же (R1–R4)
 
 ## Этап 1: прототип (готов)
 
@@ -818,7 +818,7 @@ src/
 ## Как работать
 
 - Одна задача → проверка в Studio → коммит.
-- **Проверка кода:** `sh "D:/Punhan/My files/museun/tools/check.sh"` — сборка Rojo + luau-lsp для музея и для хаба, успех — `analyze exit: 0` и `hub analyze exit: 0`. Папка `tools` лежит рядом с репозиторием и не в git, описание — `tools/README.md`.
+- **Проверка кода в репозитории (для всех, и для Gemini друга):** `sh scripts/check.sh`, установка — `scripts/README.md`. Старый вариант Claude: `sh "D:/Punhan/My files/museun/tools/check.sh"` — сборка Rojo + luau-lsp для музея и для хаба, успех — `analyze exit: 0` и `hub analyze exit: 0`. Папка `tools` лежит рядом с репозиторием и не в git, описание — `tools/README.md`.
 - **Файл хаба:** `rojo build hub.project.json -o "D:/Punhan/My files/museun/Hub.rbxl"` (рядом с `NightMuseum.rbxl`, не в репозитории). Владелец публикует его вторым местом той же игры.
 - **По умолчанию в Studio не тестируй** (решение 54): сборка Rojo + luau-lsp, остальное проверяет владелец. MCP Roblox (встроенный в Studio сервер, `%LOCALAPPDATA%\Roblox\mcp.bat`, прописан в настройках Claude Code) — только для короткой проверки в конце этапа или по просьбе.
   - Код в Studio: `sh "D:/Punhan/My files/museun/tools/studio-sync.sh"` собирает `src/server`, `src/client`, `src/shared` в `.rbxm` в папку `content/nightmuseum` текущей версии Studio; потом код из `tools/studio-sync.luau` в `execute_luau` (Edit) заменяет папки `Server`, `Client`, `Shared` через `game:GetObjects("rbxasset://nightmuseum/<part>.rbxm")`; потом `save_place`. HTTP из Luau без разрешения владельца не работает.
