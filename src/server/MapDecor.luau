@@ -195,22 +195,33 @@ end
 
 ---------------------------------------------------------------- кости: скелеты собираются из отрезков
 
--- Кость-отрезок от a до b (в координатах модели).
-local function bone(list: Stub, a: Vector3, b: Vector3, thickness: number, color: Color3)
+-- Кость-отрезок от a до b (в координатах модели). cylinder = true делает круглую кость.
+local function bone(list: Stub, a: Vector3, b: Vector3, thickness: number, color: Color3, cylinder: boolean?)
 	local mid = (a + b) / 2
-	table.insert(list, { name = "Bone", size = Vector3.new(thickness, thickness, (b - a).Magnitude), offset = CFrame.lookAt(mid, b), color = color, collide = false })
+	if cylinder then
+		table.insert(list, {
+			name = "Bone",
+			size = Vector3.new((b - a).Magnitude, thickness, thickness),
+			offset = CFrame.lookAt(mid, b) * CFrame.Angles(0, rad(90), 0),
+			color = color,
+			shape = Enum.PartType.Cylinder,
+			collide = false,
+		})
+	else
+		table.insert(list, { name = "Bone", size = Vector3.new(thickness, thickness, (b - a).Magnitude), offset = CFrame.lookAt(mid, b), color = color, collide = false })
+	end
 end
 
 -- Позвоночник: отрезки по точкам, шарики-позвонки в сочленениях, отростки сверху (spines).
 local function spine(list: Stub, points: { Vector3 }, thickness: number, spines: boolean)
 	for i = 1, #points - 1 do
-		bone(list, points[i], points[i + 1], thickness, BONE)
+		bone(list, points[i], points[i + 1], thickness, BONE, true)
 	end
 	for i, point in points do
 		local size = thickness * (if i % 2 == 0 then 1.35 else 1.15)
 		table.insert(list, { name = "Vertebra", size = Vector3.new(size, size, size), offset = CFrame.new(point), color = BONE_DARK, shape = Enum.PartType.Ball, collide = false })
 		if spines and i > 1 and i < #points then
-			table.insert(list, { name = "Spine", size = Vector3.new(0.18, thickness * 1.1, 0.3), offset = CFrame.new(point + Vector3.new(0, thickness * 0.85, 0)), color = BONE, collide = false })
+			table.insert(list, { name = "Spine", size = Vector3.new(0.18, thickness * 1.15, 0.28), offset = CFrame.new(point + Vector3.new(0, thickness * 0.85, 0)), color = BONE, collide = false })
 		end
 	end
 end
@@ -218,21 +229,25 @@ end
 -- Пара рёбер с изгибом: от позвоночника наружу и вниз, потом внутрь.
 local function ribs(list: Stub, z: number, top: number, width: number, depth: number)
 	for _, s in { -1, 1 } do
-		local a = Vector3.new(s * 0.4, top, z)
+		local a = Vector3.new(s * 0.35, top, z)
 		local b = Vector3.new(s * width, top - depth * 0.45, z + 0.15)
-		local c = Vector3.new(s * width * 0.7, top - depth, z + 0.3)
-		bone(list, a, b, 0.22, BONE)
-		bone(list, b, c, 0.2, BONE)
+		local c = Vector3.new(s * width * 0.68, top - depth, z + 0.3)
+		bone(list, a, b, 0.22, BONE, true)
+		bone(list, b, c, 0.19, BONE, true)
 	end
 end
 
--- Металлическая подпорка от пола до скелета (как в настоящем музее).
+-- Металлическая подпорка от пола до скелета с латунным кольцом (как в настоящем музее).
 local function supportRod(list: Stub, x: number, z: number, height: number)
-	table.insert(list, { name = "Support", size = Vector3.new(0.22, height, 0.22), offset = CFrame.new(x, height / 2, z), color = DARK_METAL, material = Enum.Material.Metal, collide = false })
+	table.insert(list, { name = "Support", size = Vector3.new(height, 0.22, 0.22), offset = CFrame.new(x, height / 2, z) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+	table.insert(list, { name = "SupportBase", size = Vector3.new(0.14, 1.1, 1.1), offset = CFrame.new(x, 0.07, z) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+	table.insert(list, { name = "SupportCollar", size = Vector3.new(0.12, 0.38, 0.38), offset = CFrame.new(x, 0.2, z) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
 end
 
--- Скелет тираннозавра ~20 в длину и 12 в высоту. Голова — в −Z, низ по центру.
+-- Скелет тираннозавра (R3) ~20 в длину и 12 в высоту. Голова — в −Z, низ по центру.
 local function trexSkeletonStub(): Stub
+	local darkSocket = hex("2E2319")
+	local toothColor = hex("FBF7EE")
 	local list: Stub = {}
 	spine(list, {
 		Vector3.new(0, 3.2, 10),
@@ -247,62 +262,76 @@ local function trexSkeletonStub(): Stub
 		Vector3.new(0, 8.7, -5.2),
 		Vector3.new(0, 9.35, -6.3),
 		Vector3.new(0, 9.95, -7.2),
-	}, 0.75, true)
-	for _, z in { -1.4, -2.4, -3.4, -4.4 } do
-		ribs(list, z, 8, 1.55, 2.8)
+	}, 0.72, true)
+	for i, z in { -0.9, -1.7, -2.5, -3.3, -4.1, -4.8 } do
+		local scale = 1 - math.abs(i - 3) * 0.08
+		ribs(list, z, 8.05, 1.55 * scale, 2.85 * scale)
 	end
+	table.insert(list, { name = "Sternum", size = Vector3.new(0.9, 0.25, 2.2), offset = CFrame.new(0, 5.5, -3.6) * CFrame.Angles(rad(10), 0, 0), color = BONE_DARK, collide = false })
 	table.insert(list, { name = "Pelvis", size = Vector3.new(2.2, 1.3, 1.9), offset = CFrame.new(0, 7.3, 0.5), color = BONE_DARK, collide = false })
-	table.insert(list, { name = "PelvisBlade", size = Vector3.new(0.3, 1.6, 2.6), offset = CFrame.new(-1.1, 7.6, 0.5), color = BONE, collide = false })
-	table.insert(list, { name = "PelvisBlade", size = Vector3.new(0.3, 1.6, 2.6), offset = CFrame.new(1.1, 7.6, 0.5), color = BONE, collide = false })
 	for _, s in { -1, 1 } do
-		-- Нога: бедро, голень, плюсна, три пальца
+		table.insert(list, { name = "PelvisBlade", size = Vector3.new(0.28, 1.55, 2.7), offset = CFrame.new(s * 1.1, 7.6, 0.5), color = BONE, collide = false })
+		table.insert(list, { name = "Scapula", size = Vector3.new(0.24, 1.5, 0.55), offset = CFrame.new(s * 0.92, 8.2, -4.6) * CFrame.Angles(rad(28), 0, rad(s * -10)), color = BONE_DARK, collide = false })
+		-- Нога с суставными шарами: бедро, колено, голень, лодыжка, плюсна, 3 пальца + шпора
 		local hip = Vector3.new(s * 1.3, 7.1, 0.5)
 		local knee = Vector3.new(s * 1.45, 4.3, -0.9)
 		local ankle = Vector3.new(s * 1.35, 1.5, 0.6)
 		local heel = Vector3.new(s * 1.35, 0.45, 0.2)
-		bone(list, hip, knee, 0.85, BONE)
-		bone(list, knee, ankle, 0.6, BONE)
-		bone(list, ankle, heel, 0.45, BONE_DARK)
+		table.insert(list, { name = "HipJoint", size = Vector3.new(1, 1, 1), offset = CFrame.new(hip), color = BONE_DARK, shape = Enum.PartType.Ball, collide = false })
+		bone(list, hip, knee, 0.84, BONE, true)
+		table.insert(list, { name = "Knee", size = Vector3.new(0.92, 0.92, 0.92), offset = CFrame.new(knee), color = BONE_DARK, shape = Enum.PartType.Ball, collide = false })
+		bone(list, knee, ankle, 0.58, BONE, true)
+		table.insert(list, { name = "Ankle", size = Vector3.new(0.65, 0.65, 0.65), offset = CFrame.new(ankle), color = BONE_DARK, shape = Enum.PartType.Ball, collide = false })
+		bone(list, ankle, heel, 0.44, BONE_DARK, true)
+		bone(list, heel, Vector3.new(s * 1.35, 0.55, 0.8), 0.18, BONE_DARK, true)
 		for i = -1, 1 do
-			bone(list, heel, Vector3.new(s * 1.35 + i * 0.4, 0.15, -1.2), 0.22, BONE)
+			local tip = Vector3.new(s * 1.35 + i * 0.4, 0.15, -1.2)
+			bone(list, heel, tip, 0.22, BONE, true)
+			table.insert(list, { name = "ToeClaw", size = Vector3.new(0.16, 0.2, 0.34), offset = CFrame.new(tip + Vector3.new(0, -0.02, -0.18)), color = BONE_DARK, wedge = true, collide = false })
 		end
-		table.insert(list, { name = "Knee", size = Vector3.new(0.9, 0.9, 0.9), offset = CFrame.new(knee), color = BONE_DARK, shape = Enum.PartType.Ball, collide = false })
-		-- Маленькие ручки
-		local shoulder = Vector3.new(s * 0.85, 7.9, -4.8)
-		local elbow = Vector3.new(s * 1.1, 7.1, -5.5)
-		bone(list, shoulder, elbow, 0.26, BONE)
-		bone(list, elbow, Vector3.new(s * 1, 7.25, -6.25), 0.2, BONE)
+		-- Маленькие двупалые ручки с суставами и когтями
+		local shoulder = Vector3.new(s * 0.88, 7.85, -4.8)
+		local elbow = Vector3.new(s * 1.12, 7.05, -5.5)
+		local hand = Vector3.new(s * 1.0, 7.22, -6.25)
+		table.insert(list, { name = "Shoulder", size = Vector3.new(0.4, 0.4, 0.4), offset = CFrame.new(shoulder), color = BONE_DARK, shape = Enum.PartType.Ball, collide = false })
+		bone(list, shoulder, elbow, 0.26, BONE, true)
+		table.insert(list, { name = "Elbow", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(elbow), color = BONE_DARK, shape = Enum.PartType.Ball, collide = false })
+		bone(list, elbow, hand, 0.2, BONE, true)
+		for _, f in { -0.08, 0.08 } do
+			table.insert(list, { name = "Claw", size = Vector3.new(0.09, 0.32, 0.11), offset = CFrame.new(hand + Vector3.new(f, -0.06, -0.16)) * CFrame.Angles(rad(-42), 0, 0), color = BONE_DARK, wedge = true, collide = false })
+		end
 	end
-	-- Череп с приоткрытой пастью
-	table.insert(list, { name = "Cranium", size = Vector3.new(1.6, 1.5, 2.2), offset = CFrame.new(0, 10.3, -8.5), color = BONE, collide = false })
-	table.insert(list, { name = "Snout", size = Vector3.new(1.2, 1, 1.9), offset = CFrame.new(0, 10, -10.4), color = BONE, collide = false })
-	table.insert(list, { name = "Jaw", size = Vector3.new(1.25, 0.35, 3.1), offset = CFrame.new(0, 9.15, -9.6) * CFrame.Angles(rad(-12), 0, 0), color = BONE_DARK, collide = false })
+	-- Скульптурный череп тираннозавра с надбровными дугами, височными впадинами, скошенной мордой и зубами
+	table.insert(list, { name = "Cranium", size = Vector3.new(1.66, 1.48, 2.1), offset = CFrame.new(0, 10.35, -8.5), color = BONE, collide = false })
+	table.insert(list, { name = "CraniumBack", size = Vector3.new(1.85, 1.3, 0.7), offset = CFrame.new(0, 10.4, -7.6), color = BONE_DARK, collide = false })
+	table.insert(list, { name = "Snout", size = Vector3.new(1.18, 0.92, 1.95), offset = CFrame.new(0, 10.05, -10.35), color = BONE, collide = false })
+	table.insert(list, { name = "SnoutTip", size = Vector3.new(0.96, 0.7, 0.65), offset = CFrame.new(0, 10.0, -11.45), color = BONE, wedge = true, collide = false })
+	table.insert(list, { name = "NasalCrest", size = Vector3.new(0.45, 0.24, 1.75), offset = CFrame.new(0, 10.6, -10.2), color = BONE_DARK, collide = false })
+	table.insert(list, { name = "Jaw", size = Vector3.new(1.24, 0.36, 3.15), offset = CFrame.new(0, 9.15, -9.65) * CFrame.Angles(rad(-12), 0, 0), color = BONE_DARK, collide = false })
+	table.insert(list, { name = "JawTip", size = Vector3.new(0.95, 0.32, 0.6), offset = CFrame.new(0, 8.85, -11.35) * CFrame.Angles(rad(-12), 0, rad(180)), color = BONE_DARK, wedge = true, collide = false })
 	for _, s in { -1, 1 } do
-		table.insert(list, { name = "Eye", size = Vector3.new(0.1, 0.5, 0.6), offset = CFrame.new(s * 0.81, 10.6, -8.3), color = hex("3A2E22"), collide = false })
+		table.insert(list, { name = "BrowRidge", size = Vector3.new(0.28, 0.26, 1.05), offset = CFrame.new(s * 0.72, 11.12, -8.65), color = BONE_DARK, collide = false })
+		table.insert(list, { name = "Eye", size = Vector3.new(0.12, 0.56, 0.66), offset = CFrame.new(s * 0.82, 10.6, -8.45), color = darkSocket, collide = false })
+		table.insert(list, { name = "Fenestra", size = Vector3.new(0.12, 0.6, 0.75), offset = CFrame.new(s * 0.62, 10.2, -9.7), color = darkSocket, collide = false })
+		table.insert(list, { name = "Temple", size = Vector3.new(0.12, 0.65, 0.65), offset = CFrame.new(s * 0.84, 10.45, -7.7), color = darkSocket, collide = false })
+		for i = 0, 4 do
+			table.insert(list, { name = "ToothTop", size = Vector3.new(0.11, 0.32, 0.12), offset = CFrame.new(s * 0.45, 9.46, -9.6 - i * 0.38) * CFrame.Angles(math.pi, 0, 0), color = toothColor, wedge = true, collide = false })
+		end
 		for i = 0, 3 do
-			table.insert(list, { name = "Tooth", size = Vector3.new(0.12, 0.3, 0.12), offset = CFrame.new(s * 0.45, 9.38, -9.9 - i * 0.4) * CFrame.Angles(math.pi, 0, 0), color = hex("F7F3EA"), wedge = true, collide = false })
+			table.insert(list, { name = "ToothBot", size = Vector3.new(0.1, 0.24, 0.1), offset = CFrame.new(s * 0.4, 9.15 + i * 0.08, -9.85 - i * 0.38), color = toothColor, wedge = true, collide = false })
 		end
 	end
-	-- Этап 5, блок F2: когти на ручках и пальцах ног, шевроны под хвостом, кольца на подпорках
-	for _, s in { -1, 1 } do
-		table.insert(list, { name = "Claw", size = Vector3.new(0.1, 0.3, 0.1), offset = CFrame.new(s * 1, 7.15, -6.4) * CFrame.Angles(rad(-40), 0, 0), color = BONE_DARK, wedge = true, collide = false })
-		for i = -1, 1 do
-			table.insert(list, { name = "ToeClaw", size = Vector3.new(0.16, 0.18, 0.3), offset = CFrame.new(s * 1.35 + i * 0.4, 0.12, -1.35), color = BONE_DARK, wedge = true, collide = false })
-		end
-	end
-	for _, point in { Vector3.new(0, 4.2, 8), Vector3.new(0, 5.3, 6), Vector3.new(0, 6.4, 4) } do
-		table.insert(list, { name = "Chevron", size = Vector3.new(0.18, 0.7, 0.18), offset = CFrame.new(point + Vector3.new(0, -0.65, 0.1)) * CFrame.Angles(rad(-20), 0, 0), color = BONE_DARK, collide = false })
+	for _, point in { Vector3.new(0, 4.2, 8), Vector3.new(0, 5.3, 6), Vector3.new(0, 6.4, 4), Vector3.new(0, 7.3, 2) } do
+		table.insert(list, { name = "Chevron", size = Vector3.new(0.18, 0.75, 0.18), offset = CFrame.new(point + Vector3.new(0, -0.65, 0.1)) * CFrame.Angles(rad(-20), 0, 0), color = BONE_DARK, collide = false })
 	end
 	supportRod(list, 0, -3, 7.8)
 	supportRod(list, 0, 4, 6)
-	for _, z in { -3, 4 } do
-		table.insert(list, { name = "SupportBase", size = Vector3.new(0.12, 1, 1), offset = CFrame.new(0, 0.06, z) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
-	end
 	return list
 end
 
--- Скелет длинношеего динозавра ~26 в длину и 14 в высоту. Голова — в −Z, низ по центру.
+-- Скелет длинношеего динозавра (R3) ~26 в длину и 14 в высоту. Голова — в −Z, низ по центру.
 local function longneckSkeletonStub(): Stub
+	local darkSocket = hex("2E2319")
 	local list: Stub = {}
 	spine(list, {
 		Vector3.new(0, 2.2, 12.6),
@@ -321,47 +350,51 @@ local function longneckSkeletonStub(): Stub
 		Vector3.new(0, 11.8, -8.4),
 		Vector3.new(0, 12.7, -9.8),
 		Vector3.new(0, 13.3, -11),
-	}, 0.8, true)
-	for _, z in { -3, -1.5, 0, 1.5 } do
-		ribs(list, z, 8.6, 2, 3.4)
+	}, 0.78, true)
+	for i, z in { -3.2, -2.0, -0.8, 0.4, 1.6 } do
+		local scale = 1 - math.abs(i - 3) * 0.08
+		ribs(list, z, 8.65, 2.05 * scale, 3.5 * scale)
 	end
+	table.insert(list, { name = "Sternum", size = Vector3.new(1.3, 0.26, 3.2), offset = CFrame.new(0, 5.15, -1.2), color = BONE_DARK, collide = false })
 	table.insert(list, { name = "Pelvis", size = Vector3.new(2.4, 1.2, 1.8), offset = CFrame.new(0, 7.8, 3.2), color = BONE_DARK, collide = false })
-	table.insert(list, { name = "Shoulders", size = Vector3.new(2.6, 1, 1.2), offset = CFrame.new(0, 8, -3.2), color = BONE_DARK, collide = false })
+	table.insert(list, { name = "Shoulders", size = Vector3.new(2.6, 1.1, 1.2), offset = CFrame.new(0, 8, -3.2), color = BONE_DARK, collide = false })
 	for _, s in { -1, 1 } do
+		table.insert(list, { name = "PelvisBlade", size = Vector3.new(0.28, 1.4, 2.2), offset = CFrame.new(s * 1.2, 8.1, 3.2), color = BONE, collide = false })
+		table.insert(list, { name = "Scapula", size = Vector3.new(0.28, 1.8, 0.9), offset = CFrame.new(s * 1.35, 8.2, -3.2) * CFrame.Angles(rad(12), 0, 0), color = BONE, collide = false })
 		for _, leg in { { z = -3, knee = -3.3 }, { z = 3, knee = 2.5 } } do
 			local top = Vector3.new(s * 1.5, 7.4, leg.z)
 			local knee = Vector3.new(s * 1.65, 4.1, leg.knee)
 			local foot = Vector3.new(s * 1.6, 0.7, leg.z + 0.1)
-			bone(list, top, knee, 0.95, BONE)
-			bone(list, knee, foot, 0.75, BONE)
-			table.insert(list, { name = "Foot", size = Vector3.new(1.1, 0.45, 1.3), offset = CFrame.new(s * 1.6, 0.22, leg.z - 0.1), color = BONE_DARK, collide = false })
-			table.insert(list, { name = "Knee", size = Vector3.new(1, 1, 1), offset = CFrame.new(knee), color = BONE_DARK, shape = Enum.PartType.Ball, collide = false })
-		end
-	end
-	table.insert(list, { name = "Skull", size = Vector3.new(0.95, 0.8, 1.7), offset = CFrame.new(0, 13.7, -12), color = BONE, collide = false })
-	table.insert(list, { name = "Jaw", size = Vector3.new(0.8, 0.25, 1.3), offset = CFrame.new(0, 13.15, -12.1) * CFrame.Angles(rad(-8), 0, 0), color = BONE_DARK, collide = false })
-	for _, s in { -1, 1 } do
-		table.insert(list, { name = "Eye", size = Vector3.new(0.08, 0.3, 0.35), offset = CFrame.new(s * 0.48, 13.85, -11.8), color = hex("3A2E22"), collide = false })
-	end
-	-- Этап 5, блок F2: когти на лапах, шейные рёбрышки, подставки под подпорками
-	for _, s in { -1, 1 } do
-		for _, z in { -3, 3 } do
+			table.insert(list, { name = "HipJoint", size = Vector3.new(1.1, 1.1, 1.1), offset = CFrame.new(top), color = BONE_DARK, shape = Enum.PartType.Ball, collide = false })
+			bone(list, top, knee, 0.92, BONE, true)
+			table.insert(list, { name = "Knee", size = Vector3.new(1.02, 1.02, 1.02), offset = CFrame.new(knee), color = BONE_DARK, shape = Enum.PartType.Ball, collide = false })
+			bone(list, knee, foot, 0.74, BONE, true)
+			table.insert(list, { name = "Foot", size = Vector3.new(0.46, 1.35, 1.35), offset = CFrame.new(s * 1.6, 0.23, leg.z - 0.1) * CFrame.Angles(0, 0, rad(90)), color = BONE_DARK, shape = Enum.PartType.Cylinder, collide = false })
 			for i = -1, 1 do
-				table.insert(list, { name = "ToeClaw", size = Vector3.new(0.18, 0.2, 0.3), offset = CFrame.new(s * 1.6 + i * 0.35, 0.1, z - 0.85), color = BONE, wedge = true, collide = false })
+				table.insert(list, { name = "ToeClaw", size = Vector3.new(0.18, 0.22, 0.34), offset = CFrame.new(s * 1.6 + i * 0.36, 0.12, leg.z - 0.88), color = BONE, wedge = true, collide = false })
 			end
 		end
 	end
-	for _, point in { Vector3.new(0, 9.6, -5.5), Vector3.new(0, 10.7, -7), Vector3.new(0, 11.8, -8.4) } do
+	-- Череп брахиозавра: высокий носовой гребень, суженная морда, глазницы и челюсть
+	table.insert(list, { name = "Skull", size = Vector3.new(0.95, 0.82, 1.55), offset = CFrame.new(0, 13.7, -11.95), color = BONE, collide = false })
+	table.insert(list, { name = "NasalCrest", size = Vector3.new(0.54, 0.56, 0.92), offset = CFrame.new(0, 14.22, -12.15), color = BONE, sphere = true, collide = false })
+	table.insert(list, { name = "Snout", size = Vector3.new(0.78, 0.44, 0.75), offset = CFrame.new(0, 13.52, -12.9), color = BONE, wedge = true, collide = false })
+	table.insert(list, { name = "Jaw", size = Vector3.new(0.76, 0.26, 1.45), offset = CFrame.new(0, 13.15, -12.15) * CFrame.Angles(rad(-8), 0, 0), color = BONE_DARK, collide = false })
+	for _, s in { -1, 1 } do
+		table.insert(list, { name = "Eye", size = Vector3.new(0.1, 0.34, 0.4), offset = CFrame.new(s * 0.48, 13.85, -11.8), color = darkSocket, collide = false })
+		table.insert(list, { name = "Fenestra", size = Vector3.new(0.1, 0.36, 0.42), offset = CFrame.new(s * 0.44, 13.72, -12.4), color = darkSocket, collide = false })
+	end
+	for _, point in { Vector3.new(0, 9.6, -5.5), Vector3.new(0, 10.7, -7), Vector3.new(0, 11.8, -8.4), Vector3.new(0, 12.7, -9.8) } do
 		for _, s in { -1, 1 } do
-			table.insert(list, { name = "NeckRib", size = Vector3.new(0.14, 0.14, 0.7), offset = CFrame.new(point + Vector3.new(s * 0.45, -0.3, 0.1)) * CFrame.Angles(rad(60), 0, 0), color = BONE_DARK, collide = false })
+			table.insert(list, { name = "NeckRib", size = Vector3.new(0.14, 0.14, 0.75), offset = CFrame.new(point + Vector3.new(s * 0.45, -0.32, 0.1)) * CFrame.Angles(rad(60), 0, 0), color = BONE_DARK, collide = false })
 		end
+	end
+	for _, point in { Vector3.new(0, 4.4, 9.8), Vector3.new(0, 5.6, 8.2), Vector3.new(0, 6.7, 6.6), Vector3.new(0, 7.6, 5) } do
+		table.insert(list, { name = "Chevron", size = Vector3.new(0.18, 0.72, 0.18), offset = CFrame.new(point + Vector3.new(0, -0.62, 0.1)) * CFrame.Angles(rad(-20), 0, 0), color = BONE_DARK, collide = false })
 	end
 	supportRod(list, 0, -6, 9.8)
 	supportRod(list, 0, -9.2, 12.4)
 	supportRod(list, 0, 8.4, 5.4)
-	for _, z in { -6, -9.2, 8.4 } do
-		table.insert(list, { name = "SupportBase", size = Vector3.new(0.12, 1, 1), offset = CFrame.new(0, 0.06, z) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
-	end
 	return list
 end
 
@@ -514,97 +547,171 @@ local function buildStatueStub(): Stub
 end
 local STATUE_STUB: Stub = buildStatueStub()
 
--- Сатурн: шар и наклонное кольцо с тёмной щелью. Точка привязки — центр планеты.
-local PLANET_STUB: Stub = {
-	{ name = "Planet", size = Vector3.new(7, 7, 7), offset = CFrame.identity, color = hex("E3C98B"), shape = Enum.PartType.Ball, collide = false },
-	{ name = "Band", size = Vector3.new(7.05, 0.9, 7.05), offset = CFrame.new(0, 1.1, 0), color = hex("C9A86A"), sphere = true, collide = false },
-	{ name = "Band", size = Vector3.new(7.05, 0.7, 7.05), offset = CFrame.new(0, -1.3, 0), color = hex("D6B67A"), sphere = true, collide = false },
-	{ name = "RingInner", size = Vector3.new(0.13, 10, 10), offset = CFrame.Angles(rad(18), 0, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("8E7A52"), transparency = 0.3, shape = Enum.PartType.Cylinder, collide = false },
-	{ name = "Ring", size = Vector3.new(0.12, 13, 13), offset = CFrame.Angles(rad(18), 0, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("D9C28A"), transparency = 0.15, shape = Enum.PartType.Cylinder, collide = false },
-	-- Этап 5, блок F2: ещё полосы, внешнее бледное кольцо, полюс, маленький спутник
-	{ name = "Band", size = Vector3.new(7.05, 0.5, 7.05), offset = CFrame.new(0, 2.3, 0), color = hex("B8955A"), sphere = true, collide = false },
-	{ name = "Band", size = Vector3.new(7.05, 0.45, 7.05), offset = CFrame.new(0, -0.2, 0), color = hex("EAD7A6"), sphere = true, collide = false },
-	{ name = "Pole", size = Vector3.new(3.2, 0.6, 3.2), offset = CFrame.new(0, 3.25, 0), color = hex("A88A55"), sphere = true, collide = false },
-	{ name = "RingOuter", size = Vector3.new(0.1, 14.4, 14.4), offset = CFrame.Angles(rad(18), 0, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("F2E3B8"), transparency = 0.55, shape = Enum.PartType.Cylinder, collide = false },
-	{ name = "Moon", size = Vector3.new(1.2, 1.2, 1.2), offset = CFrame.new(8.5, 1.4, -2), color = hex("C9C3B8"), shape = Enum.PartType.Ball, collide = false },
-}
-
--- Большая ракета на стартовом столе и красная башня обслуживания. Низ по центру.
-local function rocketStub(): Stub
-	local function vertical(name: string, height: number, diameter: number, y: number, color: Color3, material: Enum.Material?): ModelLibrary.StubPart
-		return { name = name, size = Vector3.new(height, diameter, diameter), offset = CFrame.new(0, y, 0) * CFrame.Angles(0, 0, rad(90)), color = color, material = material, shape = Enum.PartType.Cylinder }
-	end
-	local list: Stub = {
-		vertical("Pad", 1, 9, 0.5, DARK_METAL, Enum.Material.Metal),
-		vertical("PadRing", 0.05, 8.4, 1.02, hex("F2C230")),
-		vertical("PadInner", 0.06, 7, 1.04, hex("2B2F3A")),
-		vertical("Glow", 0.1, 1.8, 1.1, hex("FF8A3D"), Enum.Material.Neon),
-		vertical("Engine", 1.2, 2.2, 1.75, hex("4A5060"), Enum.Material.Metal),
-		vertical("BodyLow", 6, 3.2, 5.35, WHITE),
-		vertical("BandLow", 0.6, 3.3, 3.2, RED),
-		vertical("BandHigh", 0.5, 3.3, 7.9, RED),
-		vertical("BodyHigh", 4, 2.8, 10.35, WHITE),
-		vertical("Nose", 1.2, 2.2, 12.95, WHITE),
-		vertical("NoseTop", 1, 1.4, 14, WHITE),
-		{ name = "Tip", size = Vector3.new(0.9, 0.9, 0.9), offset = CFrame.new(0, 14.7, 0), color = RED, shape = Enum.PartType.Ball },
-		{ name = "WindowRing", size = Vector3.new(0.12, 1.5, 1.5), offset = CFrame.new(0, 10.6, -1.38) * CFrame.Angles(0, rad(90), 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
-		{ name = "Window", size = Vector3.new(0.15, 1.15, 1.15), offset = CFrame.new(0, 10.6, -1.42) * CFrame.Angles(0, rad(90), 0), color = hex("7FE7FF"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder },
+-- Сатурн (R3): многослойные полосы облаков, штормовой овал, многоступенчатые кольца с щелью Кассини,
+-- спутник Титан с дымкой атмосферы и ледяной спутник. Точка привязки — центр планеты.
+local function buildPlanetStub(): Stub
+	local ringTilt = CFrame.Angles(rad(18), 0, rad(8)) * CFrame.Angles(0, 0, rad(90))
+	return {
+		{ name = "Planet", size = Vector3.new(7, 7, 7), offset = CFrame.identity, color = hex("E3C98B"), shape = Enum.PartType.Ball, collide = false },
+		{ name = "Band", size = Vector3.new(7.04, 0.45, 7.04), offset = CFrame.new(0, 2.3, 0), color = hex("B8955A"), sphere = true, collide = false },
+		{ name = "Band", size = Vector3.new(7.05, 0.85, 7.05), offset = CFrame.new(0, 1.1, 0), color = hex("C9A86A"), sphere = true, collide = false },
+		{ name = "Band", size = Vector3.new(7.06, 0.45, 7.06), offset = CFrame.new(0, 0.1, 0), color = hex("F2E3B8"), sphere = true, collide = false },
+		{ name = "Band", size = Vector3.new(7.05, 0.55, 7.05), offset = CFrame.new(0, -0.7, 0), color = hex("EAD7A6"), sphere = true, collide = false },
+		{ name = "Band", size = Vector3.new(7.05, 0.75, 7.05), offset = CFrame.new(0, -1.65, 0), color = hex("C9A468"), sphere = true, collide = false },
+		{ name = "Band", size = Vector3.new(7.04, 0.45, 7.04), offset = CFrame.new(0, -2.45, 0), color = hex("A88A55"), sphere = true, collide = false },
+		{ name = "StormSpot", size = Vector3.new(1.5, 0.8, 0.4), offset = CFrame.new(1.2, -1.1, -3.15) * CFrame.Angles(rad(-16), rad(-20), 0), color = hex("E63946"), sphere = true, collide = false },
+		{ name = "PoleN", size = Vector3.new(3.1, 0.55, 3.1), offset = CFrame.new(0, 3.28, 0), color = hex("8E7A52"), sphere = true, collide = false },
+		{ name = "PoleS", size = Vector3.new(3.0, 0.55, 3.0), offset = CFrame.new(0, -3.28, 0), color = hex("8E7A52"), sphere = true, collide = false },
+		{ name = "HookRing", size = Vector3.new(0.18, 0.52, 0.52), offset = CFrame.new(0, 3.55, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		-- Кольца: внутреннее C, яркое B, тёмная щель Кассини, внешнее A и кайма F
+		{ name = "RingC", size = Vector3.new(0.14, 9.6, 9.6), offset = ringTilt, color = hex("8E7A52"), transparency = 0.45, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "RingB", size = Vector3.new(0.12, 11.8, 11.8), offset = ringTilt, color = hex("EAD7A6"), transparency = 0.14, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "CassiniGap", size = Vector3.new(0.13, 12.2, 12.2), offset = ringTilt, color = hex("1B202B"), transparency = 0.55, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "RingA", size = Vector3.new(0.1, 13.8, 13.8), offset = ringTilt, color = hex("D9C28A"), transparency = 0.2, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "RingF", size = Vector3.new(0.08, 14.8, 14.8), offset = ringTilt, color = hex("F5E8C8"), transparency = 0.58, shape = Enum.PartType.Cylinder, collide = false },
+		-- Спутники: Титан с оранжевой дымкой и ледяной Энцелад
+		{ name = "Moon", size = Vector3.new(1.3, 1.3, 1.3), offset = CFrame.new(8.6, 1.5, -2.2), color = hex("D9A55A"), shape = Enum.PartType.Ball, collide = false },
+		{ name = "MoonHaze", size = Vector3.new(1.52, 1.52, 1.52), offset = CFrame.new(8.6, 1.5, -2.2), color = hex("FFE29A"), material = Enum.Material.Glass, transparency = 0.65, shape = Enum.PartType.Ball, collide = false },
+		{ name = "Moonlet", size = Vector3.new(0.7, 0.7, 0.7), offset = CFrame.new(-7.6, -1.2, 3.4), color = hex("D6E8F5"), shape = Enum.PartType.Ball, collide = false },
 	}
-	for i = 0, 3 do
-		table.insert(list, { name = "Fin", size = Vector3.new(0.3, 3, 2.2), offset = CFrame.Angles(0, i * math.pi / 2 + math.pi / 4, 0) * CFrame.new(0, 3.6, -2.5), color = RED, wedge = true })
-		table.insert(list, { name = "Leg", size = Vector3.new(0.5, 1.4, 0.5), offset = CFrame.Angles(0, i * math.pi / 2 + math.pi / 4, 0) * CFrame.new(0, 1.7, -1.9), color = DARK_METAL, material = Enum.Material.Metal })
+end
+local PLANET_STUB: Stub = buildPlanetStub()
+
+-- Большая ракета на стартовом столе и красная башня обслуживания (R3). Низ по центру.
+local function rocketStub(): Stub
+	local function vertical(name: string, height: number, diameter: number, y: number, color: Color3, material: Enum.Material?, collide: boolean?): ModelLibrary.StubPart
+		return { name = name, size = Vector3.new(height, diameter, diameter), offset = CFrame.new(0, y, 0) * CFrame.Angles(0, 0, rad(90)), color = color, material = material, shape = Enum.PartType.Cylinder, collide = collide }
 	end
-	-- Башня обслуживания позади ракеты
+	local brassDark = hex("C9922A")
+	local list: Stub = {
+		vertical("PadBase", 0.35, 9.6, 0.175, hex("2B2F3A"), Enum.Material.Metal),
+		vertical("Pad", 0.72, 9, 0.66, DARK_METAL, Enum.Material.Metal),
+		vertical("PadRing", 0.06, 8.5, 1.03, hex("F2C230")),
+		vertical("PadInner", 0.08, 7.1, 1.05, hex("1E2A44")),
+		vertical("Glow", 0.12, 2.2, 1.1, hex("FF8A3D"), Enum.Material.Neon, false),
+		vertical("Engine", 1.2, 2.2, 1.75, hex("4A5060"), Enum.Material.Metal),
+		vertical("EngineRing", 0.22, 2.45, 2.3, DARK_METAL, Enum.Material.Metal),
+		vertical("EngineCore", 0.15, 1.55, 1.15, hex("FF9E3D"), Enum.Material.Neon, false),
+		vertical("BodyLow", 6, 3.2, 5.35, WHITE),
+		vertical("BandLow", 0.55, 3.3, 3.1, RED),
+		vertical("BandGold", 0.16, 3.32, 3.46, GOLD, Enum.Material.Metal, false),
+		vertical("BandHigh", 0.5, 3.3, 7.9, RED),
+		vertical("Interstage", 0.45, 3.1, 8.38, hex("243B6B"), Enum.Material.Metal),
+		vertical("BodyHigh", 3.8, 2.8, 10.45, WHITE),
+		vertical("NoseCollar", 0.25, 2.9, 12.35, RED, Enum.Material.Metal),
+		vertical("Nose", 1.2, 2.25, 13.05, WHITE),
+		vertical("NoseTop", 1, 1.45, 14.05, WHITE),
+		vertical("EscapePost", 0.9, 0.32, 14.95, RED, Enum.Material.Metal, false),
+		{ name = "Tip", size = Vector3.new(0.6, 0.6, 0.6), offset = CFrame.new(0, 15.45, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball, collide = false },
+		{ name = "WindowRing", size = Vector3.new(0.16, 1.55, 1.55), offset = CFrame.new(0, 10.6, -1.36) * CFrame.Angles(0, rad(90), 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Window", size = Vector3.new(0.18, 1.18, 1.18), offset = CFrame.new(0, 10.6, -1.4) * CFrame.Angles(0, rad(90), 0), color = hex("3BC6C1"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder, collide = false },
+	}
+	-- 4 стабилизатора, посадочные опоры с гидравликой и дефлекторы стола
+	for i = 0, 3 do
+		local rot = CFrame.Angles(0, i * math.pi / 2 + math.pi / 4, 0)
+		table.insert(list, { name = "Fin", size = Vector3.new(0.28, 3.1, 2.2), offset = rot * CFrame.new(0, 3.6, -2.5), color = RED, wedge = true })
+		table.insert(list, { name = "FinTip", size = Vector3.new(0.32, 1.1, 0.3), offset = rot * CFrame.new(0, 2.6, -3.55), color = GOLD, material = Enum.Material.Metal, collide = false })
+		table.insert(list, { name = "Leg", size = Vector3.new(0.42, 1.55, 0.42), offset = rot * CFrame.new(0, 1.75, -1.95) * CFrame.Angles(rad(-18), 0, 0), color = DARK_METAL, material = Enum.Material.Metal })
+		table.insert(list, { name = "FootPad", size = Vector3.new(0.18, 0.85, 0.85), offset = rot * CFrame.new(0, 1.12, -2.3) * CFrame.Angles(0, 0, rad(90)), color = brassDark, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+		table.insert(list, { name = "BlastDeflector", size = Vector3.new(1.4, 0.45, 0.9), offset = rot * CFrame.new(0, 1.25, -3.7), color = hex("4A5060"), material = Enum.Material.Metal, wedge = true, collide = false })
+	end
+	-- Башня обслуживания позади ракеты с раскосами, лестницей и рукавами заправки
 	for _, x in { -1.4, 1.4 } do
-		table.insert(list, { name = "Tower", size = Vector3.new(0.5, 15, 0.5), offset = CFrame.new(x, 8.5, 3.6), color = RED, material = Enum.Material.Metal })
+		table.insert(list, { name = "Tower", size = Vector3.new(0.48, 15, 0.48), offset = CFrame.new(x, 8.5, 3.6), color = RED, material = Enum.Material.Metal })
 	end
 	for y = 2.5, 14.5, 3 do
-		table.insert(list, { name = "TowerBar", size = Vector3.new(3.3, 0.3, 0.3), offset = CFrame.new(0, y, 3.6), color = RED, material = Enum.Material.Metal })
+		table.insert(list, { name = "TowerBar", size = Vector3.new(3.3, 0.28, 0.28), offset = CFrame.new(0, y, 3.6), color = RED, material = Enum.Material.Metal })
+		if y < 14 then
+			table.insert(list, { name = "TowerBrace", size = Vector3.new(0.16, 4.1, 0.16), offset = CFrame.new(0, y + 1.5, 3.6) * CFrame.Angles(0, 0, rad(if math.floor(y) % 2 == 0 then 42 else -42)), color = RED, material = Enum.Material.Metal, collide = false })
+		end
 	end
-	table.insert(list, { name = "TowerArm", size = Vector3.new(0.3, 0.3, 2.3), offset = CFrame.new(0, 11.5, 2.4), color = DARK_METAL, material = Enum.Material.Metal })
-	-- Этап 5, блок F2: два боковых ускорителя, сопла, ряд иллюминаторов, надпись-полоса, площадки и маячок башни
-	for _, x in { -2.15, 2.15 } do
-		table.insert(list, { name = "Booster", size = Vector3.new(6.4, 1.1, 1.1), offset = CFrame.new(x, 4.9, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("E8ECF2"), shape = Enum.PartType.Cylinder })
-		table.insert(list, { name = "BoosterNose", size = Vector3.new(1.1, 1.1, 1.1), offset = CFrame.new(x, 8.1, 0), color = RED, shape = Enum.PartType.Ball })
-		table.insert(list, { name = "BoosterBand", size = Vector3.new(0.3, 1.16, 1.16), offset = CFrame.new(x, 6.6, 0) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder })
-		table.insert(list, { name = "BoosterNozzle", size = Vector3.new(0.5, 0.8, 0.8), offset = CFrame.new(x, 1.45, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("4A5060"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder })
-		table.insert(list, { name = "Strut", size = Vector3.new(1, 0.25, 0.25), offset = CFrame.new(x * 0.78, 6.2, 0), color = DARK_METAL, material = Enum.Material.Metal })
+	for y = 4, 13, 3 do
+		table.insert(list, { name = "TowerDeck", size = Vector3.new(3.5, 0.16, 1.2), offset = CFrame.new(0, y, 3.6), color = hex("F2C230"), material = Enum.Material.DiamondPlate, collide = false })
+		table.insert(list, { name = "DeckRail", size = Vector3.new(3.5, 0.08, 0.08), offset = CFrame.new(0, y + 0.65, 3.04), color = DARK_METAL, material = Enum.Material.Metal, collide = false })
+	end
+	table.insert(list, { name = "TowerArm", size = Vector3.new(0.32, 0.32, 2.3), offset = CFrame.new(0, 11.5, 2.4), color = DARK_METAL, material = Enum.Material.Metal })
+	table.insert(list, { name = "Umbilical", size = Vector3.new(0.16, 0.16, 2.1), offset = CFrame.new(0.35, 11.1, 2.4) * CFrame.Angles(rad(14), 0, 0), color = GOLD, material = Enum.Material.Metal, collide = false })
+	table.insert(list, { name = "BeaconPost", size = Vector3.new(0.2, 0.5, 0.2), offset = CFrame.new(0, 15.9, 3.6), color = DARK_METAL, material = Enum.Material.Metal, collide = false })
+	table.insert(list, { name = "Beacon", size = Vector3.new(0.52, 0.52, 0.52), offset = CFrame.new(0, 16.25, 3.6), color = RED, material = Enum.Material.Neon, shape = Enum.PartType.Ball, collide = false })
+	-- Два боковых ускорителя со ступенчатыми соплами и двойными креплениями
+	for _, x in { -2.18, 2.18 } do
+		table.insert(list, vertical("Booster", 6.4, 1.14, 4.9, hex("E8ECF2"), nil, true))
+		table.insert(list, { name = "BoosterNose", size = Vector3.new(1.14, 1.35, 1.14), offset = CFrame.new(x, 8.2, 0), color = RED, sphere = true, collide = false })
+		table.insert(list, { name = "BoosterBand", size = Vector3.new(0.3, 1.2, 1.2), offset = CFrame.new(x, 6.6, 0) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+		table.insert(list, { name = "BoosterBandLow", size = Vector3.new(0.24, 1.2, 1.2), offset = CFrame.new(x, 2.3, 0) * CFrame.Angles(0, 0, rad(90)), color = RED, shape = Enum.PartType.Cylinder, collide = false })
+		table.insert(list, { name = "BoosterNozzle", size = Vector3.new(0.55, 0.84, 0.84), offset = CFrame.new(x, 1.45, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("4A5060"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+		table.insert(list, { name = "BoosterGlow", size = Vector3.new(0.1, 0.56, 0.56), offset = CFrame.new(x, 1.16, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("FF8A3D"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder, collide = false })
+		for _, sy in { 3.2, 6.4 } do
+			table.insert(list, { name = "Strut", size = Vector3.new(0.95, 0.22, 0.24), offset = CFrame.new(x * 0.78, sy, 0), color = DARK_METAL, material = Enum.Material.Metal, collide = false })
+		end
 	end
 	for _, y in { 8.9, 12 } do
-		table.insert(list, { name = "Porthole", size = Vector3.new(0.12, 0.7, 0.7), offset = CFrame.new(0, y, -1.38) * CFrame.Angles(0, rad(90), 0), color = hex("7FE7FF"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder })
+		table.insert(list, { name = "PortholeRim", size = Vector3.new(0.1, 0.92, 0.92), offset = CFrame.new(0, y, -1.35) * CFrame.Angles(0, rad(90), 0), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+		table.insert(list, { name = "Porthole", size = Vector3.new(0.14, 0.68, 0.68), offset = CFrame.new(0, y, -1.38) * CFrame.Angles(0, rad(90), 0), color = hex("3BC6C1"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder, collide = false })
 	end
-	table.insert(list, { name = "Stripe", size = Vector3.new(0.1, 1.8, 0.4), offset = CFrame.new(0, 5.6, -1.61), color = hex("243B6B") })
-	for y = 4, 13, 3 do
-		table.insert(list, { name = "TowerDeck", size = Vector3.new(3.5, 0.15, 1.2), offset = CFrame.new(0, y, 3.6), color = hex("F2C230"), material = Enum.Material.DiamondPlate, collide = false })
-	end
-	table.insert(list, { name = "Beacon", size = Vector3.new(0.5, 0.5, 0.5), offset = CFrame.new(0, 16.25, 3.6), color = RED, material = Enum.Material.Neon, shape = Enum.PartType.Ball, collide = false })
-	table.insert(list, { name = "BeaconPost", size = Vector3.new(0.2, 0.5, 0.2), offset = CFrame.new(0, 15.9, 3.6), color = DARK_METAL, material = Enum.Material.Metal, collide = false })
+	table.insert(list, { name = "Stripe", size = Vector3.new(0.45, 2.2, 0.12), offset = CFrame.new(0, 5.6, -1.61), color = hex("243B6B"), collide = false })
 	return list
 end
 
--- Космонавт с флагом на подставке. Перед в −Z.
-local ASTRONAUT_STUB: Stub = {
-	{ name = "Base", size = Vector3.new(0.4, 3, 3), offset = CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("1E2A44"), shape = Enum.PartType.Cylinder },
-	{ name = "BootL", size = Vector3.new(0.8, 0.6, 1.1), offset = CFrame.new(-0.5, 0.7, -0.1), color = hex("A9B0BC"), collide = false },
-	{ name = "BootR", size = Vector3.new(0.8, 0.6, 1.1), offset = CFrame.new(0.5, 0.7, -0.1), color = hex("A9B0BC"), collide = false },
-	{ name = "LegL", size = Vector3.new(0.8, 1.8, 0.85), offset = CFrame.new(-0.5, 1.9, 0), color = WHITE, collide = false },
-	{ name = "LegR", size = Vector3.new(0.8, 1.8, 0.85), offset = CFrame.new(0.5, 1.9, 0), color = WHITE, collide = false },
-	{ name = "Torso", size = Vector3.new(2, 2, 1.2), offset = CFrame.new(0, 3.8, 0), color = WHITE, collide = false },
-	{ name = "ChestPanel", size = Vector3.new(1, 0.6, 0.1), offset = CFrame.new(0, 4, -0.62), color = hex("1E2A44"), collide = false },
-	{ name = "Button", size = Vector3.new(0.2, 0.2, 0.06), offset = CFrame.new(-0.25, 4, -0.68), color = RED, material = Enum.Material.Neon, collide = false },
-	{ name = "Button", size = Vector3.new(0.2, 0.2, 0.06), offset = CFrame.new(0.05, 4, -0.68), color = hex("3FB56B"), material = Enum.Material.Neon, collide = false },
-	{ name = "Button", size = Vector3.new(0.2, 0.2, 0.06), offset = CFrame.new(0.35, 4, -0.68), color = hex("F2C230"), material = Enum.Material.Neon, collide = false },
-	{ name = "Backpack", size = Vector3.new(1.8, 2, 0.8), offset = CFrame.new(0, 3.9, 0.95), color = hex("C9CED6"), collide = false },
-	{ name = "ArmL", size = Vector3.new(0.7, 1.9, 0.75), offset = CFrame.new(-1.4, 3.6, 0), color = WHITE, collide = false },
-	{ name = "ArmR", size = Vector3.new(0.7, 1.9, 0.75), offset = CFrame.new(1.4, 3.8, -0.2) * CFrame.Angles(rad(-25), 0, 0), color = WHITE, collide = false },
-	{ name = "GloveL", size = Vector3.new(0.6, 0.6, 0.6), offset = CFrame.new(-1.45, 2.5, 0), color = hex("A9B0BC"), shape = Enum.PartType.Ball, collide = false },
-	{ name = "GloveR", size = Vector3.new(0.6, 0.6, 0.6), offset = CFrame.new(1.45, 2.95, -0.7), color = hex("A9B0BC"), shape = Enum.PartType.Ball, collide = false },
-	{ name = "Helmet", size = Vector3.new(1.5, 1.5, 1.5), offset = CFrame.new(0, 5.5, 0), color = WHITE, shape = Enum.PartType.Ball, collide = false },
-	{ name = "Visor", size = Vector3.new(1.05, 0.8, 0.4), offset = CFrame.new(0, 5.55, -0.58), color = GOLD, material = Enum.Material.Metal, sphere = true, collide = false },
-	{ name = "Pole", size = Vector3.new(0.15, 5.2, 0.15), offset = CFrame.new(1.45, 3.4, -0.7), color = STEEL, material = Enum.Material.Metal, collide = false },
-	{ name = "Flag", size = Vector3.new(1.8, 1.1, 0.06), offset = CFrame.new(2.35, 5.4, -0.7), color = hex("1E2A44"), collide = false },
-	{ name = "FlagStar", size = Vector3.new(0.5, 0.5, 0.07), offset = CFrame.new(2.35, 5.4, -0.7) * CFrame.Angles(0, 0, rad(45)), color = GOLD, collide = false },
-}
+-- Космонавт с флагом на лунном камне (R3). Перед в −Z.
+local function buildAstronautStub(): Stub
+	local navy = hex("1E2A44")
+	local suitGrey = hex("A9B0BC")
+	local moonGrey = hex("8B929E")
+	return {
+		{ name = "Base", size = Vector3.new(0.32, 3.1, 3.1), offset = CFrame.new(0, 0.16, 0) * CFrame.Angles(0, 0, rad(90)), color = navy, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "BaseRim", size = Vector3.new(0.08, 3.16, 3.16), offset = CFrame.new(0, 0.34, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "LunarMound", size = Vector3.new(0.26, 2.7, 2.7), offset = CFrame.new(0, 0.44, 0) * CFrame.Angles(0, 0, rad(90)), color = moonGrey, material = Enum.Material.Slate, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "MoonRockL", size = Vector3.new(0.55, 0.36, 0.48), offset = CFrame.new(-0.95, 0.65, -0.55) * CFrame.Angles(0, rad(24), 0), color = hex("6E7686"), material = Enum.Material.Slate, sphere = true, collide = false },
+		{ name = "MoonRockR", size = Vector3.new(0.48, 0.32, 0.42), offset = CFrame.new(0.9, 0.62, 0.65) * CFrame.Angles(0, rad(-18), 0), color = hex("6E7686"), material = Enum.Material.Slate, sphere = true, collide = false },
+		{ name = "BootSoleL", size = Vector3.new(0.84, 0.16, 1.16), offset = CFrame.new(-0.5, 0.62, -0.1), color = DARK_METAL, material = Enum.Material.Rubber, collide = false },
+		{ name = "BootSoleR", size = Vector3.new(0.84, 0.16, 1.16), offset = CFrame.new(0.5, 0.62, -0.1), color = DARK_METAL, material = Enum.Material.Rubber, collide = false },
+		{ name = "BootL", size = Vector3.new(0.8, 0.52, 1.08), offset = CFrame.new(-0.5, 0.9, -0.08), color = suitGrey, collide = false },
+		{ name = "BootR", size = Vector3.new(0.8, 0.52, 1.08), offset = CFrame.new(0.5, 0.9, -0.08), color = suitGrey, collide = false },
+		{ name = "LegL", size = Vector3.new(1.75, 0.84, 0.84), offset = CFrame.new(-0.5, 1.95, 0) * CFrame.Angles(0, 0, rad(90)), color = WHITE, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "LegR", size = Vector3.new(1.75, 0.84, 0.84), offset = CFrame.new(0.5, 1.95, 0) * CFrame.Angles(0, 0, rad(90)), color = WHITE, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "KneePadL", size = Vector3.new(0.54, 0.38, 0.14), offset = CFrame.new(-0.5, 1.9, -0.42), color = suitGrey, collide = false },
+		{ name = "KneePadR", size = Vector3.new(0.54, 0.38, 0.14), offset = CFrame.new(0.5, 1.9, -0.42), color = suitGrey, collide = false },
+		{ name = "Belt", size = Vector3.new(2.08, 0.28, 1.28), offset = CFrame.new(0, 2.95, 0), color = suitGrey, collide = false },
+		{ name = "BeltBuckle", size = Vector3.new(0.45, 0.3, 0.1), offset = CFrame.new(0, 2.95, -0.66), color = GOLD, material = Enum.Material.Metal, collide = false },
+		{ name = "Torso", size = Vector3.new(2, 1.95, 1.2), offset = CFrame.new(0, 3.9, 0), color = WHITE, collide = false },
+		{ name = "ChestPanel", size = Vector3.new(1.1, 0.72, 0.14), offset = CFrame.new(0, 4.05, -0.64), color = navy, collide = false },
+		{ name = "ChestDial", size = Vector3.new(0.06, 0.26, 0.26), offset = CFrame.new(-0.32, 4.18, -0.72) * CFrame.Angles(0, rad(90), 0), color = hex("3BC6C1"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Button", size = Vector3.new(0.18, 0.18, 0.06), offset = CFrame.new(0, 4.16, -0.72), color = RED, material = Enum.Material.Neon, collide = false },
+		{ name = "Button", size = Vector3.new(0.18, 0.18, 0.06), offset = CFrame.new(0.28, 4.16, -0.72), color = hex("3FB56B"), material = Enum.Material.Neon, collide = false },
+		{ name = "Button", size = Vector3.new(0.6, 0.14, 0.06), offset = CFrame.new(0.14, 3.88, -0.72), color = GOLD, material = Enum.Material.Neon, collide = false },
+		-- Ранец жизнеобеспечения PLSS с баллонами и антенной
+		{ name = "Backpack", size = Vector3.new(1.8, 1.95, 0.78), offset = CFrame.new(0, 3.95, 0.96), color = hex("C9CED6"), collide = false },
+		{ name = "TankL", size = Vector3.new(1.5, 0.5, 0.5), offset = CFrame.new(-0.48, 3.95, 1.32) * CFrame.Angles(0, 0, rad(90)), color = WHITE, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "TankR", size = Vector3.new(1.5, 0.5, 0.5), offset = CFrame.new(0.48, 3.95, 1.32) * CFrame.Angles(0, 0, rad(90)), color = WHITE, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "PackStripe", size = Vector3.new(1.82, 0.2, 0.8), offset = CFrame.new(0, 4.45, 0.96), color = RED, collide = false },
+		{ name = "Antenna", size = Vector3.new(1.1, 0.08, 0.08), offset = CFrame.new(-0.68, 5.4, 1.1) * CFrame.Angles(0, 0, rad(90)), color = STEEL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		-- Руки с плечевыми кольцами и перчатками
+		{ name = "ShoulderL", size = Vector3.new(0.75, 0.75, 0.75), offset = CFrame.new(-1.26, 4.5, 0), color = RED, shape = Enum.PartType.Ball, collide = false },
+		{ name = "ShoulderR", size = Vector3.new(0.75, 0.75, 0.75), offset = CFrame.new(1.26, 4.5, -0.08), color = RED, shape = Enum.PartType.Ball, collide = false },
+		{ name = "ArmL", size = Vector3.new(1.6, 0.68, 0.68), offset = CFrame.new(-1.42, 3.65, 0) * CFrame.Angles(0, 0, rad(84)), color = WHITE, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "ArmR", size = Vector3.new(1.65, 0.68, 0.68), offset = CFrame.new(1.42, 3.85, -0.24) * CFrame.Angles(rad(-26), 0, rad(90)), color = WHITE, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "CuffL", size = Vector3.new(0.14, 0.74, 0.74), offset = CFrame.new(-1.46, 2.85, 0) * CFrame.Angles(0, 0, rad(90)), color = navy, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "CuffR", size = Vector3.new(0.14, 0.74, 0.74), offset = CFrame.new(1.44, 3.16, -0.56) * CFrame.Angles(rad(64), 0, 0), color = navy, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "GloveL", size = Vector3.new(0.58, 0.58, 0.58), offset = CFrame.new(-1.48, 2.52, 0), color = suitGrey, shape = Enum.PartType.Ball, collide = false },
+		{ name = "GloveR", size = Vector3.new(0.58, 0.58, 0.58), offset = CFrame.new(1.45, 2.95, -0.7), color = suitGrey, shape = Enum.PartType.Ball, collide = false },
+		-- Шлем с кольцом воротника, золотым визором и фонариками
+		{ name = "NeckRing", size = Vector3.new(0.2, 1.32, 1.32), offset = CFrame.new(0, 4.92, 0) * CFrame.Angles(0, 0, rad(90)), color = RED, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Helmet", size = Vector3.new(1.56, 1.56, 1.56), offset = CFrame.new(0, 5.55, 0), color = WHITE, shape = Enum.PartType.Ball, collide = false },
+		{ name = "VisorRim", size = Vector3.new(1.16, 0.9, 0.36), offset = CFrame.new(0, 5.58, -0.54), color = DARK_METAL, material = Enum.Material.Metal, sphere = true, collide = false },
+		{ name = "Visor", size = Vector3.new(1.04, 0.78, 0.42), offset = CFrame.new(0, 5.58, -0.6), color = GOLD, material = Enum.Material.Metal, reflectance = 0.45, sphere = true, collide = false },
+		{ name = "HeadLampL", size = Vector3.new(0.16, 0.18, 0.24), offset = CFrame.new(-0.74, 5.72, -0.18), color = hex("3BC6C1"), material = Enum.Material.Neon, collide = false },
+		{ name = "HeadLampR", size = Vector3.new(0.16, 0.18, 0.24), offset = CFrame.new(0.74, 5.72, -0.18), color = hex("3BC6C1"), material = Enum.Material.Neon, collide = false },
+		-- Флагшток с перекладиной и флагом
+		{ name = "Pole", size = Vector3.new(5.4, 0.15, 0.15), offset = CFrame.new(1.45, 3.35, -0.7) * CFrame.Angles(0, 0, rad(90)), color = STEEL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "PoleTip", size = Vector3.new(0.24, 0.24, 0.24), offset = CFrame.new(1.45, 6.1, -0.7), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball, collide = false },
+		{ name = "Crossbar", size = Vector3.new(1.9, 0.08, 0.08), offset = CFrame.new(2.38, 5.98, -0.7), color = STEEL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Flag", size = Vector3.new(1.85, 1.1, 0.06), offset = CFrame.new(2.38, 5.4, -0.7), color = navy, collide = false },
+		{ name = "FlagStripe", size = Vector3.new(1.85, 0.22, 0.07), offset = CFrame.new(2.38, 5.05, -0.7), color = RED, collide = false },
+		{ name = "FlagStar", size = Vector3.new(0.46, 0.46, 0.08), offset = CFrame.new(2.38, 5.5, -0.7) * CFrame.Angles(0, 0, rad(45)), color = GOLD, collide = false },
+	}
+end
+local ASTRONAUT_STUB: Stub = buildAstronautStub()
 
 ---------------------------------------------------------------- залы
 
