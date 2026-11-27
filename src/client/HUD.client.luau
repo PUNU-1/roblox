@@ -155,6 +155,10 @@ end
 
 Remotes.get(Remotes.Names.Banner).OnClientEvent:Connect(function(text, kind)
 	if typeof(text) == "string" then
+		-- NIGHT N и кражу Моны Лизы с анимацией показывает Transitions.client.luau (этап 6, блок J2)
+		if string.match(text, "^NIGHT %d+$") or text == "THE MONA LISA IS STOLEN!" then
+			return
+		end
 		showBanner(text, if typeof(kind) == "string" then kind else nil)
 	end
 end)

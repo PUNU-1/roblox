@@ -1267,6 +1267,10 @@ local Config = {
 		SensorPlace = "rbxasset://sounds/action_jump_land.mp3", -- ВРЕМЕННЫЙ: датчик поставили на пол
 		SensorPlaceVolume = 0.6,
 		SensorPlaceSpeed = 1.8,
+		-- этап 6, блок J2: переходы день ↔ ночь
+		NightStart = "rbxassetid://9125544264", -- ВРЕМЕННЫЙ: Elevator Alarm Bell ниже тоном — тревожный бой при наступлении ночи
+		NightStartVolume = 0.45,
+		NightStartSpeed = 0.55,
 	},
 
 	-- Анимации воров и туристов делаются кодом на клиенте (NpcAnimator.client.luau), в Roblox ничего не загружается.
@@ -1537,6 +1541,42 @@ local Config = {
 			Gap = 1, -- над верхним краем рамы
 			MaxDistance = 120, -- дальше не видно (камеры ближе)
 		},
+	},
+
+	Transitions = { -- красивые экранные переходы (этап 6, блок J2, клиент)
+		-- Затемнение при переносе к Моне Лизе и перед телепортом в хаб
+		FadeInSeconds = 0.3,
+		FadeOutSeconds = 0.4,
+		FadeHoldSeconds = 0.08, -- короткая пауза на чёрном экране, чтобы перенос/свет успели примениться
+		TeleportTimeoutSeconds = 5, -- если телепорт не случился (Studio / сбой) — вернуть экран
+		-- День → ночь: синий оттенок ColorCorrectionEffect и трясущийся заголовок NIGHT N
+		NightTintColor = Color3.fromRGB(70, 120, 220),
+		NightBrightness = -0.14,
+		NightSaturation = -0.35,
+		NightContrast = 0.14,
+		NightTintInSeconds = 2.0, -- темнеет до синего за 2 сек
+		NightTintOutSeconds = 1.2, -- и плавно уходит
+		NightTitleSeconds = 2.4, -- уходит до NEW THIEF на 3.5 сек
+		NightShakeAmplitude = 8, -- пиксели тряски заголовка
+		NightShakeDecay = 1.8, -- затухание тряски (сек)
+		-- Ночь → утро (ночь пережита): тёплая вспышка и YOU SURVIVED NIGHT N
+		MorningTintColor = Color3.fromRGB(255, 224, 150),
+		MorningBrightness = 0.32,
+		MorningSaturation = 0.25,
+		MorningContrast = 0.08,
+		MorningFlashInSeconds = 0.25,
+		MorningFlashOutSeconds = 1.6,
+		MorningOverlayTransparency = 0.72,
+		MorningTitleSeconds = 3.2,
+		-- Кража Моны Лизы (PaintingStolen -> true): красная пульсирующая рамка по краям 1.5 сек + заголовок
+		StolenPulseSeconds = 1.5,
+		StolenPulseSpeed = 12, -- ~3 пульса за 1.5 сек
+		StolenMinTransparency = 0.15,
+		StolenMaxTransparency = 0.72,
+		StolenBorderWidth = 0.12, -- доля ширины/высоты экрана по краям
+		StolenTitleSeconds = 2.5,
+		StolenShakeAmplitude = 5,
+		StolenShakeDecay = 1.2,
 	},
 }
 
