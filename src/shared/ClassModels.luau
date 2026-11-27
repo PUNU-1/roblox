@@ -59,7 +59,7 @@ local D = {
 }
 ClassModels.DogColors = D
 
--- Лапа целиком (одна кость): бедро, голень, ступня. side: −1 — левая (−X), 1 — правая; front — передняя.
+-- Лапа целиком (одна кость): бедро, голень, ступня и подушечки пальцев. side: −1 — левая (−X), 1 — правая; front — передняя.
 local function leg(bone: string, side: number, front: boolean): { Spec }
 	local x = side * (if front then 0.38 else 0.42)
 	if front then
@@ -68,6 +68,7 @@ local function leg(bone: string, side: number, front: boolean): { Spec }
 			{ name = bone .. "_Upper", size = Vector3.new(0.4, 0.8, 0.46), offset = at(x, 1.1, z), color = D.Tan, sphere = true },
 			{ name = bone .. "_Lower", size = Vector3.new(0.3, 0.72, 0.32), offset = at(x, 0.5, z - 0.02), color = D.TanLight, sphere = true },
 			{ name = bone .. "_Paw", size = Vector3.new(0.38, 0.26, 0.5), offset = at(x, 0.13, z - 0.1), color = D.Cream, sphere = true },
+			{ name = bone .. "_Toes", size = Vector3.new(0.32, 0.16, 0.22), offset = at(x, 0.08, z - 0.28), color = D.TanLight, sphere = true },
 		}
 	end
 	local z = 0.95
@@ -75,15 +76,18 @@ local function leg(bone: string, side: number, front: boolean): { Spec }
 		{ name = bone .. "_Thigh", size = Vector3.new(0.48, 0.92, 0.72), offset = at(x, 1.2, z), color = D.Tan, sphere = true },
 		{ name = bone .. "_Lower", size = Vector3.new(0.3, 0.76, 0.34), offset = at(x, 0.52, z + 0.12) * CFrame.Angles(0.16, 0, 0), color = D.TanLight, sphere = true },
 		{ name = bone .. "_Paw", size = Vector3.new(0.38, 0.26, 0.5), offset = at(x, 0.13, z + 0.04), color = D.Cream, sphere = true },
+		{ name = bone .. "_Toes", size = Vector3.new(0.32, 0.16, 0.22), offset = at(x, 0.08, z - 0.14), color = D.TanLight, sphere = true },
 	}
 end
 
--- Ухо: треугольник (клин, повёрнутый боком), прямой край — к середине головы, кончик чуть наружу.
+-- Ухо: треугольник (клин, повёрнутый боком) с пушистым основанием.
 local function ear(side: number): { Spec }
+	local s = if side < 0 then "L" else "R"
 	local turn = CFrame.Angles(0, 0, -side * 0.25) * CFrame.Angles(0, -side * math.pi / 2, 0)
 	return {
-		{ name = "Head_Ear" .. (if side < 0 then "L" else "R"), size = Vector3.new(0.12, 0.62, 0.38), offset = at(side * 0.24, 3.05, -1.52) * turn, color = D.Tan, wedge = true },
-		{ name = "Head_EarIn" .. (if side < 0 then "L" else "R"), size = Vector3.new(0.06, 0.42, 0.24), offset = at(side * 0.22, 2.99, -1.59) * turn, color = D.Pink, wedge = true },
+		{ name = "Head_EarBase" .. s, size = Vector3.new(0.24, 0.24, 0.28), offset = at(side * 0.24, 2.82, -1.5), color = D.Saddle, sphere = true },
+		{ name = "Head_Ear" .. s, size = Vector3.new(0.12, 0.64, 0.39), offset = at(side * 0.24, 3.06, -1.52) * turn, color = D.Tan, wedge = true },
+		{ name = "Head_EarIn" .. s, size = Vector3.new(0.06, 0.43, 0.24), offset = at(side * 0.22, 3.0, -1.59) * turn, color = D.Pink, wedge = true },
 	}
 end
 
@@ -94,7 +98,7 @@ local function eye(side: number): { Spec }
 		{ name = "Head_Eye" .. s, size = Vector3.new(0.2, 0.24, 0.12), offset = at(x, 2.7, -1.99), color = D.White, sphere = true },
 		{ name = "Head_Pupil" .. s, size = Vector3.new(0.12, 0.15, 0.08), offset = at(x, 2.69, -2.04), color = D.Pupil, sphere = true },
 		{ name = "Head_Shine" .. s, size = Vector3.new(0.05, 0.05, 0.05), offset = at(x + 0.03, 2.73, -2.08), color = D.White, shape = BALL, neon = true },
-		{ name = "Head_Brow" .. s, size = Vector3.new(0.13, 0.07, 0.07), offset = at(x, 2.86, -1.93), color = D.Cream, sphere = true },
+		{ name = "Head_Brow" .. s, size = Vector3.new(0.14, 0.075, 0.075), offset = at(x, 2.86, -1.93), color = D.Cream, sphere = true },
 	}
 end
 
@@ -110,49 +114,63 @@ end
 
 local DOG: { Spec } = joinSpecs({
 	{
-		-- туловище: овал, глубокая грудь, бёдра, тёмная «попона» на спине, светлое брюхо
+		-- туловище: овал, глубокая грудь, бёдра, тёмная «попона» на спине, светлое брюхо и грудка
 		{ name = "Body_Torso", size = Vector3.new(1.15, 1.05, 2.3), offset = at(0, 1.58, 0.05), color = D.Tan, sphere = true },
 		{ name = "Body_Chest", size = Vector3.new(1.12, 1.2, 1.05), offset = at(0, 1.52, -0.82), color = D.TanLight, sphere = true },
+		{ name = "Body_ChestRuff", size = Vector3.new(0.76, 0.72, 0.52), offset = at(0, 1.66, -1.24), color = D.Cream, sphere = true },
 		{ name = "Body_Hips", size = Vector3.new(1.08, 1.02, 1.05), offset = at(0, 1.6, 0.85), color = D.Tan, sphere = true },
 		{ name = "Body_Saddle", size = Vector3.new(0.98, 0.5, 1.9), offset = at(0, 1.95, 0.3), color = D.Saddle, sphere = true },
 		{ name = "Body_Belly", size = Vector3.new(0.9, 0.55, 1.7), offset = at(0, 1.22, 0.05), color = D.Cream, sphere = true },
-		-- шея и красный ошейник с золотым жетоном
+		-- шея и красный ошейник с пряжкой, кольцом и плоским золотым жетоном
 		{ name = "Body_Neck", size = Vector3.new(0.72, 1.0, 0.72), offset = at(0, 2.0, -1.2) * CFrame.Angles(-0.45, 0, 0), color = D.Tan, sphere = true },
-		{ name = "Body_Collar", size = Vector3.new(0.16, 0.86, 0.86), offset = at(0, 2.05, -1.22) * CFrame.Angles(-0.45, 0, 0) * ALONG_Y, color = D.Collar, shape = CYL },
-		{ name = "Body_Tag", size = Vector3.new(0.2, 0.2, 0.2), offset = at(0, 1.84, -1.6), color = D.Gold, material = M.Metal, shape = BALL },
-		-- жилет K-9: тёмно-синий, две жёлтые полосы, нашивки по бокам, ручка сверху
-		{ name = "Body_Vest", size = Vector3.new(1.24, 1.16, 1.25), offset = at(0, 1.6, -0.3), color = D.Vest, material = M.Fabric, sphere = true },
-		{ name = "Body_VestStripeA", size = Vector3.new(1.12, 1.05, 0.1), offset = at(0, 1.6, 0), color = D.Yellow, sphere = true },
-		{ name = "Body_VestStripeB", size = Vector3.new(1.12, 1.05, 0.1), offset = at(0, 1.6, -0.6), color = D.Yellow, sphere = true },
+		{ name = "Body_Collar", size = Vector3.new(0.16, 0.87, 0.87), offset = at(0, 2.05, -1.22) * CFrame.Angles(-0.45, 0, 0) * ALONG_Y, color = D.Collar, shape = CYL },
+		{ name = "Body_CollarBuckle", size = Vector3.new(0.14, 0.19, 0.16), offset = at(0.4, 2.08, -1.2) * CFrame.Angles(-0.45, 0, 0), color = hex("D6DCE4"), material = M.Metal },
+		{ name = "Body_CollarRing", size = Vector3.new(0.05, 0.14, 0.14), offset = at(0, 1.92, -1.6), color = hex("D6DCE4"), material = M.Metal, shape = CYL },
+		{ name = "Body_Tag", size = Vector3.new(0.05, 0.24, 0.24), offset = at(0, 1.8, -1.62) * ALONG_Z, color = D.Gold, material = M.Metal, shape = CYL },
+		{ name = "Body_TagCore", size = Vector3.new(0.06, 0.13, 0.13), offset = at(0, 1.8, -1.625) * ALONG_Z, color = D.Vest, shape = CYL },
+		-- жилет K-9: тёмно-синяя шлейка с нагрудным ремнём, пряжками, жёлтыми полосами, нашивками и маячком
+		{ name = "Body_Vest", size = Vector3.new(1.24, 1.16, 1.26), offset = at(0, 1.6, -0.3), color = D.Vest, material = M.Fabric, sphere = true },
+		{ name = "Body_VestChestStrap", size = Vector3.new(0.44, 0.14, 0.88), offset = at(0, 1.54, -0.96) * CFrame.Angles(-0.48, 0, 0), color = D.VestDark, material = M.Fabric },
+		{ name = "Body_VestStripeA", size = Vector3.new(1.14, 1.06, 0.11), offset = at(0, 1.6, 0), color = D.Yellow, sphere = true },
+		{ name = "Body_VestStripeB", size = Vector3.new(1.14, 1.06, 0.11), offset = at(0, 1.6, -0.6), color = D.Yellow, sphere = true },
+		{ name = "Body_VestBuckleL", size = Vector3.new(0.06, 0.18, 0.22), offset = at(-0.62, 1.44, -0.3), color = hex("D6DCE4"), material = M.Metal },
+		{ name = "Body_VestBuckleR", size = Vector3.new(0.06, 0.18, 0.22), offset = at(0.62, 1.44, -0.3), color = hex("D6DCE4"), material = M.Metal },
 		{ name = "Body_PatchL", size = Vector3.new(0.05, 0.42, 0.5), offset = at(-0.6, 1.66, -0.3), color = D.VestDark, material = M.Fabric },
 		{ name = "Body_PatchR", size = Vector3.new(0.05, 0.42, 0.5), offset = at(0.6, 1.66, -0.3), color = D.VestDark, material = M.Fabric },
 		{ name = "Body_Handle", size = Vector3.new(0.5, 0.1, 0.12), offset = at(0, 2.32, -0.3), color = D.VestDark },
 		{ name = "Body_HandlePostL", size = Vector3.new(0.08, 0.16, 0.08), offset = at(-0.21, 2.23, -0.3), color = D.VestDark },
 		{ name = "Body_HandlePostR", size = Vector3.new(0.08, 0.16, 0.08), offset = at(0.21, 2.23, -0.3), color = D.VestDark },
+		{ name = "Body_VestBeacon", size = Vector3.new(0.12, 0.08, 0.12), offset = at(0, 2.2, 0.14), color = hex("3BC6C1"), shape = BALL, neon = true },
 	},
 	leg("LegFL", -1, true),
 	leg("LegFR", 1, true),
 	leg("LegBL", -1, false),
 	leg("LegBR", 1, false),
 	{
-		-- голова: череп, тёмная шапочка, светлая морда, чёрный нос
+		-- голова: череп, маска-шапочка, переносица, щёчки, светлая морда, чёрный нос
 		{ name = "Head_Skull", size = Vector3.new(0.86, 0.8, 0.92), offset = at(0, 2.58, -1.6), color = D.Tan, sphere = true },
-		{ name = "Head_Cap", size = Vector3.new(0.72, 0.36, 0.66), offset = at(0, 2.84, -1.5), color = D.Saddle, sphere = true },
+		{ name = "Head_Cap", size = Vector3.new(0.74, 0.36, 0.68), offset = at(0, 2.84, -1.5), color = D.Saddle, sphere = true },
+		{ name = "Head_CheekL", size = Vector3.new(0.28, 0.32, 0.42), offset = at(-0.34, 2.46, -1.72), color = D.TanLight, sphere = true },
+		{ name = "Head_CheekR", size = Vector3.new(0.28, 0.32, 0.42), offset = at(0.34, 2.46, -1.72), color = D.TanLight, sphere = true },
+		{ name = "Head_MuzzleBridge", size = Vector3.new(0.34, 0.24, 0.46), offset = at(0, 2.58, -1.96) * CFrame.Angles(0.18, 0, 0), color = D.Saddle, sphere = true },
 		{ name = "Head_Snout", size = Vector3.new(0.52, 0.44, 0.78), offset = at(0, 2.44, -2.05), color = D.Cream, sphere = true },
-		{ name = "Head_Nose", size = Vector3.new(0.24, 0.17, 0.2), offset = at(0, 2.56, -2.42), color = D.Nose, sphere = true },
+		{ name = "Head_Nose", size = Vector3.new(0.25, 0.18, 0.21), offset = at(0, 2.56, -2.42), color = D.Nose, sphere = true },
 	},
 	eye(-1),
 	eye(1),
 	ear(-1),
 	ear(1),
 	{
-		-- нижняя челюсть с языком: открывается, когда собака лает
+		-- нижняя челюсть с языком и клыками: открывается, когда собака лает
 		{ name = "Jaw_Lower", size = Vector3.new(0.44, 0.2, 0.62), offset = at(0, 2.26, -2.05), color = D.Cream, sphere = true },
 		{ name = "Jaw_Tongue", size = Vector3.new(0.24, 0.07, 0.42), offset = at(0, 2.33, -2.1), color = D.Pink, sphere = true },
-		-- хвост из двух частей, кончик светлый
-		{ name = "Tail1_Base", size = Vector3.new(0.26, 0.26, 0.8), offset = at(0, 2.11, 1.66) * CFrame.Angles(-0.55, 0, 0), color = D.Tan, sphere = true },
-		{ name = "Tail2_Mid", size = Vector3.new(0.24, 0.24, 0.7), offset = at(0, 2.54, 2.16) * CFrame.Angles(-0.9, 0, 0), color = D.Saddle, sphere = true },
-		{ name = "Tail2_Tip", size = Vector3.new(0.2, 0.2, 0.34), offset = at(0, 2.82, 2.38) * CFrame.Angles(-0.9, 0, 0), color = D.TanLight, sphere = true },
+		{ name = "Jaw_ToothL", size = Vector3.new(0.06, 0.09, 0.06), offset = at(-0.14, 2.36, -2.26), color = D.White, wedge = true },
+		{ name = "Jaw_ToothR", size = Vector3.new(0.06, 0.09, 0.06), offset = at(0.14, 2.36, -2.26), color = D.White, wedge = true },
+		-- пушистый хвост из двух частей, кончик светлый
+		{ name = "Tail1_Base", size = Vector3.new(0.28, 0.28, 0.8), offset = at(0, 2.11, 1.66) * CFrame.Angles(-0.55, 0, 0), color = D.Tan, sphere = true },
+		{ name = "Tail1_Fluff", size = Vector3.new(0.32, 0.3, 0.5), offset = at(0, 2.26, 1.84) * CFrame.Angles(-0.65, 0, 0), color = D.Saddle, sphere = true },
+		{ name = "Tail2_Mid", size = Vector3.new(0.26, 0.26, 0.7), offset = at(0, 2.54, 2.16) * CFrame.Angles(-0.9, 0, 0), color = D.Saddle, sphere = true },
+		{ name = "Tail2_Tip", size = Vector3.new(0.21, 0.21, 0.36), offset = at(0, 2.82, 2.38) * CFrame.Angles(-0.9, 0, 0), color = D.TanLight, sphere = true },
 	},
 })
 
