@@ -108,6 +108,9 @@ local function canChooseClass(): boolean
 	if phase == Phase.Results or GameState.get(Attr.HubArrival) == true then
 		return false
 	end
+	if localPlayer:GetAttribute(PlayerAttr.Spectating) == true then
+		return false
+	end
 	return phase == Phase.Lobby or localPlayer:GetAttribute(PlayerAttr.InRound) ~= true
 end
 

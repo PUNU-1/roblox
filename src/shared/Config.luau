@@ -339,6 +339,14 @@ local Config = {
 		FieldOfView = 70, -- свой вид (в рывке шире — Classes.Patrol.FovKick)
 	},
 
+	Spectate = { -- режим зрителя (этап 6, блок I1): пока лежишь без сил или ждёшь в комнате охраны
+		MinZoom = 8, -- минимальное приближение к охраннику (стады)
+		MaxZoom = 12, -- максимальное удаление (стады)
+		PrevKey = Enum.KeyCode.Z, -- предыдущий охранник
+		NextKey = Enum.KeyCode.X, -- следующий охранник
+		BackKey = Enum.KeyCode.C, -- вернуться в свой вид (ползти / выбрать класс)
+	},
+
 	Lobby = { -- круг START SHIFT в комнате охраны (блок B1): встал в круг — ты в команде
 		-- В команде не больше Config.Players.Max (5) игроков
 		CircleRadius = 6, -- стадов от центра круга до края (считаем по HumanoidRootPart)

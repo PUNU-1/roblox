@@ -808,6 +808,29 @@ Icons.Chest = {
 	palette = { K = OUTLINE, b = "8B5A2B", h = "A8743F", y = GOLD, d = "3A2A1A" },
 }
 
+-- Этап 6, блок I1: глаз (вернуться в режим зрителя)
+Icons.Eye = {
+	rows = {
+		"................",
+		"................",
+		"................",
+		"....KKKKKKKK....",
+		"..KKwwwwwwwwKK..",
+		".KwwwwwbbwwwwwK.",
+		"KwwwwbKKKKbwwwwK",
+		"KwwwwbKhhKbwwwwK",
+		"KwwwwbKKKKbwwwwK",
+		".KwwwwwbbwwwwwK.",
+		"..KKwwwwwwwwKK..",
+		"....KKKKKKKK....",
+		"................",
+		"................",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, w = WHITE, b = "3BC6C1", h = "BDF4FF" },
+}
+
 PixelIcon.Icons = Icons
 
 local function resolve(icon: Icon | string): Icon

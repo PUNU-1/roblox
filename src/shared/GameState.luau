@@ -356,6 +356,7 @@ GameState.PlayerAttr = {
 	RunSpent = "RunSpent", -- number, сколько долларов игрок потратил за забег (пишет Purchase; шаг «купи»)
 	RunArrests = "RunArrests", -- number, сколько воров игрок арестовал за забег (пишет ScoreService; шаг «арестуй»)
 	ShopOpen = "ShopOpen", -- boolean, ТОЛЬКО НА КЛИЕНТЕ: открыто окно магазина (пишет Shop.client, читает Tutorial)
+	Spectating = "Spectating", -- boolean, ТОЛЬКО НА КЛИЕНТЕ: игрок в режиме зрителя (пишет Spectate.client)
 	-- этап 6, блок H1: прогресс игрока (пишет ProfileStore; сохраняется навсегда, shared/Progress)
 	Xp = "Xp", -- number, весь опыт
 	Level = "Level", -- number, уровень (по опыту)

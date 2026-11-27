@@ -71,6 +71,10 @@ local function viewing(): boolean
 	return localPlayer:GetAttribute(PlayerAttr.ViewingCameras) == true
 end
 
+local function spectating(): boolean
+	return localPlayer:GetAttribute(PlayerAttr.Spectating) == true
+end
+
 local function knocked(): boolean
 	return number(PlayerAttr.KnockedUntil) > now()
 end
@@ -575,8 +579,8 @@ local function refreshHud()
 			end
 		end
 	end
-	hotbar.Visible = shift and any and not viewing()
-	local showAmmo = shift and FIREARMS[current] == true and not viewing() and not downed()
+	hotbar.Visible = shift and any and not viewing() and not spectating()
+	local showAmmo = shift and FIREARMS[current] == true and not viewing() and not downed() and not spectating()
 	ammoPanel.Visible = showAmmo
 	if showAmmo then
 		local info = (Weapons :: any)[current]
@@ -1021,7 +1025,7 @@ local function step(dt: number)
 	local shift = onShift()
 	syncView()
 	setBound(shift, shownKind ~= "")
-	local visible = shift and not viewing() and (shownKind ~= "" or downed() or number(PlayerAttr.ReviveTarget) ~= 0)
+	local visible = shift and not viewing() and not spectating() and (shownKind ~= "" or downed() or number(PlayerAttr.ReviveTarget) ~= 0)
 	if visible then
 		if container.Parent ~= camera then
 			container.Parent = camera

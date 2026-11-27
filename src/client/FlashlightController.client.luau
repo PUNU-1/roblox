@@ -44,7 +44,7 @@ local function onShift(player: Player): boolean
 end
 
 local function viewingCameras(): boolean
-	return localPlayer:GetAttribute(PlayerAttr.ViewingCameras) == true
+	return localPlayer:GetAttribute(PlayerAttr.ViewingCameras) == true or localPlayer:GetAttribute(PlayerAttr.Spectating) == true
 end
 
 -- Фонарик в голове охранника (для других игроков, и для себя — когда смотришь камеры)
