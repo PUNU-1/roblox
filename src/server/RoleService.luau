@@ -289,6 +289,10 @@ end
 function RoleService.addToRound(player: Player)
 	player:SetAttribute(PlayerAttr.InRound, true)
 	player:SetAttribute(PlayerAttr.Money, 0)
+	player:SetAttribute(PlayerAttr.RunSpent, 0)
+	player:SetAttribute(PlayerAttr.RunArrests, 0)
+	player:SetAttribute(PlayerAttr.NightArrests, 0)
+	player:SetAttribute(PlayerAttr.RunRevives, 0)
 	placeInHall(player, #RoleService.participants())
 end
 
@@ -339,6 +343,9 @@ local function onPlayerAdded(player: Player)
 	player:SetAttribute(PlayerAttr.ViewingCameras, false)
 	player:SetAttribute(PlayerAttr.ViewSource, "")
 	player:SetAttribute(PlayerAttr.Money, 0)
+	player:SetAttribute(PlayerAttr.RunArrests, 0)
+	player:SetAttribute(PlayerAttr.NightArrests, 0)
+	player:SetAttribute(PlayerAttr.RunRevives, 0)
 
 	connections[player] = {
 		player.CharacterAdded:Connect(function(character)

@@ -55,6 +55,8 @@ function ScoreService.beginRun(participants: { Player })
 		-- Обучение (этап 5, блок C): траты и аресты считаются заново каждый забег
 		player:SetAttribute(GameState.PlayerAttr.RunSpent, 0)
 		player:SetAttribute(GameState.PlayerAttr.RunArrests, 0)
+		player:SetAttribute(GameState.PlayerAttr.NightArrests, 0)
+		player:SetAttribute(GameState.PlayerAttr.RunRevives, 0)
 	end
 	incomePool = 0
 	table.clear(diamondsRun)
@@ -99,6 +101,7 @@ function ScoreService.beginNight(participants: { Player })
 		table.insert(participantIds, player.UserId)
 		catchesByUser[player.UserId] = 0
 		arrestMoneyByUser[player.UserId] = 0
+		player:SetAttribute(GameState.PlayerAttr.NightArrests, 0)
 	end
 	FriendService.warm(participants) -- бонус за друга (этап 6, блок H2): к итогу ночи ответ Roblox уже придёт
 	GameState.set(GameState.Attr.Caught, 0)
@@ -118,6 +121,7 @@ function ScoreService.addCatch(player: Player, kind: any)
 	arrestMoneyByUser[player.UserId] = (arrestMoneyByUser[player.UserId] or 0) + reward
 	player:SetAttribute(GameState.PlayerAttr.Money, (tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0) + reward)
 	player:SetAttribute(GameState.PlayerAttr.RunArrests, (tonumber(player:GetAttribute(GameState.PlayerAttr.RunArrests)) or 0) + 1)
+	player:SetAttribute(GameState.PlayerAttr.NightArrests, (tonumber(player:GetAttribute(GameState.PlayerAttr.NightArrests)) or 0) + 1)
 	GameState.set(GameState.Attr.Caught, caughtTotal)
 	ProgressService.arrest(player, kind) -- опыт, задание «арестуй», достижения (этап 6, блок H1)
 end

@@ -355,6 +355,8 @@ GameState.PlayerAttr = {
 	TutorialOff = "TutorialOff", -- boolean, игрок выключил обучение (пишет ProfileStore; сохраняется навсегда)
 	RunSpent = "RunSpent", -- number, сколько долларов игрок потратил за забег (пишет Purchase; шаг «купи»)
 	RunArrests = "RunArrests", -- number, сколько воров игрок арестовал за забег (пишет ScoreService; шаг «арестуй»)
+	NightArrests = "NightArrests", -- number, сколько воров игрок арестовал за текущую ночь (пишет ScoreService; этап 6, блок I2)
+	RunRevives = "RunRevives", -- number, сколько раз игрок поднял товарища за забег (пишет HealthService; этап 6, блок I2)
 	ShopOpen = "ShopOpen", -- boolean, ТОЛЬКО НА КЛИЕНТЕ: открыто окно магазина (пишет Shop.client, читает Tutorial)
 	Spectating = "Spectating", -- boolean, ТОЛЬКО НА КЛИЕНТЕ: игрок в режиме зрителя (пишет Spectate.client)
 	-- этап 6, блок H1: прогресс игрока (пишет ProfileStore; сохраняется навсегда, shared/Progress)

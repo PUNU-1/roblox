@@ -146,6 +146,7 @@ local function revive(target: Player, reviver: Player?)
 		Audio.playOnce(Config.Sounds.GuardGetUp, root, Config.Sounds.GuardGetUpVolume)
 	end
 	if reviver then
+		reviver:SetAttribute(PlayerAttr.RunRevives, (tonumber(reviver:GetAttribute(PlayerAttr.RunRevives)) or 0) + 1)
 		bannerRemote:FireAllClients(("%s IS BACK UP!"):format(string.upper(target.DisplayName)), "info")
 		ProgressService.revived(reviver) -- опыт и задание «подними друга» (этап 6, блок H1)
 	end
