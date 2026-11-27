@@ -930,9 +930,13 @@ end
 local function lootBag(model: Model)
 	local t = sizeOf(model, "UpperTorso")
 	local bag = ThiefKinds.attach(model, "UpperTorso", "robber_bag_01", {
-		{ name = "Sack", size = Vector3.new(t.X * 0.95, t.Y * 1.35, 1.3), offset = CFrame.new(0, t.Y * 0.05, t.Z * 0.5 + 0.75), color = Color3.fromHex("B89B6A"), material = Enum.Material.Fabric, sphere = true },
-		{ name = "Neck", size = Vector3.new(0.5, 0.6, 0.5), offset = CFrame.new(0, t.Y * 0.78, t.Z * 0.5 + 0.7), color = Color3.fromHex("A0845A"), material = Enum.Material.Fabric },
-		{ name = "Tie", size = Vector3.new(0.12, 0.62, 0.62), offset = CFrame.new(0, t.Y * 0.68, t.Z * 0.5 + 0.7) * CFrame.Angles(0, 0, math.pi / 2), color = Color3.fromHex("6B4A2E"), material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder },
+		{ name = "Sack", size = Vector3.new(t.X * 1.12, t.Y * 1.55, 1.5), offset = CFrame.new(0, t.Y * 0.02, t.Z * 0.5 + 0.85), color = Color3.fromHex("B89B6A"), material = Enum.Material.Fabric, sphere = true },
+		{ name = "Patch", size = Vector3.new(0.5, 0.4, 0.06), offset = CFrame.new(-t.X * 0.3, -t.Y * 0.3, t.Z * 0.5 + 1.42) * CFrame.Angles(0, 0, 0.2), color = Color3.fromHex("8C7450"), material = Enum.Material.Fabric },
+		{ name = "Neck", size = Vector3.new(0.55, 0.65, 0.55), offset = CFrame.new(0, t.Y * 0.84, t.Z * 0.5 + 0.8), color = Color3.fromHex("A0845A"), material = Enum.Material.Fabric },
+		{ name = "Tie", size = Vector3.new(0.12, 0.68, 0.68), offset = CFrame.new(0, t.Y * 0.72, t.Z * 0.5 + 0.8) * CFrame.Angles(0, 0, math.pi / 2), color = Color3.fromHex("6B4A2E"), material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder },
+		-- Из мешка торчит уголок золотой рамы и падает монета: сразу понятно, что внутри добыча
+		{ name = "FrameCorner", size = Vector3.new(0.6, 0.12, 0.12), offset = CFrame.new(t.X * 0.18, t.Y * 1.05, t.Z * 0.5 + 0.7) * CFrame.Angles(0, 0, 0.5), color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal },
+		{ name = "FrameCorner2", size = Vector3.new(0.12, 0.45, 0.12), offset = CFrame.new(t.X * 0.3, t.Y * 1.0, t.Z * 0.5 + 0.7) * CFrame.Angles(0, 0, 0.5), color = Color3.fromHex("D4A93A"), material = Enum.Material.Metal },
 		{ name = "StrapL", size = Vector3.new(0.16, t.Y * 1.0, 0.08), offset = CFrame.new(-t.X * 0.3, 0, -t.Z * 0.5 - 0.06), color = Color3.fromHex("6B4A2E"), material = Enum.Material.Fabric },
 		{ name = "StrapR", size = Vector3.new(0.16, t.Y * 1.0, 0.08), offset = CFrame.new(t.X * 0.3, 0, -t.Z * 0.5 - 0.06), color = Color3.fromHex("6B4A2E"), material = Enum.Material.Fabric },
 	}, CFrame.identity)
@@ -951,6 +955,34 @@ local function lootBag(model: Model)
 		label.TextColor3 = Color3.fromHex("3FB56B")
 		label.Parent = gui
 		gui.Parent = sack
+	end
+end
+
+-- Стрелок: наколенники и ремень с кобурой на бедре; хватальщик: ремень с подсумками.
+local function legGear(model: Model, gunner: boolean)
+	local l = sizeOf(model, "LowerTorso")
+	local belt: { ModelLibrary.StubPart } = {
+		{ name = "Belt", size = Vector3.new(l.X * 1.06, math.max(0.26, l.Y * 0.6), l.Z * 1.08), offset = CFrame.new(0, l.Y * 0.1, 0), color = Color3.fromHex("141518"), material = Enum.Material.Fabric },
+		{ name = "Buckle", size = Vector3.new(0.3, 0.22, 0.07), offset = CFrame.new(0, l.Y * 0.1, -l.Z * 0.56), color = Color3.fromHex("5A6070"), material = Enum.Material.Metal },
+		{ name = "PouchBack", size = Vector3.new(0.5, 0.4, 0.26), offset = CFrame.new(0, -0.1, l.Z * 0.5 + 0.12), color = Color3.fromHex("23262B"), material = Enum.Material.Fabric },
+	}
+	if gunner then
+		table.insert(belt, { name = "Holster", size = Vector3.new(0.3, 0.75, 0.5), offset = CFrame.new(l.X * 0.58, -0.45, 0), color = Color3.fromHex("141518"), material = Enum.Material.Leather })
+		table.insert(belt, { name = "LegStrap", size = Vector3.new(0.34, 0.1, 0.56), offset = CFrame.new(l.X * 0.58, -0.7, 0), color = Color3.fromHex("23262B"), material = Enum.Material.Fabric })
+	else
+		table.insert(belt, { name = "PouchL", size = Vector3.new(0.4, 0.42, 0.26), offset = CFrame.new(-l.X * 0.3, -0.18, -l.Z * 0.5 - 0.12), color = Color3.fromHex("6B5A40"), material = Enum.Material.Fabric })
+		table.insert(belt, { name = "PouchR", size = Vector3.new(0.4, 0.42, 0.26), offset = CFrame.new(l.X * 0.3, -0.18, -l.Z * 0.5 - 0.12), color = Color3.fromHex("6B5A40"), material = Enum.Material.Fabric })
+	end
+	ThiefKinds.attach(model, "LowerTorso", "robber_belt_01", belt, CFrame.identity)
+	if not gunner then
+		return
+	end
+	for _, leg in { "LeftLowerLeg", "RightLowerLeg" } do
+		local s = sizeOf(model, leg)
+		ThiefKinds.attach(model, leg, "robber_kneepad_01", {
+			{ name = "Pad", size = Vector3.new(s.X * 0.84, s.Y * 0.32, 0.24), offset = CFrame.new(0, s.Y * 0.34, -s.Z * 0.5 - 0.06), color = Color3.fromHex("1E2124"), material = Enum.Material.Rubber },
+			{ name = "Strap", size = Vector3.new(s.X * 1.06, 0.1, s.Z * 1.06), offset = CFrame.new(0, s.Y * 0.26, 0), color = Color3.fromHex("141518"), material = Enum.Material.Fabric },
+		}, CFrame.identity)
 	end
 end
 
@@ -996,6 +1028,7 @@ local function buildRobber(role: string, gun: string?): Model?
 	balaclava(model, colors, if role == "Grabber" then colors.Stripe else nil)
 	vest(model, colors, role == "Gunner")
 	gloves(model)
+	legGear(model, role == "Gunner")
 	if role == "Grabber" then
 		lootBag(model)
 		arm(model, "Baton")

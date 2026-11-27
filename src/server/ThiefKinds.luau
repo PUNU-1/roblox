@@ -17,14 +17,7 @@ local ThiefKinds = {}
 
 local SKIN = Color3.fromHex("F5CDA8")
 local DARK = Color3.fromHex("111111")
-
--- Маска обычного вора: чёрный мешок на голову с прорезью для глаз.
-local MASK_STUB: { ModelLibrary.StubPart } = {
-	{ size = Vector3.new(1.3, 1.3, 1.3), offset = CFrame.identity, color = Config.Thief.Color, material = Enum.Material.Fabric },
-	{ size = Vector3.new(1.0, 0.28, 0.05), offset = CFrame.new(0, 0.15, -0.66), color = SKIN },
-	{ size = Vector3.new(0.16, 0.16, 0.04), offset = CFrame.new(-0.22, 0.15, -0.7), color = DARK },
-	{ size = Vector3.new(0.16, 0.16, 0.04), offset = CFrame.new(0.22, 0.15, -0.7), color = DARK },
-}
+local WHITE = Color3.fromHex("F4F4F0")
 
 export type Look = {
 	head: Color3,
@@ -62,15 +55,6 @@ end
 
 ---------------------------------------------------------------- виды
 
-local function pickpocket(color: Color3): Model?
-	local model = ThiefKinds.rig({ head = color, torso = color, arms = color, legs = color })
-	local humanoid = model and model:FindFirstChildOfClass("Humanoid")
-	if model and humanoid then
-		humanoid:AddAccessory(ModelLibrary.accessory(MapSchema.Models.ThiefMask, MASK_STUB, "FaceCenterAttachment"))
-	end
-	return model
-end
-
 local function sizeOf(model: Model, partName: string): Vector3
 	local part = model:FindFirstChild(partName)
 	return if part and part:IsA("BasePart") then part.Size else Vector3.new(1, 1, 1)
@@ -78,6 +62,136 @@ end
 
 local GOLD = Color3.fromHex("D4A93A")
 local STEEL = Color3.fromHex("A9B0BC")
+local LEATHER = Color3.fromHex("6B4A2E")
+
+-- Перчатки на обе кисти (у каждого вида свой цвет).
+local function gloves(model: Model, name: string, color: Color3, material: Enum.Material?)
+	for _, hand in { "LeftHand", "RightHand" } do
+		local g = sizeOf(model, hand)
+		ThiefKinds.attach(model, hand, name, {
+			{ name = "Glove", size = Vector3.new(g.X * 1.16, g.Y * 1.3, g.Z * 1.16), offset = CFrame.identity, color = color, material = material or Enum.Material.Fabric },
+			{ name = "Cuff", size = Vector3.new(g.X * 1.22, g.Y * 0.4, g.Z * 1.22), offset = CFrame.new(0, g.Y * 0.6, 0), color = color:Lerp(Color3.new(0, 0, 0), 0.25), material = material or Enum.Material.Fabric },
+		}, CFrame.identity)
+	end
+end
+
+-- Ботинки на обе ступни: верх, подошва, шнурки.
+local function boots(model: Model, name: string, color: Color3, sole: Color3)
+	for _, foot in { "LeftFoot", "RightFoot" } do
+		local f = sizeOf(model, foot)
+		ThiefKinds.attach(model, foot, name, {
+			{ name = "Boot", size = Vector3.new(f.X * 1.1, f.Y * 1.1, f.Z * 1.14), offset = CFrame.new(0, f.Y * 0.06, -f.Z * 0.04), color = color, material = Enum.Material.Leather },
+			{ name = "Sole", size = Vector3.new(f.X * 1.14, f.Y * 0.34, f.Z * 1.18), offset = CFrame.new(0, -f.Y * 0.36, -f.Z * 0.05), color = sole, material = Enum.Material.Rubber },
+			{ name = "Laces", size = Vector3.new(f.X * 0.4, 0.05, f.Z * 0.36), offset = CFrame.new(0, f.Y * 0.62, -f.Z * 0.2), color = sole, material = Enum.Material.Fabric },
+		}, CFrame.identity)
+	end
+end
+
+-- Глаза в прорезях маски: белок и тёмный зрачок, чуть скошенный — вор косится.
+local function eyes(stub: { ModelLibrary.StubPart }, h: Vector3, y: number, z: number)
+	for _, side in { -1, 1 } do
+		table.insert(stub, { name = "Eye", size = Vector3.new(h.X * 0.17, h.Y * 0.14, 0.04), offset = CFrame.new(side * h.X * 0.18, y, z), color = WHITE })
+		table.insert(stub, { name = "Pupil", size = Vector3.new(h.X * 0.08, h.Y * 0.09, 0.04), offset = CFrame.new(side * h.X * 0.18 + h.X * 0.03, y - h.Y * 0.01, z - 0.02), color = DARK })
+	end
+end
+
+-- Карманник: классический вор — чёрная шапка с отворотом, чёрная повязка-маска на глазах с белыми прорезями,
+-- ухмылка, кофта в белую полоску (грудь и рукава), чёрные перчатки, сумка через плечо, отмычки на поясе.
+local function pickpocket(): Model?
+	local color = Config.ThiefTypes.Pickpocket.Color
+	local model = ThiefKinds.rig({ head = SKIN, torso = color, arms = color, legs = color })
+	if not model then
+		return nil
+	end
+	local h = sizeOf(model, "Head")
+	local black = Color3.fromHex("0C0C0C")
+	local mask: { ModelLibrary.StubPart } = {
+		{ name = "Beanie", size = Vector3.new(h.X * 1.1, h.Y * 0.78, h.Z * 1.1), offset = CFrame.new(0, h.Y * 0.28, 0.02), color = color, material = Enum.Material.Fabric, sphere = true },
+		{ name = "Cuff", size = Vector3.new(h.X * 1.12, h.Y * 0.18, h.Z * 1.12), offset = CFrame.new(0, h.Y * 0.2, 0), color = Color3.fromHex("262626"), material = Enum.Material.Fabric },
+		{ name = "Band", size = Vector3.new(h.X * 1.06, h.Y * 0.24, h.Z * 1.06), offset = CFrame.new(0, h.Y * 0.02, 0), color = black, material = Enum.Material.Fabric },
+		{ name = "KnotL", size = Vector3.new(h.X * 0.12, h.Y * 0.3, 0.06), offset = CFrame.new(-h.X * 0.1, -h.Y * 0.08, h.Z * 0.56) * CFrame.Angles(0, 0, 0.4), color = black, material = Enum.Material.Fabric },
+		{ name = "KnotR", size = Vector3.new(h.X * 0.12, h.Y * 0.3, 0.06), offset = CFrame.new(h.X * 0.1, -h.Y * 0.08, h.Z * 0.56) * CFrame.Angles(0, 0, -0.4), color = black, material = Enum.Material.Fabric },
+		{ name = "Grin", size = Vector3.new(h.X * 0.3, h.Y * 0.05, 0.04), offset = CFrame.new(h.X * 0.04, -h.Y * 0.27, -h.Z * 0.5) * CFrame.Angles(0, 0, 0.12), color = Color3.fromHex("6A3A2A") },
+	}
+	eyes(mask, h, h.Y * 0.03, -h.Z * 0.55)
+	ThiefKinds.attach(model, "Head", MapSchema.Models.ThiefMask, mask, CFrame.identity)
+	local t = sizeOf(model, "UpperTorso")
+	local shirt: { ModelLibrary.StubPart } = {}
+	for index = 0, 3 do
+		table.insert(shirt, { name = "Stripe", size = Vector3.new(t.X * 1.02, t.Y * 0.08, t.Z * 1.04), offset = CFrame.new(0, t.Y * (0.32 - index * 0.22), 0), color = WHITE, material = Enum.Material.Fabric })
+	end
+	-- Ремень сумки через плечо, спереди и сзади
+	table.insert(shirt, { name = "Strap", size = Vector3.new(0.16, t.Y * 1.35, 0.06), offset = CFrame.new(0, 0, -t.Z * 0.55) * CFrame.Angles(0, 0, 0.75), color = LEATHER, material = Enum.Material.Leather })
+	table.insert(shirt, { name = "StrapBack", size = Vector3.new(0.16, t.Y * 1.35, 0.06), offset = CFrame.new(0, 0, t.Z * 0.55) * CFrame.Angles(0, 0, -0.75), color = LEATHER, material = Enum.Material.Leather })
+	ThiefKinds.attach(model, "UpperTorso", "thief_pickpocket_shirt_01", shirt, CFrame.identity)
+	for _, arm in { "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm" } do
+		local a = sizeOf(model, arm)
+		ThiefKinds.attach(model, arm, "thief_pickpocket_sleeve_01", {
+			{ name = "Stripe", size = Vector3.new(a.X * 1.05, a.Y * 0.14, a.Z * 1.05), offset = CFrame.new(0, a.Y * 0.18, 0), color = WHITE, material = Enum.Material.Fabric },
+			{ name = "Stripe", size = Vector3.new(a.X * 1.05, a.Y * 0.14, a.Z * 1.05), offset = CFrame.new(0, -a.Y * 0.22, 0), color = WHITE, material = Enum.Material.Fabric },
+		}, CFrame.identity)
+	end
+	-- Сумка на правом боку и связка отмычек спереди
+	local l = sizeOf(model, "LowerTorso")
+	ThiefKinds.attach(model, "LowerTorso", "thief_pickpocket_bag_01", {
+		{ name = "Bag", size = Vector3.new(0.4, 0.75, 0.9), offset = CFrame.new(l.X * 0.6, -0.25, 0.05), color = Color3.fromHex("8A6A44"), material = Enum.Material.Fabric },
+		{ name = "Flap", size = Vector3.new(0.44, 0.32, 0.92), offset = CFrame.new(l.X * 0.62, 0.0, 0.05), color = LEATHER, material = Enum.Material.Leather },
+		{ name = "Buckle", size = Vector3.new(0.06, 0.14, 0.2), offset = CFrame.new(l.X * 0.62 + 0.22, -0.08, 0.05), color = GOLD, material = Enum.Material.Metal },
+		{ name = "Picks", size = Vector3.new(0.3, 0.36, 0.06), offset = CFrame.new(-l.X * 0.25, -0.12, -l.Z * 0.56), color = STEEL, material = Enum.Material.Metal },
+		{ name = "Ring", size = Vector3.new(0.04, 0.2, 0.2), offset = CFrame.new(-l.X * 0.25, 0.08, -l.Z * 0.58) * CFrame.Angles(0, math.pi / 2, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	}, CFrame.identity)
+	gloves(model, "thief_glove_01", Color3.fromHex("0E0E0E"))
+	boots(model, "thief_boot_01", Color3.fromHex("1E1E1E"), Color3.fromHex("3A3A3A"))
+	return model
+end
+
+-- Взломщик (ломает камеры): тёмно-красный комбинезон на молнии с карманами, бордовая балаклава с прорезью
+-- и глазами, очки на лбу, ремень с баллончиком краски и кусачками, большая красная монтировка в руке.
+local function breaker(): Model?
+	local color = Config.ThiefTypes.Breaker.Color
+	local model = ThiefKinds.rig({ head = SKIN, torso = color, arms = color, legs = color })
+	if not model then
+		return nil
+	end
+	local h = sizeOf(model, "Head")
+	local dark = Color3.fromHex("461313")
+	local mask: { ModelLibrary.StubPart } = {
+		{ name = "Balaclava", size = Vector3.new(h.X * 1.08, h.Y * 1.06, h.Z * 1.08), offset = CFrame.new(0, h.Y * 0.02, 0), color = Color3.fromHex("2A0E0E"), material = Enum.Material.Fabric, sphere = true },
+		{ name = "EyeSlit", size = Vector3.new(h.X * 0.68, h.Y * 0.2, 0.05), offset = CFrame.new(0, h.Y * 0.05, -h.Z * 0.53), color = SKIN },
+		{ name = "GoggleBand", size = Vector3.new(h.X * 1.1, h.Y * 0.12, h.Z * 1.1), offset = CFrame.new(0, h.Y * 0.32, 0), color = DARK, material = Enum.Material.Fabric },
+		{ name = "LensL", size = Vector3.new(h.X * 0.3, h.Y * 0.2, 0.12), offset = CFrame.new(-h.X * 0.19, h.Y * 0.36, -h.Z * 0.55), color = Color3.fromHex("3BC6C1"), material = Enum.Material.Glass, transparency = 0.1 },
+		{ name = "LensR", size = Vector3.new(h.X * 0.3, h.Y * 0.2, 0.12), offset = CFrame.new(h.X * 0.19, h.Y * 0.36, -h.Z * 0.55), color = Color3.fromHex("3BC6C1"), material = Enum.Material.Glass, transparency = 0.1 },
+		{ name = "Seam", size = Vector3.new(0.06, h.Y * 0.5, h.Z * 0.9), offset = CFrame.new(0, h.Y * 0.36, h.Z * 0.1), color = dark, material = Enum.Material.Fabric },
+	}
+	eyes(mask, h, h.Y * 0.05, -h.Z * 0.56)
+	ThiefKinds.attach(model, "Head", "thief_breaker_mask_01", mask, CFrame.identity)
+	local t = sizeOf(model, "UpperTorso")
+	ThiefKinds.attach(model, "UpperTorso", "thief_breaker_suit_01", {
+		{ name = "Zip", size = Vector3.new(0.06, t.Y * 0.95, 0.05), offset = CFrame.new(0, 0, -t.Z * 0.52), color = STEEL, material = Enum.Material.Metal },
+		{ name = "PocketL", size = Vector3.new(t.X * 0.24, t.Y * 0.2, 0.06), offset = CFrame.new(-t.X * 0.24, t.Y * 0.18, -t.Z * 0.52), color = dark, material = Enum.Material.Fabric },
+		{ name = "PocketR", size = Vector3.new(t.X * 0.24, t.Y * 0.2, 0.06), offset = CFrame.new(t.X * 0.24, t.Y * 0.18, -t.Z * 0.52), color = dark, material = Enum.Material.Fabric },
+		{ name = "Collar", size = Vector3.new(t.X * 0.5, 0.16, t.Z * 1.04), offset = CFrame.new(0, t.Y * 0.5, 0), color = dark, material = Enum.Material.Fabric },
+	}, CFrame.identity)
+	local l = sizeOf(model, "LowerTorso")
+	ThiefKinds.attach(model, "LowerTorso", "thief_breaker_belt_01", {
+		{ name = "Belt", size = Vector3.new(l.X * 1.06, math.max(0.26, l.Y * 0.6), l.Z * 1.08), offset = CFrame.new(0, l.Y * 0.1, 0), color = DARK, material = Enum.Material.Leather },
+		{ name = "Spray", size = Vector3.new(0.55, 0.26, 0.26), offset = CFrame.new(-l.X * 0.32, -0.22, -l.Z * 0.6) * CFrame.Angles(0, 0, math.pi / 2), color = Color3.fromHex("2E2E2E"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "SprayCap", size = Vector3.new(0.18, 0.16, 0.18), offset = CFrame.new(-l.X * 0.32, 0.1, -l.Z * 0.6), color = Color3.fromHex("FF3B4E") },
+		{ name = "Pliers", size = Vector3.new(0.14, 0.5, 0.08), offset = CFrame.new(l.X * 0.3, -0.22, -l.Z * 0.6), color = Color3.fromHex("F28C28"), material = Enum.Material.Rubber },
+	}, CFrame.identity)
+	-- Монтировка в правой руке: длинная, красная, внизу загнутый крюк с раздвоенным концом
+	local g = sizeOf(model, "RightHand")
+	local red = Color3.fromHex("D7263D")
+	ThiefKinds.attach(model, "RightHand", "thief_breaker_crowbar_01", {
+		{ name = "Bar", size = Vector3.new(0.16, 2.6, 0.16), offset = CFrame.new(0, -g.Y * 0.5 - 0.2, 0), color = red, material = Enum.Material.Metal },
+		{ name = "Hook", size = Vector3.new(0.16, 0.16, 0.55), offset = CFrame.new(0, -g.Y * 0.5 - 1.45, -0.2), color = red, material = Enum.Material.Metal },
+		{ name = "Claw", size = Vector3.new(0.22, 0.32, 0.08), offset = CFrame.new(0, -g.Y * 0.5 - 1.35, -0.48), color = STEEL, material = Enum.Material.Metal },
+		{ name = "Tip", size = Vector3.new(0.24, 0.24, 0.06), offset = CFrame.new(0, -g.Y * 0.5 + 1.15, 0.08) * CFrame.Angles(0.4, 0, 0), color = STEEL, material = Enum.Material.Metal },
+	}, CFrame.identity)
+	gloves(model, "thief_glove_01", Color3.fromHex("0E0E0E"))
+	boots(model, "thief_breaker_boot_01", Color3.fromHex("2B1A12"), DARK)
+	return model
+end
 
 -- Громила: крупный, в белой майке (голые плечи и руки), чёрная шапка, красная бандана на лице,
 -- хмурые брови, золотая цепь, кожаные перчатки с заклёпками.
@@ -119,6 +233,7 @@ local function brute(): Model?
 	end
 	ThiefKinds.attach(model, "LeftHand", MapSchema.Models.BruteGlove, glove, CFrame.identity)
 	ThiefKinds.attach(model, "RightHand", MapSchema.Models.BruteGlove, glove, CFrame.identity)
+	boots(model, "thief_brute_boot_01", Color3.fromHex("3B2A20"), Color3.fromHex("1F1612"))
 	return model
 end
 
@@ -151,6 +266,14 @@ local function shadow(): Model?
 		{ name = "CordL", size = Vector3.new(0.06, t.Y * 0.35, 0.05), offset = CFrame.new(-t.X * 0.08, t.Y * 0.2, -t.Z * 0.53), color = Color3.fromHex("3A3A44"), material = Enum.Material.Fabric },
 		{ name = "CordR", size = Vector3.new(0.06, t.Y * 0.3, 0.05), offset = CFrame.new(t.X * 0.08, t.Y * 0.22, -t.Z * 0.53), color = Color3.fromHex("3A3A44"), material = Enum.Material.Fabric },
 	}, CFrame.identity)
+	-- Мягкие перчатки и тихие туфли (матовая ткань, в луче фонарика не бликуют)
+	gloves(model, "thief_shadow_glove_01", Color3.fromHex("15151B"))
+	for _, foot in { "LeftFoot", "RightFoot" } do
+		local f = sizeOf(model, foot)
+		ThiefKinds.attach(model, foot, "thief_shadow_shoe_01", {
+			{ name = "Shoe", size = Vector3.new(f.X * 1.08, f.Y * 1.0, f.Z * 1.12), offset = CFrame.new(0, 0, -f.Z * 0.04), color = Color3.fromHex("121218"), material = Enum.Material.Fabric },
+		}, CFrame.identity)
+	end
 	return model
 end
 
@@ -209,6 +332,8 @@ local function miner(): Model?
 		{ name = "PickR", size = Vector3.new(0.6, 0.2, 0.2), offset = CFrame.new(0.7, 1.17, 0) * CFrame.Angles(0, 0, -0.3), color = Color3.fromHex("8A93A6"), material = Enum.Material.Metal },
 		{ name = "Grip", size = Vector3.new(0.24, 0.5, 0.24), offset = CFrame.new(0, -1.1, 0), color = Color3.fromHex("2B2F3A"), material = Enum.Material.Rubber },
 	}, CFrame.new(0, 0, t.Z * 0.66) * CFrame.Angles(0, 0, 0.6))
+	gloves(model, "thief_miner_glove_01", Color3.fromHex("C9A46A"))
+	boots(model, "thief_miner_boot_01", Color3.fromHex("6B4A2E"), Color3.fromHex("2B1E14"))
 	return model
 end
 
@@ -253,6 +378,8 @@ local function glazier(): Model?
 		{ name = "Cup", size = Vector3.new(0.14, 0.85, 0.85), offset = CFrame.new(0, -g.Y * 0.5 - 0.66, 0) * CFrame.Angles(0, 0, math.pi / 2), color = Color3.fromHex("C8343A"), material = Enum.Material.Rubber, shape = Enum.PartType.Cylinder },
 		{ name = "Wheel", size = Vector3.new(0.05, 0.28, 0.28), offset = CFrame.new(0, -g.Y * 0.5 - 0.2, -0.22), color = steel, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
 	}, CFrame.identity)
+	gloves(model, "thief_glazier_glove_01", Color3.fromHex("2B2F3A"))
+	boots(model, "thief_glazier_boot_01", Color3.fromHex("33373F"), info.Harness)
 	return model
 end
 
@@ -290,10 +417,14 @@ local function cutter(): Model?
 	}, CFrame.identity)
 	local g = sizeOf(model, "RightHand")
 	ThiefKinds.attach(model, "RightHand", MapSchema.Models.CutterSnips, {
-		{ name = "HandleL", size = Vector3.new(0.13, 0.7, 0.13), offset = CFrame.new(-0.08, -g.Y * 0.5 - 0.15, 0) * CFrame.Angles(0, 0, -0.12), color = Color3.fromHex("C8343A"), material = Enum.Material.Rubber },
-		{ name = "HandleR", size = Vector3.new(0.13, 0.7, 0.13), offset = CFrame.new(0.08, -g.Y * 0.5 - 0.15, 0) * CFrame.Angles(0, 0, 0.12), color = Color3.fromHex("C8343A"), material = Enum.Material.Rubber },
-		{ name = "Jaws", size = Vector3.new(0.16, 0.42, 0.1), offset = CFrame.new(0, -g.Y * 0.5 - 0.7, 0), color = STEEL, material = Enum.Material.Metal },
+		-- Большие кусачки-болторез: длинные красные ручки, стальные шарнир и челюсти
+		{ name = "HandleL", size = Vector3.new(0.15, 1.2, 0.15), offset = CFrame.new(-0.12, -g.Y * 0.5 - 0.35, 0) * CFrame.Angles(0, 0, -0.1), color = Color3.fromHex("C8343A"), material = Enum.Material.Rubber },
+		{ name = "HandleR", size = Vector3.new(0.15, 1.2, 0.15), offset = CFrame.new(0.12, -g.Y * 0.5 - 0.35, 0) * CFrame.Angles(0, 0, 0.1), color = Color3.fromHex("C8343A"), material = Enum.Material.Rubber },
+		{ name = "Pivot", size = Vector3.new(0.3, 0.22, 0.2), offset = CFrame.new(0, -g.Y * 0.5 - 1.0, 0), color = STEEL, material = Enum.Material.Metal },
+		{ name = "Jaws", size = Vector3.new(0.22, 0.55, 0.12), offset = CFrame.new(0, -g.Y * 0.5 - 1.35, 0), color = STEEL, material = Enum.Material.Metal },
 	}, CFrame.identity)
+	gloves(model, "thief_cutter_glove_01", Color3.fromHex("F28C28"), Enum.Material.Rubber)
+	boots(model, "thief_cutter_boot_01", Color3.fromHex("3A3F4B"), Color3.fromHex("141518"))
 	return model
 end
 
@@ -370,12 +501,8 @@ local function fakeGuard(player: Player?): Model?
 end
 
 local BUILDERS: { [string]: () -> Model? } = {
-	Pickpocket = function()
-		return pickpocket(Config.ThiefTypes.Pickpocket.Color)
-	end,
-	Breaker = function()
-		return pickpocket(Config.ThiefTypes.Breaker.Color)
-	end,
+	Pickpocket = pickpocket,
+	Breaker = breaker,
 	Brute = brute,
 	Shadow = shadow,
 	Miner = miner,
