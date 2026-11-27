@@ -413,39 +413,106 @@ end
 
 ---------------------------------------------------------------- модели других залов
 
--- Фонтан со статуей: каменная чаша с водой, колонна, верхняя чаша, струи. Низ по центру.
-local FOUNTAIN_STUB: Stub = {
-	{ name = "Basin", size = Vector3.new(1.6, 9, 9), offset = CFrame.new(0, 0.8, 0) * CFrame.Angles(0, 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder },
-	{ name = "Rim", size = Vector3.new(0.3, 9.6, 9.6), offset = CFrame.new(0, 1.65, 0) * CFrame.Angles(0, 0, rad(90)), color = STONE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder },
-	{ name = "Water", size = Vector3.new(0.1, 8.2, 8.2), offset = CFrame.new(0, 1.82, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("5FB8E0"), material = Enum.Material.Glass, transparency = 0.25, shape = Enum.PartType.Cylinder, collide = false },
-	{ name = "Pillar", size = Vector3.new(2.6, 1.4, 1.4), offset = CFrame.new(0, 3.1, 0) * CFrame.Angles(0, 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder },
-	{ name = "Bowl", size = Vector3.new(0.5, 4, 4), offset = CFrame.new(0, 4.4, 0) * CFrame.Angles(0, 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder },
-	{ name = "BowlWater", size = Vector3.new(0.08, 3.4, 3.4), offset = CFrame.new(0, 4.66, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("5FB8E0"), material = Enum.Material.Glass, transparency = 0.25, shape = Enum.PartType.Cylinder, collide = false },
-	{ name = "Urn", size = Vector3.new(0.9, 0.9, 0.9), offset = CFrame.new(0, 5.1, 0) * CFrame.Angles(0, 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder },
-	{ name = "UrnBody", size = Vector3.new(1.1, 1.1, 1.1), offset = CFrame.new(0, 5.9, 0), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball },
-	{ name = "UrnTop", size = Vector3.new(0.45, 0.45, 0.45), offset = CFrame.new(0, 6.6, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
-	{ name = "Jet", size = Vector3.new(0.14, 0.14, 2.3), offset = CFrame.Angles(0, 0, 0) * CFrame.new(0, 3.4, -2.4) * CFrame.Angles(rad(55), 0, 0), color = hex("9AD7F0"), material = Enum.Material.Glass, transparency = 0.35, collide = false },
-	{ name = "Jet", size = Vector3.new(0.14, 0.14, 2.3), offset = CFrame.Angles(0, rad(90), 0) * CFrame.new(0, 3.4, -2.4) * CFrame.Angles(rad(55), 0, 0), color = hex("9AD7F0"), material = Enum.Material.Glass, transparency = 0.35, collide = false },
-	{ name = "Jet", size = Vector3.new(0.14, 0.14, 2.3), offset = CFrame.Angles(0, rad(180), 0) * CFrame.new(0, 3.4, -2.4) * CFrame.Angles(rad(55), 0, 0), color = hex("9AD7F0"), material = Enum.Material.Glass, transparency = 0.35, collide = false },
-	{ name = "Jet", size = Vector3.new(0.14, 0.14, 2.3), offset = CFrame.Angles(0, rad(270), 0) * CFrame.new(0, 3.4, -2.4) * CFrame.Angles(rad(55), 0, 0), color = hex("9AD7F0"), material = Enum.Material.Glass, transparency = 0.35, collide = false },
-}
+-- Фонтан со статуей (R3): ступенчатая мраморная чаша, золотые изливы на ободе, переливающиеся струи,
+-- рифлёная колонна с кронштейнами, верхняя чаша, урна с ручками и бирюзовая вода. Низ по центру.
+local function buildFountainStub(): Stub
+	local waterColor = hex("3BC6C1")
+	local jetColor = hex("AEEBFF")
+	local foamColor = hex("F2FAFF")
+	local brassDark = hex("C9922A")
+	local marbleWarm = hex("E8DCC4")
+	local list: Stub = {
+		{ name = "BasinStep", size = Vector3.new(0.32, 10.1, 10.1), offset = CFrame.new(0, 0.16, 0) * CFrame.Angles(0, 0, rad(90)), color = STONE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder },
+		{ name = "Basin", size = Vector3.new(1.36, 9, 9), offset = CFrame.new(0, 1, 0) * CFrame.Angles(0, 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder },
+		{ name = "BasinBand", size = Vector3.new(0.18, 9.2, 9.2), offset = CFrame.new(0, 0.9, 0) * CFrame.Angles(0, 0, rad(90)), color = marbleWarm, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Rim", size = Vector3.new(0.32, 9.6, 9.6), offset = CFrame.new(0, 1.72, 0) * CFrame.Angles(0, 0, rad(90)), color = STONE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder },
+		{ name = "RimLip", size = Vector3.new(0.12, 9.1, 9.1), offset = CFrame.new(0, 1.9, 0) * CFrame.Angles(0, 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "PoolGlow", size = Vector3.new(0.08, 3.2, 3.2), offset = CFrame.new(0, 1.48, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("3BC6C1"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Water", size = Vector3.new(0.14, 8.2, 8.2), offset = CFrame.new(0, 1.76, 0) * CFrame.Angles(0, 0, rad(90)), color = waterColor, material = Enum.Material.Glass, transparency = 0.55, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "PillarBase", size = Vector3.new(0.45, 2.2, 2.2), offset = CFrame.new(0, 2, 0) * CFrame.Angles(0, 0, rad(90)), color = STONE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Pillar", size = Vector3.new(2.3, 1.45, 1.45), offset = CFrame.new(0, 3.2, 0) * CFrame.Angles(0, 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder },
+		{ name = "PillarCap", size = Vector3.new(0.3, 2, 2), offset = CFrame.new(0, 4.35, 0) * CFrame.Angles(0, 0, rad(90)), color = STONE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Bowl", size = Vector3.new(0.46, 4.2, 4.2), offset = CFrame.new(0, 4.65, 0) * CFrame.Angles(0, 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder },
+		{ name = "BowlRim", size = Vector3.new(0.18, 4.6, 4.6), offset = CFrame.new(0, 4.88, 0) * CFrame.Angles(0, 0, rad(90)), color = STONE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "BowlWater", size = Vector3.new(0.08, 3.6, 3.6), offset = CFrame.new(0, 4.9, 0) * CFrame.Angles(0, 0, rad(90)), color = waterColor, material = Enum.Material.Glass, transparency = 0.55, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "UrnBase", size = Vector3.new(0.45, 1.35, 1.35), offset = CFrame.new(0, 5.15, 0) * CFrame.Angles(0, 0, rad(90)), color = STONE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Urn", size = Vector3.new(0.7, 0.85, 0.85), offset = CFrame.new(0, 5.65, 0) * CFrame.Angles(0, 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder },
+		{ name = "UrnBody", size = Vector3.new(1.2, 1.1, 1.2), offset = CFrame.new(0, 6.2, 0), color = MARBLE, material = Enum.Material.Marble, sphere = true },
+		{ name = "UrnCollar", size = Vector3.new(0.16, 0.72, 0.72), offset = CFrame.new(0, 6.82, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "UrnTop", size = Vector3.new(0.46, 0.46, 0.46), offset = CFrame.new(0, 7.12, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ name = "UrnTip", size = Vector3.new(0.32, 0.14, 0.14), offset = CFrame.new(0, 7.42, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	}
+	for _, x in { -0.66, 0.66 } do
+		table.insert(list, { name = "UrnHandle", size = Vector3.new(0.12, 0.62, 0.18), offset = CFrame.new(x, 6.32, 0) * CFrame.Angles(0, 0, rad(if x < 0 then 18 else -18)), color = GOLD, material = Enum.Material.Metal, collide = false })
+	end
+	for i = 0, 3 do
+		local rot = CFrame.Angles(0, i * math.pi / 2, 0)
+		table.insert(list, { name = "PillarFlute", size = Vector3.new(0.18, 2.1, 0.18), offset = rot * CFrame.new(0, 3.2, -0.74), color = STONE, material = Enum.Material.Marble, collide = false })
+		table.insert(list, { name = "Bracket", size = Vector3.new(0.3, 0.6, 0.7), offset = rot * CFrame.new(0, 4.2, -1.05) * CFrame.Angles(rad(180), 0, 0), color = marbleWarm, material = Enum.Material.Marble, wedge = true, collide = false })
+		-- Кардинальные маскароны-изливы на ободе чаши и струи воды в 2 сегмента с пеной
+		table.insert(list, { name = "SpoutBoss", size = Vector3.new(0.75, 0.75, 0.45), offset = rot * CFrame.new(0, 1.35, -4.6), color = STONE, material = Enum.Material.Marble, collide = false })
+		table.insert(list, { name = "SpoutNozzle", size = Vector3.new(0.28, 0.24, 0.24), offset = rot * CFrame.new(0, 1.48, -4.25) * CFrame.Angles(0, rad(90), 0), color = brassDark, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+		table.insert(list, { name = "JetTop", size = Vector3.new(0.12, 0.12, 1.4), offset = rot * CFrame.new(0, 4.55, -2.55) * CFrame.Angles(rad(-24), 0, 0), color = jetColor, material = Enum.Material.Glass, transparency = 0.55, collide = false })
+		table.insert(list, { name = "JetLow", size = Vector3.new(0.14, 0.14, 2.3), offset = rot * CFrame.new(0, 3.05, -3.25) * CFrame.Angles(rad(-68), 0, 0), color = jetColor, material = Enum.Material.Glass, transparency = 0.55, collide = false })
+		table.insert(list, { name = "Splash", size = Vector3.new(0.08, 0.9, 0.9), offset = rot * CFrame.new(0, 1.84, -3.5) * CFrame.Angles(0, 0, rad(90)), color = foamColor, material = Enum.Material.Glass, transparency = 0.52, shape = Enum.PartType.Cylinder, collide = false })
+	end
+	return list
+end
+local FOUNTAIN_STUB: Stub = buildFountainStub()
 
--- Большая мраморная статуя на постаменте: фигура в тоге, правая рука поднимает венок. Перед в −Z.
-local STATUE_STUB: Stub = {
-	{ name = "Plinth", size = Vector3.new(3, 2, 3), offset = CFrame.new(0, 1, 0), color = STONE, material = Enum.Material.Marble },
-	{ name = "PlinthCap", size = Vector3.new(3.4, 0.3, 3.4), offset = CFrame.new(0, 2.15, 0), color = MARBLE, material = Enum.Material.Marble },
-	{ name = "LegL", size = Vector3.new(0.7, 2.6, 0.8), offset = CFrame.new(-0.45, 3.6, 0), color = MARBLE, material = Enum.Material.Marble, collide = false },
-	{ name = "LegR", size = Vector3.new(0.7, 2.6, 0.8), offset = CFrame.new(0.45, 3.6, 0.1) * CFrame.Angles(rad(-6), 0, 0), color = MARBLE, material = Enum.Material.Marble, collide = false },
-	{ name = "Robe", size = Vector3.new(1.9, 1.7, 1.1), offset = CFrame.new(0, 4.4, 0), color = MARBLE, material = Enum.Material.Marble, collide = false },
-	{ name = "Torso", size = Vector3.new(1.8, 2, 1), offset = CFrame.new(0, 6, 0), color = MARBLE, material = Enum.Material.Marble, collide = false },
-	{ name = "Drape", size = Vector3.new(2.2, 0.45, 1.15), offset = CFrame.new(0, 6.3, 0) * CFrame.Angles(0, 0, rad(28)), color = hex("E8E2D4"), material = Enum.Material.Marble, collide = false },
-	{ name = "ArmL", size = Vector3.new(0.55, 2, 0.6), offset = CFrame.new(-1.2, 5.8, 0) * CFrame.Angles(0, 0, rad(-6)), color = MARBLE, material = Enum.Material.Marble, collide = false },
-	{ name = "ArmR", size = Vector3.new(0.55, 2.2, 0.6), offset = CFrame.new(1.3, 7.5, -0.15) * CFrame.Angles(rad(-10), 0, rad(-22)), color = MARBLE, material = Enum.Material.Marble, collide = false },
-	{ name = "Wreath", size = Vector3.new(0.15, 1, 1), offset = CFrame.new(1.75, 8.7, -0.35) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
-	{ name = "Neck", size = Vector3.new(0.5, 0.4, 0.5), offset = CFrame.new(0, 7.15, 0), color = MARBLE, material = Enum.Material.Marble, collide = false },
-	{ name = "Head", size = Vector3.new(1.1, 1.1, 1.1), offset = CFrame.new(0, 7.75, 0), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball, collide = false },
-	{ name = "Hair", size = Vector3.new(1.15, 1.15, 1.15), offset = CFrame.new(0, 7.9, 0.12), color = hex("E8E2D4"), material = Enum.Material.Marble, shape = Enum.PartType.Ball, collide = false },
-}
+-- Большая мраморная статуя на постаменте (R3): ступенчатый пьедестал, фигура в тоге со свитком и лавровым венком.
+-- Перед в −Z (y = 1.2, z = -1.56 оставлен чистым для frontPlaque).
+local function buildStatueStub(): Stub
+	local marbleWarm = hex("E8DCC4")
+	local brassDark = hex("C9922A")
+	local list: Stub = {
+		{ name = "PlinthBase", size = Vector3.new(3.3, 0.34, 3.3), offset = CFrame.new(0, 0.17, 0), color = STONE, material = Enum.Material.Marble },
+		{ name = "Plinth", size = Vector3.new(3, 1.66, 3), offset = CFrame.new(0, 1.17, 0), color = STONE, material = Enum.Material.Marble },
+		{ name = "PlinthCap", size = Vector3.new(3.4, 0.24, 3.4), offset = CFrame.new(0, 2.12, 0), color = MARBLE, material = Enum.Material.Marble },
+		{ name = "PlinthBevel", size = Vector3.new(3.08, 0.14, 3.08), offset = CFrame.new(0, 2.31, 0), color = marbleWarm, material = Enum.Material.Marble, collide = false },
+		{ name = "StatuePad", size = Vector3.new(2.2, 0.14, 2.2), offset = CFrame.new(0, 2.45, 0), color = MARBLE, material = Enum.Material.Marble, collide = false },
+		{ name = "PanelBack", size = Vector3.new(2.1, 1.15, 0.06), offset = CFrame.new(0, 1.18, 1.52), color = MARBLE, material = Enum.Material.Marble, collide = false },
+		{ name = "PanelL", size = Vector3.new(0.06, 1.15, 2.1), offset = CFrame.new(-1.52, 1.18, 0), color = MARBLE, material = Enum.Material.Marble, collide = false },
+		{ name = "PanelR", size = Vector3.new(0.06, 1.15, 2.1), offset = CFrame.new(1.52, 1.18, 0), color = MARBLE, material = Enum.Material.Marble, collide = false },
+		-- Ноги, сандалии и складки тоги
+		{ name = "FootL", size = Vector3.new(0.58, 0.26, 0.9), offset = CFrame.new(-0.46, 2.62, -0.18), color = marbleWarm, material = Enum.Material.Marble, collide = false },
+		{ name = "FootR", size = Vector3.new(0.58, 0.26, 0.9), offset = CFrame.new(0.46, 2.62, 0.08), color = marbleWarm, material = Enum.Material.Marble, collide = false },
+		{ name = "LegL", size = Vector3.new(2.3, 0.68, 0.68), offset = CFrame.new(-0.46, 3.7, -0.04) * CFrame.Angles(0, 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "LegR", size = Vector3.new(2.3, 0.68, 0.68), offset = CFrame.new(0.46, 3.7, 0.12) * CFrame.Angles(rad(-7), 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Robe", size = Vector3.new(1.9, 1.85, 1.15), offset = CFrame.new(0, 4.45, 0.02), color = MARBLE, material = Enum.Material.Marble, collide = false },
+		{ name = "RobeFoldL", size = Vector3.new(1.75, 0.34, 0.34), offset = CFrame.new(-0.55, 4.45, -0.52) * CFrame.Angles(0, 0, rad(90)), color = marbleWarm, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "RobeFoldC", size = Vector3.new(1.85, 0.36, 0.36), offset = CFrame.new(0, 4.42, -0.55) * CFrame.Angles(0, 0, rad(90)), color = marbleWarm, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "RobeFoldR", size = Vector3.new(1.75, 0.34, 0.34), offset = CFrame.new(0.55, 4.45, -0.52) * CFrame.Angles(0, 0, rad(90)), color = marbleWarm, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		-- Торс, перевязь, свиток в левой руке, лавровый венок в поднятой правой
+		{ name = "Torso", size = Vector3.new(1.82, 2.05, 1.05), offset = CFrame.new(0, 6.05, 0), color = MARBLE, material = Enum.Material.Marble, collide = false },
+		{ name = "Chest", size = Vector3.new(1.56, 0.9, 1.12), offset = CFrame.new(0, 6.45, -0.05), color = MARBLE, material = Enum.Material.Marble, sphere = true, collide = false },
+		{ name = "Drape", size = Vector3.new(2.26, 0.44, 1.18), offset = CFrame.new(0, 6.32, 0) * CFrame.Angles(0, 0, rad(28)), color = marbleWarm, material = Enum.Material.Marble, collide = false },
+		{ name = "Clasp", size = Vector3.new(0.14, 0.36, 0.36), offset = CFrame.new(-0.68, 6.72, -0.56) * CFrame.Angles(0, rad(90), 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "ShoulderL", size = Vector3.new(0.65, 0.65, 0.65), offset = CFrame.new(-1.1, 6.75, 0), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball, collide = false },
+		{ name = "ArmL", size = Vector3.new(1.85, 0.56, 0.56), offset = CFrame.new(-1.24, 5.85, -0.1) * CFrame.Angles(rad(-12), 0, rad(84)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "HandL", size = Vector3.new(0.42, 0.42, 0.42), offset = CFrame.new(-1.35, 4.95, -0.28), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball, collide = false },
+		{ name = "Scroll", size = Vector3.new(1.1, 0.24, 0.24), offset = CFrame.new(-1.35, 4.95, -0.35) * CFrame.Angles(0, rad(75), 0), color = marbleWarm, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "ShoulderR", size = Vector3.new(0.65, 0.65, 0.65), offset = CFrame.new(1.1, 6.8, -0.05), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball, collide = false },
+		{ name = "ArmR", size = Vector3.new(2.15, 0.56, 0.56), offset = CFrame.new(1.32, 7.65, -0.18) * CFrame.Angles(rad(-10), 0, rad(68)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "HandR", size = Vector3.new(0.42, 0.42, 0.42), offset = CFrame.new(1.72, 8.62, -0.34), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Ball, collide = false },
+		{ name = "Wreath", size = Vector3.new(0.16, 1.04, 1.04), offset = CFrame.new(1.78, 8.95, -0.36) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "WreathCore", size = Vector3.new(0.2, 0.62, 0.62), offset = CFrame.new(1.78, 8.95, -0.36) * CFrame.Angles(0, 0, rad(90)), color = brassDark, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "WreathGem", size = Vector3.new(0.22, 0.22, 0.22), offset = CFrame.new(1.78, 9.46, -0.36), color = RED, material = Enum.Material.Neon, shape = Enum.PartType.Ball, collide = false },
+		-- Голова с профилем и лавровой лентой
+		{ name = "Neck", size = Vector3.new(0.5, 0.48, 0.48), offset = CFrame.new(0, 7.18, 0) * CFrame.Angles(0, 0, rad(90)), color = MARBLE, material = Enum.Material.Marble, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Head", size = Vector3.new(1.06, 1.18, 1.12), offset = CFrame.new(0, 7.8, -0.02), color = MARBLE, material = Enum.Material.Marble, sphere = true, collide = false },
+		{ name = "Nose", size = Vector3.new(0.16, 0.26, 0.22), offset = CFrame.new(0, 7.78, -0.58), color = MARBLE, material = Enum.Material.Marble, wedge = true, collide = false },
+		{ name = "Hair", size = Vector3.new(1.18, 1.02, 1.16), offset = CFrame.new(0, 8.05, 0.14), color = marbleWarm, material = Enum.Material.Marble, sphere = true, collide = false },
+		{ name = "Laurel", size = Vector3.new(0.14, 1.14, 1.14), offset = CFrame.new(0, 8.08, -0.02) * CFrame.Angles(rad(12), 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	}
+	for _, x in { -1.48, 1.48 } do
+		for _, z in { -1.48, 1.48 } do
+			table.insert(list, { name = "PlinthCorner", size = Vector3.new(0.24, 1.66, 0.24), offset = CFrame.new(x, 1.17, z), color = marbleWarm, material = Enum.Material.Marble, collide = false })
+		end
+	end
+	return list
+end
+local STATUE_STUB: Stub = buildStatueStub()
 
 -- Сатурн: шар и наклонное кольцо с тёмной щелью. Точка привязки — центр планеты.
 local PLANET_STUB: Stub = {
@@ -820,37 +887,88 @@ end
 
 ---------------------------------------------------------------- края центра (этап 5, блок E)
 
--- Кадка с деревом: деревянный ящик с золотым кантом, ствол и крона из шаров. Низ по центру.
-local PLANTER_TREE_STUB: Stub = {
-	{ name = "Box", size = Vector3.new(2.6, 1.8, 2.6), offset = CFrame.new(0, 0.9, 0), color = hex("5A3A22"), material = Enum.Material.WoodPlanks },
-	{ name = "Rim", size = Vector3.new(2.8, 0.2, 2.8), offset = CFrame.new(0, 1.8, 0), color = GOLD, material = Enum.Material.Metal },
-	{ name = "Soil", size = Vector3.new(2.3, 0.1, 2.3), offset = CFrame.new(0, 1.85, 0), color = hex("3B2A1E"), material = Enum.Material.Ground, collide = false },
-	{ name = "Trunk", size = Vector3.new(0.5, 4.4, 0.5), offset = CFrame.new(0, 4, 0), color = hex("6B4A2E"), material = Enum.Material.Wood, collide = false },
-	{ name = "Crown", size = Vector3.new(3.8, 3.8, 3.8), offset = CFrame.new(0, 6.8, 0), color = LEAF, material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
-	{ name = "Crown", size = Vector3.new(2.8, 2.8, 2.8), offset = CFrame.new(0.9, 7.9, 0.4), color = LEAF_DARK, material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
-	{ name = "Crown", size = Vector3.new(2.6, 2.6, 2.6), offset = CFrame.new(-0.9, 7.6, -0.5), color = hex("4FA352"), material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
-	-- Этап 5, блок F2: латунные уголки ящика, ветки, ещё листва и цветы-ягоды
-	{ name = "Corner", size = Vector3.new(0.18, 1.8, 0.18), offset = CFrame.new(-1.32, 0.9, -1.32), color = GOLD, material = Enum.Material.Metal, collide = false },
-	{ name = "Corner", size = Vector3.new(0.18, 1.8, 0.18), offset = CFrame.new(1.32, 0.9, -1.32), color = GOLD, material = Enum.Material.Metal, collide = false },
-	{ name = "Corner", size = Vector3.new(0.18, 1.8, 0.18), offset = CFrame.new(-1.32, 0.9, 1.32), color = GOLD, material = Enum.Material.Metal, collide = false },
-	{ name = "Corner", size = Vector3.new(0.18, 1.8, 0.18), offset = CFrame.new(1.32, 0.9, 1.32), color = GOLD, material = Enum.Material.Metal, collide = false },
-	{ name = "Branch", size = Vector3.new(0.22, 0.22, 1.6), offset = CFrame.new(0.55, 5.6, 0.2) * CFrame.Angles(rad(-50), rad(70), 0), color = hex("6B4A2E"), material = Enum.Material.Wood, collide = false },
-	{ name = "Branch", size = Vector3.new(0.2, 0.2, 1.4), offset = CFrame.new(-0.5, 5.4, -0.3) * CFrame.Angles(rad(-50), rad(-110), 0), color = hex("6B4A2E"), material = Enum.Material.Wood, collide = false },
-	{ name = "Crown", size = Vector3.new(2.2, 2.2, 2.2), offset = CFrame.new(0.2, 8.6, -0.3), color = hex("5CE06E"), material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
-	{ name = "Crown", size = Vector3.new(2, 2, 2), offset = CFrame.new(-0.3, 6.9, 1.2), color = LEAF_DARK, material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
-	{ name = "Berry", size = Vector3.new(0.3, 0.3, 0.3), offset = CFrame.new(1.4, 7.2, -1), color = RED, shape = Enum.PartType.Ball, collide = false },
-	{ name = "Berry", size = Vector3.new(0.3, 0.3, 0.3), offset = CFrame.new(-1.6, 7.9, 0.4), color = RED, shape = Enum.PartType.Ball, collide = false },
-	{ name = "Berry", size = Vector3.new(0.3, 0.3, 0.3), offset = CFrame.new(0.4, 6.4, -1.75), color = RED, shape = Enum.PartType.Ball, collide = false },
-}
+-- Кадка с деревом (R3): ящик с филёнками и латунными пилястрами, изогнутый ствол с корнями, пышная крона с ягодами. Низ по центру.
+local function buildPlanterTreeStub(): Stub
+	local woodDark = hex("4A2B16")
+	local brassDark = hex("C9922A")
+	local list: Stub = {
+		{ name = "Base", size = Vector3.new(2.84, 0.22, 2.84), offset = CFrame.new(0, 0.11, 0), color = hex("364054"), material = Enum.Material.Slate },
+		{ name = "Box", size = Vector3.new(2.6, 1.58, 2.6), offset = CFrame.new(0, 1.01, 0), color = hex("5A3A22"), material = Enum.Material.WoodPlanks },
+		{ name = "Rim", size = Vector3.new(2.86, 0.2, 2.86), offset = CFrame.new(0, 1.88, 0), color = GOLD, material = Enum.Material.Metal },
+		{ name = "RimStep", size = Vector3.new(2.68, 0.1, 2.68), offset = CFrame.new(0, 1.74, 0), color = brassDark, material = Enum.Material.Metal, collide = false },
+		{ name = "Soil", size = Vector3.new(2.34, 0.12, 2.34), offset = CFrame.new(0, 1.92, 0), color = hex("3B2A1E"), material = Enum.Material.Ground, collide = false },
+		{ name = "Plaque", size = Vector3.new(0.84, 0.3, 0.06), offset = CFrame.new(0, 0.96, -1.35), color = GOLD, material = Enum.Material.Metal, collide = false },
+		-- Ствол в два колена, ветки и корневые наплывы
+		{ name = "TrunkBase", size = Vector3.new(1.1, 0.72, 0.72), offset = CFrame.new(0, 2.45, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("6B4A2E"), material = Enum.Material.Wood, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "TrunkMid", size = Vector3.new(2.1, 0.56, 0.56), offset = CFrame.new(0.08, 3.85, 0.05) * CFrame.Angles(rad(-4), 0, rad(84)), color = hex("6B4A2E"), material = Enum.Material.Wood, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "TrunkTop", size = Vector3.new(1.8, 0.44, 0.44), offset = CFrame.new(0.14, 5.45, -0.04) * CFrame.Angles(rad(6), 0, rad(94)), color = hex("7A5638"), material = Enum.Material.Wood, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "BranchR", size = Vector3.new(1.5, 0.24, 0.24), offset = CFrame.new(0.68, 5.7, 0.24) * CFrame.Angles(rad(18), rad(-15), rad(42)), color = hex("6B4A2E"), material = Enum.Material.Wood, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "BranchL", size = Vector3.new(1.4, 0.22, 0.22), offset = CFrame.new(-0.56, 5.45, -0.28) * CFrame.Angles(rad(-20), rad(15), rad(132)), color = hex("6B4A2E"), material = Enum.Material.Wood, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "BranchF", size = Vector3.new(1.2, 0.2, 0.2), offset = CFrame.new(0.05, 5.85, -0.52) * CFrame.Angles(rad(52), 0, rad(90)), color = hex("6B4A2E"), material = Enum.Material.Wood, shape = Enum.PartType.Cylinder, collide = false },
+	}
+	for i = 0, 3 do
+		local rot = CFrame.Angles(0, i * math.pi / 2, 0)
+		table.insert(list, { name = "Panel", size = Vector3.new(1.85, 1.05, 0.06), offset = rot * CFrame.new(0, 1.01, -1.31), color = woodDark, material = Enum.Material.Wood, collide = false })
+		table.insert(list, { name = "Root", size = Vector3.new(0.24, 0.36, 0.55), offset = rot * CFrame.new(0, 2.08, -0.45), color = hex("5A3A22"), material = Enum.Material.Wood, wedge = true, collide = false })
+		table.insert(list, { name = "Pebble", size = Vector3.new(0.36, 0.22, 0.32), offset = rot * CFrame.new(0.7, 2.02, -0.55), color = STONE, material = Enum.Material.Slate, sphere = true, collide = false })
+	end
+	for _, x in { -1.32, 1.32 } do
+		for _, z in { -1.32, 1.32 } do
+			table.insert(list, { name = "Corner", size = Vector3.new(0.22, 1.58, 0.22), offset = CFrame.new(x, 1.01, z), color = GOLD, material = Enum.Material.Metal, collide = false })
+			table.insert(list, { name = "CornerCap", size = Vector3.new(0.24, 0.24, 0.24), offset = CFrame.new(x, 2.02, z), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball, collide = false })
+		end
+	end
+	for _, c in {
+		{ x = 0, y = 6.9, z = 0, d = 3.9, col = LEAF },
+		{ x = 1.0, y = 7.9, z = 0.45, d = 2.8, col = LEAF_DARK },
+		{ x = -0.95, y = 7.6, z = -0.5, d = 2.6, col = hex("4FA352") },
+		{ x = 0.2, y = 8.7, z = -0.25, d = 2.3, col = hex("5CE06E") },
+		{ x = -0.35, y = 6.85, z = 1.15, d = 2.2, col = LEAF_DARK },
+		{ x = 0.75, y = 6.75, z = -1.1, d = 2.1, col = hex("4FA352") },
+	} do
+		table.insert(list, { name = "Crown", size = Vector3.new(c.d, c.d, c.d), offset = CFrame.new(c.x, c.y, c.z), color = c.col, material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false })
+	end
+	for _, b in {
+		{ x = 1.4, y = 7.2, z = -1.0, col = RED },
+		{ x = -1.55, y = 7.85, z = 0.35, col = RED },
+		{ x = 0.4, y = 6.4, z = -1.75, col = RED },
+		{ x = -0.75, y = 8.4, z = -1.1, col = GOLD },
+		{ x = 1.25, y = 8.5, z = 0.9, col = GOLD },
+	} do
+		table.insert(list, { name = "Berry", size = Vector3.new(0.28, 0.28, 0.28), offset = CFrame.new(b.x, b.y, b.z), color = b.col, shape = Enum.PartType.Ball, collide = false })
+	end
+	return list
+end
+local PLANTER_TREE_STUB: Stub = buildPlanterTreeStub()
 
--- Напольный светильник: тяжёлое основание, золотая стойка, тканевый абажур, лампочка Bulb (игра вешает на неё свет). Низ по центру.
-local FLOOR_LAMP_STUB: Stub = {
-	{ name = "Base", size = Vector3.new(0.3, 1.4, 1.4), offset = CFrame.new(0, 0.15, 0) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
-	{ name = "Pole", size = Vector3.new(0.22, 5.8, 0.22), offset = CFrame.new(0, 3.2, 0), color = GOLD, material = Enum.Material.Metal, collide = false },
-	{ name = "Shade", size = Vector3.new(1.3, 1.7, 1.7), offset = CFrame.new(0, 6.5, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("F3E3C3"), material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder, transparency = 0.15, collide = false },
-	{ name = "ShadeTrim", size = Vector3.new(0.12, 1.8, 1.8), offset = CFrame.new(0, 5.85, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
-	{ name = "Bulb", size = Vector3.new(0.6, 0.6, 0.6), offset = CFrame.new(0, 6.3, 0), color = hex("FFE7B8"), material = Enum.Material.Neon, shape = Enum.PartType.Ball, collide = false },
-}
+-- Напольный светильник (R3): ступенчатое основание, точёная стойка, плиссированный абажур с рёбрами,
+-- цепочка выключателя и лампочка Bulb (сохранена для dayLight и PointLight). Низ по центру.
+local function buildFloorLampStub(): Stub
+	local brassDark = hex("C9922A")
+	local list: Stub = {
+		{ name = "Base", size = Vector3.new(0.24, 1.5, 1.5), offset = CFrame.new(0, 0.12, 0) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "BaseStep", size = Vector3.new(0.18, 1.15, 1.15), offset = CFrame.new(0, 0.32, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "BaseNeck", size = Vector3.new(0.32, 0.56, 0.56), offset = CFrame.new(0, 0.54, 0) * CFrame.Angles(0, 0, rad(90)), color = brassDark, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Pole", size = Vector3.new(5.5, 0.22, 0.22), offset = CFrame.new(0, 3.4, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "PoleNodeLow", size = Vector3.new(0.24, 0.4, 0.4), offset = CFrame.new(0, 2.0, 0) * CFrame.Angles(0, 0, rad(90)), color = brassDark, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "PoleNodeHigh", size = Vector3.new(0.24, 0.4, 0.4), offset = CFrame.new(0, 4.3, 0) * CFrame.Angles(0, 0, rad(90)), color = brassDark, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Socket", size = Vector3.new(0.34, 0.34, 0.34), offset = CFrame.new(0, 5.95, 0) * CFrame.Angles(0, 0, rad(90)), color = brassDark, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Shade", size = Vector3.new(1.36, 1.78, 1.78), offset = CFrame.new(0, 6.55, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("F3E3C3"), material = Enum.Material.Fabric, shape = Enum.PartType.Cylinder, transparency = 0.15, collide = false },
+		{ name = "ShadeTrimBot", size = Vector3.new(0.1, 1.88, 1.88), offset = CFrame.new(0, 5.88, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "ShadeTrimTop", size = Vector3.new(0.1, 1.82, 1.82), offset = CFrame.new(0, 7.22, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "FinialBase", size = Vector3.new(0.18, 0.38, 0.38), offset = CFrame.new(0, 7.34, 0) * CFrame.Angles(0, 0, rad(90)), color = brassDark, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "Finial", size = Vector3.new(0.28, 0.28, 0.28), offset = CFrame.new(0, 7.52, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball, collide = false },
+		{ name = "PullChain", size = Vector3.new(0.65, 0.04, 0.04), offset = CFrame.new(0.45, 5.55, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "PullBead", size = Vector3.new(0.16, 0.16, 0.16), offset = CFrame.new(0.45, 5.2, 0), color = RED, shape = Enum.PartType.Ball, collide = false },
+		{ name = "Bulb", size = Vector3.new(0.62, 0.62, 0.62), offset = CFrame.new(0, 6.4, 0), color = hex("FFE7B8"), material = Enum.Material.Neon, shape = Enum.PartType.Ball, collide = false },
+	}
+	for i = 0, 3 do
+		local rot = CFrame.Angles(0, i * math.pi / 2, 0)
+		table.insert(list, { name = "ShadeRib", size = Vector3.new(0.05, 1.32, 0.06), offset = rot * CFrame.new(0, 6.55, -0.9), color = brassDark, material = Enum.Material.Metal, collide = false })
+	end
+	return list
+end
+local FLOOR_LAMP_STUB: Stub = buildFloorLampStub()
 
 -- Столбики с канатом перед статуей (шире, чем у Моны Лизы: под постамент 3.4).
 local ROPE_STUB: Stub = {

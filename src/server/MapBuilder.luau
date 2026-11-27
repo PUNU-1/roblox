@@ -766,26 +766,38 @@ local function stubWedge(name: string, size: Vector3, offset: CFrame, color: Col
 	return { name = name, size = size, offset = offset, color = color, material = material, wedge = true, collide = collide }
 end
 
--- Банкетка без спинки: стёганое тёмно-синее сиденье с золотыми пуговицами и кантом, золотая рама,
--- точёные ножки с шарами внизу, перекладина (в залах и в лобби). 6.2 × 2.2, как раньше.
+-- Банкетка без спинки (R3): стёганое тёмно-синее сиденье с боковыми валиками, золотыми пуговицами
+-- и кантом, рама с латунными уголками, точёные ножки с воротниками и H-перекладина. 6.2 × 2.2, низ по центру.
 local function benchStub(): { ModelLibrary.StubPart }
+	local brassDark = hex("C9922A")
 	local list: { ModelLibrary.StubPart } = {
-		{ name = "Seat", size = Vector3.new(6, 0.5, 2), offset = CFrame.new(0, 1.35, 0), color = COLORS.Navy, material = Enum.Material.Fabric },
-		{ name = "Piping", size = Vector3.new(6.06, 0.08, 2.06), offset = CFrame.new(0, 1.56, 0), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		{ name = "Seat", size = Vector3.new(5.6, 0.52, 2), offset = CFrame.new(0, 1.36, 0), color = COLORS.Navy, material = Enum.Material.Fabric },
+		{ name = "SeatSeam", size = Vector3.new(5.62, 0.04, 0.05), offset = CFrame.new(0, 1.62, 0), color = hex("162646"), material = Enum.Material.Fabric, collide = false },
+		{ name = "Piping", size = Vector3.new(6.1, 0.08, 2.08), offset = CFrame.new(0, 1.16, 0), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
 		{ name = "Frame", size = Vector3.new(6.2, 0.2, 2.2), offset = CFrame.new(0, 1, 0), color = COLORS.Gold, material = Enum.Material.Metal },
-		{ name = "Apron", size = Vector3.new(5.4, 0.28, 0.08), offset = CFrame.new(0, 0.76, -0.98), color = COLORS.DarkWood, material = Enum.Material.Wood, collide = false },
-		{ name = "Apron", size = Vector3.new(5.4, 0.28, 0.08), offset = CFrame.new(0, 0.76, 0.98), color = COLORS.DarkWood, material = Enum.Material.Wood, collide = false },
-		{ name = "Stretcher", size = Vector3.new(5.4, 0.12, 0.12), offset = CFrame.new(0, 0.35, 0), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		{ name = "FrameStep", size = Vector3.new(5.96, 0.1, 1.98), offset = CFrame.new(0, 0.87, 0), color = brassDark, material = Enum.Material.Metal, collide = false },
+		{ name = "Apron", size = Vector3.new(5.4, 0.26, 0.08), offset = CFrame.new(0, 0.76, -0.96), color = COLORS.DarkWood, material = Enum.Material.Wood, collide = false },
+		{ name = "Apron", size = Vector3.new(5.4, 0.26, 0.08), offset = CFrame.new(0, 0.76, 0.96), color = COLORS.DarkWood, material = Enum.Material.Wood, collide = false },
+		{ name = "ApronSideL", size = Vector3.new(0.08, 0.26, 1.6), offset = CFrame.new(-2.8, 0.76, 0), color = COLORS.DarkWood, material = Enum.Material.Wood, collide = false },
+		{ name = "ApronSideR", size = Vector3.new(0.08, 0.26, 1.6), offset = CFrame.new(2.8, 0.76, 0), color = COLORS.DarkWood, material = Enum.Material.Wood, collide = false },
+		{ name = "Stretcher", size = Vector3.new(5.6, 0.12, 0.14), offset = CFrame.new(0, 0.35, 0), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		{ name = "StretcherL", size = Vector3.new(0.14, 0.12, 1.6), offset = CFrame.new(-2.8, 0.35, 0), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		{ name = "StretcherR", size = Vector3.new(0.14, 0.12, 1.6), offset = CFrame.new(2.8, 0.35, 0), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		stubBall("StretcherHub", 0.28, Vector3.new(0, 0.35, 0), brassDark, Enum.Material.Metal),
 	}
 	for _, x in { -2.8, 2.8 } do
+		table.insert(list, stubAxisCyl("SeatRoll", 2, 0.52, CFrame.new(x, 1.36, 0) * CFrame.Angles(0, math.rad(90), 0), COLORS.Navy, Enum.Material.Fabric, false))
+		table.insert(list, stubAxisCyl("RollPiping", 2.06, 0.42, CFrame.new(x + (if x < 0 then -0.22 else 0.22), 1.36, 0) * CFrame.Angles(0, math.rad(90), 0), COLORS.Gold, Enum.Material.Metal, false))
 		for _, z in { -0.8, 0.8 } do
-			table.insert(list, stubCyl("Leg", 0.9, 0.3, Vector3.new(x, 0.5, z), COLORS.Gold, Enum.Material.Metal))
-			table.insert(list, stubBall("Foot", 0.36, Vector3.new(x, 0.14, z), COLORS.Gold, Enum.Material.Metal))
+			table.insert(list, stubCyl("Leg", 0.85, 0.28, Vector3.new(x, 0.52, z), COLORS.Gold, Enum.Material.Metal))
+			table.insert(list, stubCyl("LegCollar", 0.1, 0.38, Vector3.new(x, 0.84, z), brassDark, Enum.Material.Metal, false))
+			table.insert(list, stubCyl("LegRing", 0.08, 0.34, Vector3.new(x, 0.35, z), brassDark, Enum.Material.Metal, false))
+			table.insert(list, stubBall("Foot", 0.36, Vector3.new(x, 0.18, z), COLORS.Gold, Enum.Material.Metal))
 		end
 	end
 	for i = -2, 2 do
 		for _, z in { -0.45, 0.45 } do
-			table.insert(list, stubBall("Tuft", 0.14, Vector3.new(i * 1.15 + (if z > 0 then 0.55 else 0), 1.6, z), COLORS.Gold, Enum.Material.Metal))
+			table.insert(list, stubBall("Tuft", 0.14, Vector3.new(i * 1.1 + (if z > 0 then 0.5 else 0), 1.62, z), COLORS.Gold, Enum.Material.Metal))
 		end
 	end
 	return list
