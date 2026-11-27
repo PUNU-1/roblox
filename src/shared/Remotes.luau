@@ -38,6 +38,8 @@ local NAMES: { [string]: string } = {
 	SetTutorial = "SetTutorial", -- (on: boolean) включить / выключить обучение навсегда (профиль); хаб и музей
 	-- этап 6, блок H2: сундук после ночи
 	OpenChest = "OpenChest", -- () открыть свой сундук на экране итога; сервер сам проверяет, есть ли он
+	-- этап 6, блок J1: меню настроек (профиль)
+	SaveSettings = "SaveSettings", -- (music: number, effects: number, sensitivity: number, lowGraphics: boolean)
 
 	-- сервер -> клиенты
 	PhraseShown = "PhraseShown", -- (userId: number, index: number)

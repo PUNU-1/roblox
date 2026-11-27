@@ -32,10 +32,18 @@ local Progress = require(Shared:WaitForChild("Progress"))
 local Retry = require(script.Parent:WaitForChild("Retry"))
 
 local Settings = Config.Diamonds
+local Prefs = Config.Settings
 local PlayerAttr = GameState.PlayerAttr
 local Status = GameState.ProfileStatus
 
 local ProfileStore = {}
+
+export type PlayerSettings = {
+	music: number,
+	effects: number,
+	sensitivity: number,
+	lowGraphics: boolean,
+}
 
 type Profile = {
 	player: Player,
@@ -45,6 +53,8 @@ type Profile = {
 	giftDay: number, -- номер дня UTC, когда последний раз забрал подарок (0 — никогда)
 	giftStreak: number, -- какой это был день серии (1–7)
 	tutorialOff: boolean, -- игрок выключил обучение (этап 5, блок C)
+	settings: PlayerSettings, -- настройки звука, чувствительности и графики (этап 6, блок J1)
+	settingsSeq: number,
 	progress: Progress.Data, -- опыт, задания, счётчики, достижения, пробные забеги (этап 6, блок H1)
 	status: string, -- GameState.ProfileStatus
 	pending: number, -- алмазы, которые ещё не записаны в DataStore
@@ -58,6 +68,7 @@ local offline = false -- Studio без доступа к API: всё тольк�
 local inflight = 0 -- сколько запросов к DataStore идёт сейчас (BindToClose ждёт их)
 local started = false
 local lastToggle: { [Player]: number } = {} -- когда игрок последний раз менял настройку обучения (SetTutorial)
+local lastSettingsSave: { [Player]: number } = {} -- когда игрок последний раз сохранял настройки (SaveSettings)
 -- Кто хочет знать о каждой удачной записи (ProgressService: значки Roblox, «Welcome» новичку)
 type SavedListener = (player: Player, progress: Progress.Data, created: boolean) -> ()
 local savedListeners: { SavedListener } = {}
@@ -73,8 +84,35 @@ type Data = {
 	giftDay: number,
 	giftStreak: number,
 	tutorialOff: boolean,
+	settings: PlayerSettings,
 	progress: Progress.Data,
 }
+
+local function snapSetting(value: any, minVal: number, maxVal: number, step: number, fallback: number): number
+	if typeof(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
+		return fallback
+	end
+	local clamped = math.clamp(value, minVal, maxVal)
+	local snapped = math.round(clamped / step) * step
+	return math.clamp(math.round(snapped * 100) / 100, minVal, maxVal)
+end
+
+local function cleanSettings(raw: any): PlayerSettings
+	if typeof(raw) ~= "table" then
+		return {
+			music = Prefs.DefaultMusic,
+			effects = Prefs.DefaultEffects,
+			sensitivity = Prefs.DefaultSensitivity,
+			lowGraphics = Prefs.DefaultLowGraphics,
+		}
+	end
+	return {
+		music = snapSetting(raw.music, Prefs.MinMusic, Prefs.MaxMusic, Prefs.VolumeStep, Prefs.DefaultMusic),
+		effects = snapSetting(raw.effects, Prefs.MinEffects, Prefs.MaxEffects, Prefs.VolumeStep, Prefs.DefaultEffects),
+		sensitivity = snapSetting(raw.sensitivity, Prefs.MinSensitivity, Prefs.MaxSensitivity, Prefs.SensitivityStep, Prefs.DefaultSensitivity),
+		lowGraphics = if typeof(raw.lowGraphics) == "boolean" then raw.lowGraphics else Prefs.DefaultLowGraphics,
+	}
+end
 
 -- Данные из DataStore → алмазы, классы и подарки. Чужие и сломанные поля отбрасываются.
 local function clean(data: any): Data
@@ -82,8 +120,10 @@ local function clean(data: any): Data
 	local owned: { [string]: boolean } = {}
 	local giftDay, giftStreak = 0, 0
 	local tutorialOff = false
+	local settingsRaw: any = nil
 	if typeof(data) == "table" then
 		tutorialOff = data.tutorialOff == true
+		settingsRaw = data.settings
 		diamonds = math.max(0, math.floor(tonumber(data.diamonds) or 0))
 		giftDay = math.max(0, math.floor(tonumber(data.giftDay) or 0))
 		giftStreak = math.clamp(math.floor(tonumber(data.giftStreak) or 0), 0, #Config.DailyGift.Rewards)
@@ -106,6 +146,7 @@ local function clean(data: any): Data
 		giftDay = giftDay,
 		giftStreak = giftStreak,
 		tutorialOff = tutorialOff,
+		settings = cleanSettings(settingsRaw),
 		progress = Progress.clean(data), -- поля прогресса лежат в той же таблице; у старых профилей их нет
 	}
 end
@@ -132,6 +173,12 @@ local function pack(data: Data): { [string]: any }
 	packed.giftDay = data.giftDay
 	packed.giftStreak = data.giftStreak
 	packed.tutorialOff = data.tutorialOff
+	packed.settings = {
+		music = data.settings.music,
+		effects = data.settings.effects,
+		sensitivity = data.settings.sensitivity,
+		lowGraphics = data.settings.lowGraphics,
+	}
 	return packed
 end
 
@@ -151,6 +198,10 @@ local function publish(player: Player, profile: Profile)
 	player:SetAttribute(PlayerAttr.GiftDay, profile.giftDay)
 	player:SetAttribute(PlayerAttr.GiftStreak, profile.giftStreak)
 	player:SetAttribute(PlayerAttr.TutorialOff, profile.tutorialOff)
+	player:SetAttribute(PlayerAttr.SettingMusic, profile.settings.music)
+	player:SetAttribute(PlayerAttr.SettingEffects, profile.settings.effects)
+	player:SetAttribute(PlayerAttr.SettingSensitivity, profile.settings.sensitivity)
+	player:SetAttribute(PlayerAttr.SettingLowGraphics, profile.settings.lowGraphics)
 	local progress = profile.progress
 	player:SetAttribute(PlayerAttr.Xp, progress.xp)
 	player:SetAttribute(PlayerAttr.Level, (Progress.levelOf(progress.xp)))
@@ -214,6 +265,7 @@ local function update(profile: Profile, change: ((data: Data) -> ())?): (boolean
 	profile.giftDay = data.giftDay
 	profile.giftStreak = data.giftStreak
 	profile.tutorialOff = data.tutorialOff
+	profile.settings = data.settings
 	profile.progress = data.progress
 	profile.status = Status.Ready
 	for _, listener in savedListeners do
@@ -268,6 +320,8 @@ local function newProfile(player: Player): Profile
 		giftDay = data.giftDay,
 		giftStreak = data.giftStreak,
 		tutorialOff = data.tutorialOff,
+		settings = data.settings,
+		settingsSeq = 0,
 		progress = data.progress,
 		status = if offline then Status.Offline else Status.Loading,
 		pending = 0,
@@ -307,6 +361,7 @@ local function onPlayerRemoving(player: Player)
 		profiles[player] = nil
 	end
 	lastToggle[player] = nil
+	lastSettingsSave[player] = nil
 end
 
 ---------------------------------------------------------------- для других сервисов
@@ -329,6 +384,26 @@ function ProfileStore.init()
 		end
 		lastToggle[player] = now
 		ProfileStore.setTutorial(player, on)
+	end)
+	-- Настройки звука, чувствительности и графики (этап 6, блок J1): проверка типов, диапазонов и лимит по времени
+	Remotes.get(Remotes.Names.SaveSettings).OnServerEvent:Connect(function(player: Player, music: any, effects: any, sensitivity: any, lowGraphics: any)
+		if typeof(music) ~= "number" or typeof(effects) ~= "number" or typeof(sensitivity) ~= "number" or typeof(lowGraphics) ~= "boolean" then
+			return
+		end
+		if music ~= music or effects ~= effects or sensitivity ~= sensitivity then
+			return
+		end
+		local now = os.clock()
+		if lastSettingsSave[player] and now - lastSettingsSave[player] < Prefs.SaveCooldown then
+			return
+		end
+		lastSettingsSave[player] = now
+		ProfileStore.setSettings(player, {
+			music = music,
+			effects = effects,
+			sensitivity = sensitivity,
+			lowGraphics = lowGraphics,
+		})
 	end)
 	for _, player in Players:GetPlayers() do
 		task.spawn(onPlayerAdded, player)
@@ -542,6 +617,43 @@ function ProfileStore.setTutorial(player: Player, on: boolean)
 			end
 		end
 		profile.tutorialOff = off -- последнее нажатие игрока важнее того, что пришло из DataStore
+		unlock(profile)
+		publish(player, profile)
+	end)
+end
+
+-- Сохранить настройки звука, чувствительности и графики (этап 6, блок J1). Игрок видит сразу (атрибуты), запись — в фоне.
+function ProfileStore.setSettings(player: Player, rawSettings: any)
+	local profile = profiles[player]
+	if not profile then
+		return
+	end
+	local cleaned = cleanSettings(rawSettings)
+	profile.settingsSeq += 1
+	local seq = profile.settingsSeq
+	profile.settings = cleaned
+	publish(player, profile)
+	if offline or profile.status == Status.Offline then
+		return -- Studio без доступа к API: только в памяти
+	end
+	task.spawn(function()
+		lock(profile)
+		if profile.status == Status.Ready then
+			local ok, err = update(profile, function(data: Data)
+				data.settings = {
+					music = cleaned.music,
+					effects = cleaned.effects,
+					sensitivity = cleaned.sensitivity,
+					lowGraphics = cleaned.lowGraphics,
+				}
+			end)
+			if not ok then
+				warn(("[ProfileStore] Не удалось сохранить настройки %d: %s"):format(profile.userId, tostring(err)))
+			end
+		end
+		if profile.settingsSeq == seq then
+			profile.settings = cleaned
+		end
 		unlock(profile)
 		publish(player, profile)
 	end)

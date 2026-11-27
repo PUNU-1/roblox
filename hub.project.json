@@ -40,7 +40,8 @@
         "RecordStore": { "$path": "src/server/RecordStore.luau" },
         "ProfileStore": { "$path": "src/server/ProfileStore.luau" },
         "ProgressService": { "$path": "src/server/ProgressService.luau" },
-        "FriendService": { "$path": "src/server/FriendService.luau" }
+        "FriendService": { "$path": "src/server/FriendService.luau" },
+        "Audio": { "$path": "src/server/Audio.luau" }
       }
     },
     "StarterPlayer": {

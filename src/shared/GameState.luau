@@ -368,6 +368,11 @@ GameState.PlayerAttr = {
 	-- этап 6, блок H2: рекорды друзей (пишет FriendService) — JSON [{ n = имя, v = ночей }] по убыванию; "" — скрыто
 	FriendRecords = "FriendRecords",
 	TrialClass = "TrialClass", -- string, музей: класс этого забега взят на пробу (после забега снова закрыт); "" — нет
+	-- этап 6, блок J1: настройки игрока (пишет ProfileStore; сохраняются навсегда)
+	SettingMusic = "SettingMusic", -- number, громкость музыки 0..1
+	SettingEffects = "SettingEffects", -- number, громкость эффектов 0..1
+	SettingSensitivity = "SettingSensitivity", -- number, чувствительность камеры 0.3..2.0
+	SettingLowGraphics = "SettingLowGraphics", -- boolean, низкое качество графики
 }
 
 -- Профиль игрока (этап 4, блок 1): загружен ли он из DataStore.

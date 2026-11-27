@@ -2,6 +2,7 @@
 -- Пустая строка — звука нет, ничего не играет.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -9,8 +10,27 @@ local Config = require(Shared:WaitForChild("Config"))
 
 local Audio = {}
 
+local function ensureGroup(name: string): SoundGroup
+	local existing = SoundService:FindFirstChild(name)
+	if existing and existing:IsA("SoundGroup") then
+		return existing
+	end
+	local group = Instance.new("SoundGroup")
+	group.Name = name
+	group.Volume = 1
+	group.Parent = SoundService
+	return group
+end
+
+function Audio.init()
+	ensureGroup("Music")
+	ensureGroup("Effects")
+end
+
+Audio.init()
+
 -- Создаёт звук. parent = деталь — звук слышно рядом с ней; parent = nil — на весь музей.
-function Audio.create(id: string, parent: Instance?, volume: number?, looped: boolean?): Sound?
+function Audio.create(id: string, parent: Instance?, volume: number?, looped: boolean?, groupName: string?): Sound?
 	if id == "" then
 		return nil
 	end
@@ -18,6 +38,7 @@ function Audio.create(id: string, parent: Instance?, volume: number?, looped: bo
 	sound.SoundId = id
 	sound.Volume = volume or 0.5
 	sound.Looped = looped == true
+	sound.SoundGroup = ensureGroup(groupName or "Effects")
 	if parent and parent:IsA("BasePart") then
 		sound.RollOffMaxDistance = Config.Sounds.EffectRollOff
 	end
@@ -61,7 +82,7 @@ local music: Sound? = nil
 -- Музыка на весь музей по кругу: Config.Sounds.DayMusic или NightMusic.
 function Audio.startMusic(id: string)
 	Audio.stopMusic()
-	music = Audio.create(id, nil, Config.Sounds.MusicVolume, true)
+	music = Audio.create(id, nil, Config.Sounds.MusicVolume, true, "Music")
 	if music then
 		music:Play()
 	end

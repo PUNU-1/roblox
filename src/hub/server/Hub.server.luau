@@ -23,6 +23,7 @@ local Uniform = require(Server:WaitForChild("Uniform"))
 local ProfileStore = require(Server:WaitForChild("ProfileStore"))
 local ProgressService = require(Server:WaitForChild("ProgressService"))
 local FriendService = require(Server:WaitForChild("FriendService"))
+local Audio = require(Server:WaitForChild("Audio"))
 
 local PlayerAttr = GameState.PlayerAttr
 
@@ -35,6 +36,7 @@ Lighting.Ambient = light.Ambient
 Lighting.OutdoorAmbient = light.OutdoorAmbient
 
 PlaceFinder.init("Hub") -- место музея ищется в фоне; строка [PlaceFinder] в Output
+Audio.init() -- группы SoundGroup "Music" и "Effects" для настроек громкости
 ProfileStore.init() -- алмазы 💎 и купленные классы (этап 4, блок 1)
 ProgressService.init() -- опыт, уровни, плашка над головой, задания (этап 6, блок H1); в хабе своя плашка видна
 FriendService.startRecords() -- рекорды друзей (этап 6, блок H2)

@@ -368,6 +368,29 @@ local Config = {
 		MvpCrownFloatSpeed = 2.2, -- скорость покачивания короны
 	},
 
+	Settings = { -- меню настроек (этап 6, блок J1): громкость, чувствительность, графика, обучение
+		DefaultMusic = 1.0, -- 0..1 (множитель SoundGroup "Music")
+		DefaultEffects = 1.0, -- 0..1 (множитель SoundGroup "Effects")
+		DefaultSensitivity = 1.0, -- 0.3..2.0 (UserInputService.MouseDeltaSensitivity)
+		DefaultLowGraphics = false,
+		MinMusic = 0,
+		MaxMusic = 1,
+		MinEffects = 0,
+		MaxEffects = 1,
+		VolumeStep = 0.1, -- шаг 10%
+		MinSensitivity = 0.3,
+		MaxSensitivity = 2.0,
+		SensitivityStep = 0.1,
+		SaveCooldown = 2, -- сервер: не чаще раза в столько секунд (защита от спама Remote)
+		ShadowSizeThreshold = 2, -- Low graphics: у деталей меньше 2 стадов выключаем CastShadow
+		LowAtmosphereDensity = 0.05, -- Low graphics: снижаем плотность тумана
+		Key = Enum.KeyCode.M, -- открыть/закрыть настройки
+		KeyLabel = "M",
+		ButtonGap = 6, -- отступ кнопки настроек в музее от SHOP / STATS
+		WindowWidth = 560,
+		WindowHeight = 410,
+	},
+
 	Lobby = { -- круг START SHIFT в комнате охраны (блок B1): встал в круг — ты в команде
 		-- В команде не больше Config.Players.Max (5) игроков
 		CircleRadius = 6, -- стадов от центра круга до края (считаем по HumanoidRootPart)
