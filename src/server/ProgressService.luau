@@ -4,10 +4,15 @@
 -- в опыт и счётчики заданий и отдаёт ProfileStore (тот сохраняет разницей, внутри UpdateAsync).
 -- Игроку — Remote ProgressEvent: LEVEL UP, «Quest done», новое достижение. Над головой — плашка «LV 7 GUARD».
 -- Клиенту не доверяем ничего: всё считает сервер.
+-- Достижения (Config.Badges) засчитываются в профиле всегда; если у достижения есть номер значка Roblox (BadgeId),
+-- после записи профиля — BadgeService:AwardBadgeAsync в pcall с повтором (уже есть значок — не выдаём). Так и те,
+-- кто заработал достижение до того, как владелец создал значок, получат его при следующей записи профиля.
 
+local BadgeService = game:GetService("BadgeService")
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -15,6 +20,7 @@ local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Progress = require(Shared:WaitForChild("Progress"))
 local ProfileStore = require(script.Parent:WaitForChild("ProfileStore"))
+local Retry = require(script.Parent:WaitForChild("Retry"))
 
 local Settings = Config.Progress
 local PlayerAttr = GameState.PlayerAttr
@@ -29,6 +35,7 @@ local hideOwnPlate = false -- музей: от первого лица своя 
 local eventRemote: RemoteEvent
 local connections: { [Player]: { RBXScriptConnection } } = {}
 local wingsRun: { [Player]: number } = {} -- в сколько крыльев игрок вложил за этот забег (достижение Shop Lover)
+local badgeAsked: { [Player]: { [number]: boolean } } = {} -- какие значки Roblox уже выданы или выдаются в этот вход
 
 local okFont, pixelFont = pcall(Font.new, Config.PixelUI.Font)
 local PLATE_FONT = if okFont then pixelFont else Font.fromEnum(Enum.Font.Arcade)
@@ -182,6 +189,44 @@ local function questCount(delta: Progress.Delta, key: string, amount: number)
 	delta.quest[key] = (delta.quest[key] or 0) + amount
 end
 
+---------------------------------------------------------------- значки Roblox
+
+-- Выдать значок badgeId (pcall с повтором). Не вышло — забываем, что пробовали: повторим при следующей записи.
+local function awardBadge(player: Player, badgeId: number)
+	local asked = badgeAsked[player]
+	if not asked or asked[badgeId] then
+		return
+	end
+	asked[badgeId] = true
+	local attempts = if RunService:IsStudio() then 1 else Config.Badges.Retries
+	local ok, err = Retry.call(attempts, Config.Badges.RetryDelay, function()
+		if BadgeService:UserHasBadgeAsync(player.UserId, badgeId) then
+			return true
+		end
+		return BadgeService:AwardBadgeAsync(player.UserId, badgeId)
+	end)
+	if not ok then
+		warn(("[ProgressService] Не удалось выдать значок %d игроку %d: %s"):format(badgeId, player.UserId, tostring(err)))
+		if badgeAsked[player] == asked then
+			asked[badgeId] = nil
+		end
+	end
+end
+
+-- Профиль записан: всем достижениям из сохранённых данных с номером значка — значок Roblox.
+local function onSaved(player: Player, progress: Progress.Data, _created: boolean)
+	if not player.Parent then
+		return
+	end
+	for _, id in Config.Badges.Order do
+		local info = (Config.Badges :: any)[id]
+		local badgeId = if typeof(info) == "table" then tonumber(info.BadgeId) or 0 else 0
+		if progress.badges[id] and badgeId > 0 then
+			task.spawn(awardBadge, player, badgeId)
+		end
+	end
+end
+
 ---------------------------------------------------------------- что произошло (музей)
 
 -- Свой арест (вор, сдавшийся или оглушённый грабитель). kind — вид вора (ThiefAttr.Kind), если есть.
@@ -269,6 +314,7 @@ local function onPlayerAdded(player: Player)
 	if connections[player] then
 		return
 	end
+	badgeAsked[player] = {}
 	connections[player] = {
 		player.CharacterAdded:Connect(function(character)
 			character:WaitForChild("Head", 10)
@@ -297,6 +343,7 @@ local function onPlayerRemoving(player: Player)
 		connections[player] = nil
 	end
 	wingsRun[player] = nil
+	badgeAsked[player] = nil
 end
 
 -- options.hideOwnPlate — своя плашка не видна самому игроку (музей, вид от первого лица).
@@ -307,6 +354,7 @@ function ProgressService.init(options: { hideOwnPlate: boolean? }?)
 	started = true
 	hideOwnPlate = options ~= nil and options.hideOwnPlate == true
 	eventRemote = Remotes.get(Remotes.Names.ProgressEvent)
+	ProfileStore.onSaved(onSaved)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	for _, player in Players:GetPlayers() do

@@ -232,6 +232,105 @@ local function refreshQuests()
 end
 tabs[1].refresh = refreshQuests
 
+---------------------------------------------------------------- вкладка BADGES
+
+-- 9 достижений сеткой 3 × 3: медаль (серая, пока не получено), название, условие и «3/5» или DONE.
+-- Счётчики — атрибут Stats (JSON, Progress.decodeStats). Значок Roblox выдаёт сервер, если владелец вписал номер.
+local BADGE_COLUMNS, BADGE_GAP, BADGE_H = 3, 10, 98
+
+type BadgeCard = { id: string, frame: Frame, icon: Frame, lockIcon: Frame, title: TextLabel, count: TextLabel }
+local badgeCards: { BadgeCard } = {}
+local badgeHint: TextLabel
+
+local badgePage = addTab("BADGES", function() end)
+
+badgeHint = Theme.pixelLabel({
+	Name = "Hint",
+	Size = UDim2.new(1, 0, 0, 14),
+	TextColor3 = Colors.Marble,
+	ZIndex = 3,
+	Parent = badgePage,
+}, 8, 1)
+
+for index, id in Config.Badges.Order do
+	local info = (Config.Badges :: any)[id]
+	local column = (index - 1) % BADGE_COLUMNS
+	local row = (index - 1) // BADGE_COLUMNS
+	local frame = Theme.new("Frame", {
+		Name = id,
+		Position = UDim2.new(column / BADGE_COLUMNS, 4 + column * 2, 0, 22 + row * (BADGE_H + BADGE_GAP)),
+		Size = UDim2.new(1 / BADGE_COLUMNS, -BADGE_GAP, 0, BADGE_H),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+		Parent = badgePage,
+	})
+	local inset = PixelWindow.box(frame, Colors.NavyLight, Colors.Gray)
+	local icon = PixelIcon.new("Medal", true, 5)
+	icon.Position = UDim2.fromOffset(inset + 6, inset + 8)
+	icon.Size = PixelIcon.size("Medal", 2)
+	icon.Parent = frame
+	-- Не получено — та же медаль тёмным силуэтом
+	local lockIcon = PixelIcon.new({ rows = PixelIcon.Icons.Medal.rows, palette = { K = "141420", r = "3A3F4E", b = "3A3F4E", y = "4A5063", Y = "566078", d = "3A3F4E" } }, false, 5)
+	lockIcon.Position = icon.Position
+	lockIcon.Size = icon.Size
+	lockIcon.Parent = frame
+	local left = inset + 6 + 32 + 8
+	local title = Theme.pixelLabel({
+		Position = UDim2.fromOffset(left, inset + 8),
+		Size = UDim2.new(1, -left - inset - 4, 0, 10),
+		Text = tostring(info.Title),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 5,
+		Parent = frame,
+	}, 8, 1)
+	Theme.pixelLabel({
+		Position = UDim2.fromOffset(left, inset + 24),
+		Size = UDim2.new(1, -left - inset - 4, 0, 30),
+		Text = string.upper(tostring(info.Text)),
+		TextColor3 = Colors.Marble,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 5,
+		Parent = frame,
+	}, 8, 1)
+	local count = Theme.pixelLabel({
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, left, 1, -inset - 6),
+		Size = UDim2.new(1, -left - inset - 4, 0, 10),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 5,
+		Parent = frame,
+	}, 8, 1)
+	table.insert(badgeCards, { id = id, frame = frame, icon = icon, lockIcon = lockIcon, title = title, count = count })
+end
+
+local function refreshBadges()
+	local status = localPlayer:GetAttribute(PlayerAttr.ProfileStatus)
+	local ready = status == ProfileStatus.Ready or status == ProfileStatus.Offline
+	local data = Progress.decodeStats(localPlayer:GetAttribute(PlayerAttr.Stats))
+	local earned = 0
+	for _, card in badgeCards do
+		local done = ready and data.badges[card.id] == true
+		if done then
+			earned += 1
+		end
+		local have, goal = Progress.badgeProgress(card.id, data)
+		card.icon.Visible = done
+		card.lockIcon.Visible = not done
+		card.title.TextColor3 = if done then Colors.Gold else Colors.White
+		card.count.Text = if done then "DONE!" elseif ready then ("%d/%d"):format(have, goal) else "..."
+		card.count.TextColor3 = if done then Colors.Green else Colors.Diamond
+	end
+	if not ready then
+		badgeHint.Text = if status == ProfileStatus.Error then "BADGES ARE UNAVAILABLE - TRYING AGAIN" else "LOADING..."
+	else
+		badgeHint.Text = ("BADGES %d/%d"):format(earned, #badgeCards)
+			.. (if status == ProfileStatus.Offline then " - NOT SAVED IN STUDIO" else "")
+	end
+end
+tabs[#tabs].refresh = refreshBadges
+
 ---------------------------------------------------------------- обновление
 
 local function refreshCurrent()
@@ -273,7 +372,5 @@ end
 
 Quests.close = window.close
 Quests.isOpen = window.isOpen
--- Для вкладки BADGES: добавить вкладку (имя, обновление страницы)
-Quests.addTab = addTab
 
 return Quests
