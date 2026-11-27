@@ -188,7 +188,7 @@
 3. **Ремонт одной камеры у неё.** На табличке CAMERA SPOT под **сломанной** камерой появляется кнопка F «Repair camera» (держать 2 сек, `Config.Cameras.RepairHoldSeconds`); у техника — мгновенно (как рубильник). Чинится только эта камера. Рубильник CAMERA RESET у пульта остаётся и чинит все сразу. Сервер проверяет: камера правда сломана, игрок на смене, может действовать (`RoleService.canAct`), рядом. Пока камера не сломана, на табличке старая кнопка (покупка) или ничего.
 4. Документы: `CLAUDE.md` (разделы «Камеры», «Музей», «Решил Claude» пункт 37), `GEMINI.md` — новые модели украшений.
 
-## Блок F1. Модели персонажей
+## Блок F1. Модели персонажей — сделано (код, 27.11; «Решил Claude» пункт 38)
 
 **Файлы:** `src/server/Uniform.luau`, `src/server/ThiefKinds.luau`, `src/server/RobberService.luau` (внешний вид), `src/server/TouristService.luau` (внешний вид), `src/shared/ClassModels.luau`, `src/server/ModelLibrary.luau`, `GEMINI.md`.
 
