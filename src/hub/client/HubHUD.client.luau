@@ -21,6 +21,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local MapSchema = require(Shared:WaitForChild("MapSchema"))
+local Progress = require(Shared:WaitForChild("Progress"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
@@ -101,6 +102,36 @@ local teamLine = Theme.pixelLabel({
 local goalBar = GoalBar.new(gui, { width = if touchOnly then 300 else 380 })
 goalBar.frame.AnchorPoint = Vector2.new(0.5, 0)
 goalBar.frame.Position = UDim2.new(0.5, 0, 0, 68)
+
+-- Рекорд друга (этап 6, блок H2): «YOUR FRIEND ALEX SURVIVED 9 NIGHTS - BEAT IT!». Нет данных — строки нет.
+local friendLine = Theme.pixelLabel({
+	Name = "FriendRecord",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 126),
+	Size = UDim2.new(0.7, 0, 0, 12),
+	TextColor3 = Colors.Turquoise,
+	TextWrapped = true,
+	Visible = false,
+	Parent = gui,
+}, 8, 2)
+
+local function refreshFriendLine()
+	local list = Progress.decodeFriendRecords(localPlayer:GetAttribute(PlayerAttr.FriendRecords))
+	local mine = Progress.decodeStats(localPlayer:GetAttribute(PlayerAttr.Stats)).stats.bestRun or 0
+	local rival, beaten = Progress.friendRival(list, mine)
+	if not rival then
+		friendLine.Visible = false
+		return
+	end
+	friendLine.Text = string.upper(if beaten
+		then ("You beat your friend %s (%d nights)! Your record: %d"):format(rival.n, rival.v, mine)
+		else ("Your friend %s survived %d nights - beat it!"):format(rival.n, rival.v))
+	friendLine.Visible = true
+end
+for _, name in { PlayerAttr.FriendRecords, PlayerAttr.Stats } do
+	localPlayer:GetAttributeChangedSignal(name):Connect(refreshFriendLine)
+end
+refreshFriendLine()
 
 ---------------------------------------------------------------- алмазы 💎 (этап 4, блок 1)
 -- Справа вверху: пиксельный алмаз и число (сохраняются навсегда). В Studio без доступа к API — пометка.

@@ -45,6 +45,7 @@ local ProgressService = require(Server:WaitForChild("ProgressService"))
 local Purchase = require(Server:WaitForChild("Purchase"))
 local ShopService = require(Server:WaitForChild("ShopService"))
 local ChestService = require(Server:WaitForChild("ChestService"))
+local FriendService = require(Server:WaitForChild("FriendService"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -53,6 +54,7 @@ ProfileStore.init() -- алмазы 💎 и купленные классы (э�
 -- Опыт, уровни, задания, достижения (этап 6, блок H1). От первого лица своя плашка над головой не видна
 ProgressService.init({ hideOwnPlate = true })
 ChestService.init() -- сундук после ночи (этап 6, блок H2)
+FriendService.startRecords() -- рекорды друзей для GAME OVER (этап 6, блок H2)
 ModelLibrary.setupCollisionGroups()
 -- Тени и реалистичная графика в музее: мягкие тени, отражения, bloom, цветокоррекция и лёгкая дымка
 Lighting.GlobalShadows = true

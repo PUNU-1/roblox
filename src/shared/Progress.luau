@@ -627,6 +627,46 @@ function Progress.nearestGoal(xp: number, quests: { Quest }, diamonds: number, o
 	return best
 end
 
+---------------------------------------------------------------- рекорды друзей (этап 6, блок H2)
+
+export type FriendRecord = { n: string, v: number } -- имя друга, его рекорд ночей за забег
+
+-- Атрибут FriendRecords → список по убыванию. Сломанное или пустое — пусто (строка скрыта).
+function Progress.decodeFriendRecords(text: any): { FriendRecord }
+	if typeof(text) ~= "string" or text == "" then
+		return {}
+	end
+	local ok, raw = pcall(HttpService.JSONDecode, HttpService, text)
+	if not ok or typeof(raw) ~= "table" then
+		return {}
+	end
+	local list: { FriendRecord } = {}
+	for _, item in raw do
+		if typeof(item) == "table" and typeof(item.n) == "string" and (tonumber(item.v) or 0) > 0 then
+			table.insert(list, { n = item.n, v = math.floor(tonumber(item.v) or 0) })
+		end
+	end
+	table.sort(list, function(a, b)
+		return a.v > b.v
+	end)
+	return list
+end
+
+-- С кем соревноваться: друг с самым маленьким рекордом выше mine («beat it!»), beaten = false.
+-- Выше никого — лучший из тех, кого уже обогнал (beaten = true). Друзей с рекордами нет — nil.
+function Progress.friendRival(list: { FriendRecord }, mine: number): (FriendRecord?, boolean)
+	local rival: FriendRecord? = nil
+	for _, record in list do
+		if record.v > mine and (not rival or record.v < (rival :: FriendRecord).v) then
+			rival = record
+		end
+	end
+	if rival then
+		return rival, false
+	end
+	return list[1], list[1] ~= nil
+end
+
 ---------------------------------------------------------------- для атрибутов игрока
 
 -- Задания → строка JSON для атрибута Quests (атрибут не может быть таблицей).

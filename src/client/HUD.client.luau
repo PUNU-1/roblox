@@ -11,6 +11,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
+local Progress = require(Shared:WaitForChild("Progress"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
 local ClassCards = require(script.Parent:WaitForChild("UI"):WaitForChild("ClassCards"))
@@ -219,6 +220,18 @@ local nearMiss = Theme.label({
 })
 Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 3, Parent = nearMiss })
 local resultsGoal = GoalBar.new(resultsExtras, { width = 380, zIndex = 6 })
+-- GAME OVER (этап 6, блок H2): «Your friend Alex survived 9 nights — beat it!» (рекорды друзей; нет данных — пусто)
+local friendRecord = Theme.label({
+	Name = "FriendRecord",
+	Position = UDim2.new(0, 0, 0, 104),
+	Size = UDim2.new(1, 0, 0, 24),
+	Font = Theme.BodyFont,
+	TextColor3 = Colors.Turquoise,
+	MaxTextSize = 20,
+	Visible = false,
+	ZIndex = 6,
+	Parent = resultsExtras,
+})
 resultsGoal.frame.AnchorPoint = Vector2.new(0.5, 0)
 resultsGoal.frame.Position = UDim2.fromScale(0.5, 0)
 
@@ -536,7 +549,18 @@ local function showResults(results: { [string]: any })
 		nearMiss.Text = nearMissText(tonumber(results.nightsSurvived) or 0, tonumber(bests[myKey]) or 0)
 		nearMiss.Visible = nearMiss.Text ~= ""
 		resultsGoal.frame.Position = UDim2.new(0.5, 0, 0, 46)
+		local survivedNights = tonumber(results.nightsSurvived) or 0
+		local rival, beaten = Progress.friendRival(
+			Progress.decodeFriendRecords(localPlayer:GetAttribute(PlayerAttr.FriendRecords)),
+			survivedNights
+		)
+		friendRecord.Text = if not rival
+			then ""
+			elseif beaten then ("You beat your friend %s (%d nights)!"):format(rival.n, rival.v)
+			else ("Your friend %s survived %d nights — beat it!"):format(rival.n, rival.v)
+		friendRecord.Visible = friendRecord.Text ~= ""
 	else
+		friendRecord.Visible = false
 		nearMiss.Visible = false
 		resultsGoal.frame.Position = UDim2.fromScale(0.5, 0)
 	end

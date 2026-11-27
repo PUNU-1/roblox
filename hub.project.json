@@ -39,7 +39,8 @@
         "PlaceFinder": { "$path": "src/server/PlaceFinder.luau" },
         "RecordStore": { "$path": "src/server/RecordStore.luau" },
         "ProfileStore": { "$path": "src/server/ProfileStore.luau" },
-        "ProgressService": { "$path": "src/server/ProgressService.luau" }
+        "ProgressService": { "$path": "src/server/ProgressService.luau" },
+        "FriendService": { "$path": "src/server/FriendService.luau" }
       }
     },
     "StarterPlayer": {

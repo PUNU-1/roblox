@@ -362,6 +362,8 @@ GameState.PlayerAttr = {
 	Quests = "Quests", -- string, JSON: день и 3 задания дня с прогрессом (Progress.decodeQuests)
 	Stats = "Stats", -- string, JSON: счётчики, виды арестованных воров, достижения (Progress.decodeStats)
 	FreeTries = "FreeTries", -- number, сколько осталось бесплатных забегов некупленным классом (подарок новичку)
+	-- этап 6, блок H2: рекорды друзей (пишет FriendService) — JSON [{ n = имя, v = ночей }] по убыванию; "" — скрыто
+	FriendRecords = "FriendRecords",
 	TrialClass = "TrialClass", -- string, музей: класс этого забега взят на пробу (после забега снова закрыт); "" — нет
 }
 

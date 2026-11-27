@@ -22,6 +22,7 @@ local PlaceFinder = require(Server:WaitForChild("PlaceFinder"))
 local Uniform = require(Server:WaitForChild("Uniform"))
 local ProfileStore = require(Server:WaitForChild("ProfileStore"))
 local ProgressService = require(Server:WaitForChild("ProgressService"))
+local FriendService = require(Server:WaitForChild("FriendService"))
 
 local PlayerAttr = GameState.PlayerAttr
 
@@ -36,6 +37,7 @@ Lighting.OutdoorAmbient = light.OutdoorAmbient
 PlaceFinder.init("Hub") -- место музея ищется в фоне; строка [PlaceFinder] в Output
 ProfileStore.init() -- алмазы 💎 и купленные классы (этап 4, блок 1)
 ProgressService.init() -- опыт, уровни, плашка над головой, задания (этап 6, блок H1); в хабе своя плашка видна
+FriendService.startRecords() -- рекорды друзей (этап 6, блок H2)
 
 local map, pads = HubBuilder.build()
 PadService.init(pads)

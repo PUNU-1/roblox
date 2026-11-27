@@ -2,7 +2,7 @@
 -- Задания выбирает, считает и сохраняет сервер (ProgressService → ProfileStore, день — по UTC, как у подарков);
 -- окно только читает атрибут игрока Quests (JSON, Progress.decodeQuests). Выполненное — с галочкой, награда
 -- уже начислена; незаконченные видны с полосками («2/6»). Новые задания — через «5H 12M».
--- Вкладки сверху: QUESTS и BADGES (достижения).
+-- Вкладки сверху: QUESTS, BADGES (достижения) и FRIENDS (рекорды друзей, этап 6, блок H2).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -331,6 +331,48 @@ local function refreshBadges()
 end
 tabs[#tabs].refresh = refreshBadges
 
+---------------------------------------------------------------- вкладка FRIENDS (этап 6, блок H2)
+
+-- Лучшие рекорды друзей (ночей за один забег) — атрибут FriendRecords, его пишет сервер (FriendService) из
+-- профилей друзей. Сверху свой рекорд. Без доступа к API или без рекордов — «пока нет».
+local FRIEND_ROW_H = 26
+local friendPage = addTab("FRIENDS", function() end)
+local friendHint = Theme.pixelLabel({
+	Name = "Hint",
+	Size = UDim2.new(1, 0, 0, 14),
+	TextColor3 = Colors.Marble,
+	ZIndex = 3,
+	Parent = friendPage,
+}, 8, 1)
+local friendRows: { TextLabel } = {}
+for index = 1, Config.FriendRecords.Show do
+	table.insert(friendRows, Theme.pixelLabel({
+		Name = "Friend" .. index,
+		Position = UDim2.fromOffset(24, 26 + (index - 1) * FRIEND_ROW_H),
+		Size = UDim2.new(1, -48, 0, 16),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 4,
+		Parent = friendPage,
+	}, 12, 2))
+end
+
+local function refreshFriends()
+	local list = Progress.decodeFriendRecords(localPlayer:GetAttribute(PlayerAttr.FriendRecords))
+	local mine = Progress.decodeStats(localPlayer:GetAttribute(PlayerAttr.Stats)).stats.bestRun or 0
+	friendHint.Text = if #list > 0
+		then ("YOUR RECORD: %d NIGHTS - BEST FRIENDS IN NIGHT GUARD"):format(mine)
+		else ("YOUR RECORD: %d NIGHTS - NO FRIEND RECORDS YET. PLAY WITH FRIENDS!"):format(mine)
+	for index, row in friendRows do
+		local record = list[index]
+		row.Visible = record ~= nil
+		if record then
+			row.Text = ("%d. %s - %d NIGHTS"):format(index, string.upper(record.n), record.v)
+			row.TextColor3 = if record.v > mine then Colors.Turquoise else Colors.Gray
+		end
+	end
+end
+tabs[#tabs].refresh = refreshFriends
+
 ---------------------------------------------------------------- обновление
 
 local function refreshCurrent()
@@ -340,7 +382,7 @@ local function refreshCurrent()
 	end
 end
 
-for _, name in { PlayerAttr.Quests, PlayerAttr.Stats, PlayerAttr.ProfileStatus } do
+for _, name in { PlayerAttr.Quests, PlayerAttr.Stats, PlayerAttr.ProfileStatus, PlayerAttr.FriendRecords } do
 	localPlayer:GetAttributeChangedSignal(name):Connect(refreshCurrent)
 end
 
