@@ -49,7 +49,9 @@ local NAMES: { [string]: string } = {
 	GiftResult = "GiftResult", -- (ok: boolean, reward: number, day: number, message: string) ответ на ClaimGift
 	HitConfirm = "HitConfirm", -- (kind: string) стрелку: попал ("hit"), в голову ("head"), грабитель упал ("ko"), шокер ("stun")
 	-- этап 6, блок H1: прогресс (хаб и музей). kind: "LevelUp" (level, rank: string — "" если звание прежнее, diamonds),
-	-- "Quest" (text, reward), "Badge" (title), "Newbie" (diamonds, freeTries), "TrialOver" (className, price)
+	-- "Quest" (text, reward), "Badge" (title), "Newbie" (diamonds, freeTries), "TrialOver" (className, price);
+	-- этап 6, блок H2: "Card" (title, group: "Thief" | "Exhibit") — новая карточка коллекции,
+	-- "Collection" (name: "thieves" | "exhibits", diamonds) — собрана вся коллекция
 	ProgressEvent = "ProgressEvent",
 }
 Remotes.Names = NAMES

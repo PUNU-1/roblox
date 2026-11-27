@@ -564,20 +564,32 @@ local Config = {
 	-- Creator Hub → игра → Badges → Create, картинка 512 × 512). 0 — значка пока нет, достижение видно только в игре.
 	-- Stat — счётчик профиля: nights (пережитые ночи), arrests, revives, runs (забеги), raids (пережитые ночи с налётом),
 	-- wingsRun (больше всего крыльев за один забег, в которые игрок вложил), kinds (сколько видов воров арестовал;
-	-- Goal = 0 — все виды из ThiefOrder).
+	-- Goal = 0 — все карточки воров коллекции: Collection.Thieves, с Фальшивым охранником, этап 6, блок H2).
 	Badges = {
 		Order = { "FirstArrest", "Nights5", "Nights10", "Nights20", "AllThieves", "RaidSurvivor", "Hero", "ShopLover", "NightOwl" },
 		FirstArrest = { Title = "FIRST ARREST", Text = "Arrest your first thief", Stat = "arrests", Goal = 1, BadgeId = 0 },
 		Nights5 = { Title = "5 NIGHTS", Text = "Survive 5 nights", Stat = "nights", Goal = 5, BadgeId = 0 },
 		Nights10 = { Title = "10 NIGHTS", Text = "Survive 10 nights", Stat = "nights", Goal = 10, BadgeId = 0 },
 		Nights20 = { Title = "20 NIGHTS", Text = "Survive 20 nights", Stat = "nights", Goal = 20, BadgeId = 0 },
-		AllThieves = { Title = "CAUGHT THEM ALL", Text = "Arrest every kind of thief", Stat = "kinds", Goal = 0, BadgeId = 0 },
+		AllThieves = { Title = "CAUGHT THEM ALL", Text = "Arrest every kind of thief, even the fake guard", Stat = "kinds", Goal = 0, BadgeId = 0 },
 		RaidSurvivor = { Title = "RAID SURVIVOR", Text = "Survive a night with a raid", Stat = "raids", Goal = 1, BadgeId = 0 },
 		Hero = { Title = "HERO", Text = "Revive 10 teammates", Stat = "revives", Goal = 10, BadgeId = 0 },
 		ShopLover = { Title = "SHOP LOVER", Text = "Help buy all 4 wings in one run", Stat = "wingsRun", Goal = 4, BadgeId = 0 },
 		NightOwl = { Title = "NIGHT OWL", Text = "Play 10 runs", Stat = "runs", Goal = 10, BadgeId = 0 },
 		Retries = 3, -- попыток выдать значок Roblox (BadgeService, pcall с повтором)
 		RetryDelay = 2,
+	},
+
+	-- Коллекция (этап 6, блок H2, решение 86): окно COLLECTION в хабе. Вор открывается, когда игрок его арестовал
+	-- (вид — ThiefAttr.Kind), экспонат — когда игрок вложил деньги в его покупку (Exhibits.Slots), Мона Лиза — после
+	-- первой пережитой ночи (её не покупают — её охраняют). Собрал всех — алмазы (один раз, по сохранённым данным).
+	Collection = {
+		Thieves = { "Pickpocket", "Breaker", "Brute", "Shadow", "Miner", "Glazier", "Cutter", "FakeGuard" }, -- порядок карточек
+		ThievesDiamonds = 100, -- баланс: все карточки воров (и достижение Caught Them All)
+		ExhibitsDiamonds = 100, -- баланс: все экспонаты и Мона Лиза
+		MonaLisa = "MonaLisa", -- ключ карточки Моны Лизы (последняя в списке экспонатов)
+		MonaLisaTitle = "Mona Lisa",
+		MonaLisaNights = 1, -- карточка Моны Лизы — после стольких пережитых ночей
 	},
 
 	-- Награды за группу и «Избранное» (этап 5, блок A): группы пока нет — кнопки показывают «Coming soon!».

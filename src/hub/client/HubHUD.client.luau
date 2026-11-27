@@ -1,5 +1,5 @@
 -- Экран хаба (блок 6; этап 5, блок A — «как в настоящих играх», решение 75). Чистый экран:
---  • слева пиксельные кнопки без рамки и фона: SHOP, CLASSES, GIFTS, QUESTS (этап 6), HOW TO PLAY, GROUP, FAVORITE — каждая
+--  • слева пиксельные кнопки без рамки и фона: SHOP, CLASSES, GIFTS, QUESTS, COLLECTION (этап 6), HOW TO PLAY, GROUP, FAVORITE — каждая
 --    открывает своё окно (на телефоне — двумя столбиками сверху, чтобы не мешать джойстику);
 --  • справа вверху — алмазы пиксельной иконкой и числом;
 --  • слева сверху — уровень, звание и полоска опыта (этап 6, блок H1, LevelBar); надписи LEVEL UP и «Quest done»
@@ -33,6 +33,7 @@ local HowToPlay = require(script.Parent:WaitForChild("HowToPlay"))
 local Gifts = require(script.Parent:WaitForChild("Gifts"))
 local LevelBar = require(script.Parent:WaitForChild("LevelBar"))
 local Quests = require(script.Parent:WaitForChild("Quests"))
+local Collection = require(script.Parent:WaitForChild("Collection"))
 local ProgressFx = require(UI:WaitForChild("ProgressFx"))
 local GoalBar = require(UI:WaitForChild("GoalBar"))
 
@@ -268,6 +269,7 @@ local ITEMS: { MenuItem } = {
 		action = Gifts.toggle,
 	},
 	{ icon = "Quests", label = "QUESTS", key = "Q", action = Quests.toggle }, -- задания и достижения (этап 6, блок H1)
+	{ icon = "Collection", label = "COLLECTION", action = Collection.toggle }, -- воры и экспонаты (этап 6, блок H2)
 	{
 		icon = "HowToPlay",
 		label = "HOW TO PLAY",

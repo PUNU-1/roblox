@@ -739,6 +739,52 @@ Icons.Medal = {
 	palette = { K = OUTLINE, r = "E0575B", b = "6FA8FF", y = GOLD, Y = GOLD_LIGHT, d = GOLD_DARK },
 }
 
+-- Этап 6, блок H2: коллекция (альбом с карточками: две открыты, одна закрыта) и экспонат на постаменте
+-- (v — цвет экспоната, его перекрашивает окно COLLECTION)
+Icons.Collection = {
+	rows = {
+		"................",
+		".KKKKKKKKKKKKKK.",
+		".KwwwwwKKwwwwwK.",
+		".KwKKKwKKwKKKwK.",
+		".KwKrKwKKwKyKwK.",
+		".KwKrKwKKwKyKwK.",
+		".KwKKKwKKwKKKwK.",
+		".KwwwwwKKwwwwwK.",
+		".KwKKKwKKwKKKwK.",
+		".KwKgKwKKwKqKwK.",
+		".KwKgKwKKwKqKwK.",
+		".KwKKKwKKwKKKwK.",
+		".KwwwwwKKwwwwwK.",
+		".KbbbbbKKbbbbbK.",
+		".KKKKKKKKKKKKKK.",
+		"................",
+	},
+	palette = { K = OUTLINE, w = "F1E6CC", r = "E0575B", y = GOLD, g = "3FB56B", q = "566078", b = "8B5A2B" },
+}
+
+Icons.Exhibit = {
+	rows = {
+		"................",
+		"......KKKK......",
+		".....KvvvvK.....",
+		"......KvvK......",
+		".....KvvvvK.....",
+		"....KvvhvvvK....",
+		"....KvvhvvvK....",
+		"....KvvvvvvK....",
+		".....KvvvvK.....",
+		"......KKKK......",
+		"...KKKKKKKKKK...",
+		"...KmmmmmmmmK...",
+		"....KmmmmmmK....",
+		"....KmmmmmmK....",
+		"...KKKKKKKKKK...",
+		"................",
+	},
+	palette = { K = OUTLINE, v = GOLD, h = WHITE, m = "E8DCC4" },
+}
+
 PixelIcon.Icons = Icons
 
 local function resolve(icon: Icon | string): Icon

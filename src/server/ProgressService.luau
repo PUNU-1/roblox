@@ -175,6 +175,15 @@ local function announce(player: Player, events: Progress.Events)
 		local info = (Config.Badges :: any)[id]
 		eventRemote:FireClient(player, "Badge", if info then tostring(info.Title) else id)
 	end
+	-- Коллекция (этап 6, блок H2): «NEW IN COLLECTION: SHADOW!», собрал всех — «+100»
+	for _, card in events.cards do
+		local group = string.match(card, "^(%a+):") or "Thief"
+		eventRemote:FireClient(player, "Card", Progress.cardTitle(card), group)
+	end
+	for _, name in events.collections do
+		local diamonds = if name == "thieves" then Config.Collection.ThievesDiamonds else Config.Collection.ExhibitsDiamonds
+		eventRemote:FireClient(player, "Collection", name, diamonds)
+	end
 end
 
 local function send(player: Player, delta: Progress.Delta)
@@ -238,12 +247,13 @@ end
 ---------------------------------------------------------------- что произошло (музей)
 
 -- Свой арест (вор, сдавшийся или оглушённый грабитель). kind — вид вора (ThiefAttr.Kind), если есть.
+-- Вид открывает карточку коллекции (этап 6, блок H2), Фальшивый охранник — тоже.
 function ProgressService.arrest(player: Player, kind: any)
 	local delta = Progress.newDelta()
 	delta.xp = Settings.XpArrest
 	delta.stats.arrests = 1
 	questCount(delta, "Arrest", 1)
-	if typeof(kind) == "string" and table.find(Config.ThiefOrder, kind) then
+	if typeof(kind) == "string" and table.find(Config.Collection.Thieves, kind) then
 		delta.kinds[kind] = true
 	end
 	send(player, delta)
@@ -265,8 +275,8 @@ function ProgressService.nightEnded(player: Player, survived: boolean, raided: b
 end
 
 -- Покупка для команды (кнопка F или окно магазина, складчина) закончена. backers — все, кто вкладывал.
--- what: "Wing" | "Hall" | "Exhibit" | "Camera" | "Trap".
-function ProgressService.teamBought(backers: { Player }, what: string)
+-- what: "Wing" | "Hall" | "Exhibit" | "Camera" | "Trap". id — какой экспонат (карточка коллекции, этап 6, блок H2).
+function ProgressService.teamBought(backers: { Player }, what: string, id: string?)
 	for _, player in backers do
 		if player.Parent then
 			local delta = Progress.newDelta()
@@ -277,6 +287,9 @@ function ProgressService.teamBought(backers: { Player }, what: string)
 				delta.best.wingsRun = wingsRun[player]
 			elseif what == "Exhibit" then
 				questCount(delta, "BuyExhibit", 1)
+				if id and table.find(Config.Exhibits.Slots, id) then
+					delta.exhibits[id] = true
+				end
 			end
 			send(player, delta)
 		end

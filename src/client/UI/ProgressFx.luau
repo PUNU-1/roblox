@@ -4,7 +4,9 @@
 --  • Quest — полоска «QUEST DONE! +20» с алмазом и текстом задания;
 --  • Badge — полоска «ACHIEVEMENT!» с медалью;
 --  • Newbie — полоска «WELCOME, GUARD! +40» и «1 FREE RUN WITH ANY CLASS»;
---  • TrialOver — полоска «LIKED TECHNICIAN?» и «GET IT IN THE LOBBY CLASS SHOP - 150».
+--  • TrialOver — полоска «LIKED TECHNICIAN?» и «GET IT IN THE LOBBY CLASS SHOP - 150»;
+--  • Card — полоска «NEW IN COLLECTION!» и имя карточки (этап 6, блок H2);
+--  • Collection — полоска «COLLECTION COMPLETE! +100» (этап 6, блок H2).
 -- Полоски идут по очереди, по 3.5 сек.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -262,6 +264,23 @@ function ProgressFx.start()
 				text = if tries > 0
 					then ("%d FREE RUN WITH ANY CLASS - OPEN CLASSES"):format(tries)
 					else "EARN DIAMONDS BY SURVIVING NIGHTS",
+				diamonds = diamonds,
+			})
+		elseif kind == "Card" and typeof(a) == "string" then
+			pushStrip({
+				icon = if b == "Exhibit" then "Painting" else "Thief",
+				title = "NEW IN COLLECTION!",
+				titleColor = Colors.Turquoise,
+				text = a .. "! SEE IT IN THE LOBBY: COLLECTION",
+				diamonds = nil,
+			})
+		elseif kind == "Collection" and typeof(a) == "string" then
+			local diamonds = if typeof(b) == "number" then b else 0
+			pushStrip({
+				icon = "Collection",
+				title = ("COLLECTION COMPLETE! +%d"):format(diamonds),
+				titleColor = Colors.Gold,
+				text = if a == "thieves" then "YOU CAUGHT EVERY KIND OF THIEF" else "EVERY EXHIBIT IS IN YOUR COLLECTION",
 				diamonds = diamonds,
 			})
 		elseif kind == "TrialOver" and typeof(a) == "string" then

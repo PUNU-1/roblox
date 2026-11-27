@@ -892,7 +892,7 @@ local function contribute(slot: Slot, player: Player, base: BasePart, fromShop: 
 	end
 	slot.paid += amount
 	if slot.paid >= slot.price then
-		ProgressService.teamBought(Purchase.backers(base), "Exhibit")
+		ProgressService.teamBought(Purchase.backers(base), "Exhibit", slot.kind) -- карточка коллекции (этап 6, блок H2)
 		placeExhibit(slot)
 	else
 		refreshSlot(slot)

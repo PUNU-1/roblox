@@ -7,7 +7,9 @@
 --   xp = 1234, levelPaid = 7 (до какого уровня уже выданы алмазы),
 --   questDay = 20419, quests = { { k = "Arrest", g = 6, r = 25, p = 2, d = false, c = "Operator"? }, ... },
 --   stats = { nights = 12, arrests = 40, revives = 3, runs = 5, raids = 1, wingsRun = 2 },
---   kinds = { Pickpocket = true, ... }, badges = { FirstArrest = true, ... }, freeTries = 1
+--   kinds = { Pickpocket = true, ... }, badges = { FirstArrest = true, ... }, freeTries = 1,
+--   exhibits = { Diamond = true, MonaLisa = true, ... }, colPaid = { thieves = true, exhibits = true } (этап 6, блок H2:
+--   коллекция — kinds теперь и с FakeGuard; colPaid — за какую полную коллекцию алмазы уже выданы)
 
 local HttpService = game:GetService("HttpService")
 
@@ -35,6 +37,8 @@ export type Data = {
 	kinds: { [string]: boolean },
 	badges: { [string]: boolean },
 	freeTries: number,
+	exhibits: { [string]: boolean }, -- карточки экспонатов коллекции (этап 6, блок H2)
+	colPaid: { [string]: boolean }, -- "thieves" / "exhibits": алмазы за полную коллекцию выданы
 }
 
 -- Что произошло и ещё не записано (копится в ProfileStore, уходит одним UpdateAsync).
@@ -45,6 +49,7 @@ export type Delta = {
 	stats: { [string]: number }, -- прибавить
 	best: { [string]: number }, -- взять наибольшее
 	kinds: { [string]: boolean },
+	exhibits: { [string]: boolean }, -- экспонаты, в покупку которых игрок вложил деньги (коллекция)
 }
 
 export type Events = {
@@ -52,6 +57,8 @@ export type Events = {
 	ranks: { string }, -- новые звания
 	quests: { Quest }, -- выполненные задания
 	badges: { string }, -- новые достижения
+	cards: { string }, -- новые карточки коллекции: "Thief:Shadow", "Exhibit:Diamond"
+	collections: { string }, -- собрана вся коллекция: "thieves" / "exhibits" (алмазы — в diamonds)
 	diamonds: number, -- сколько алмазов за всё это
 }
 
@@ -100,14 +107,67 @@ local function rankStartingAt(level: number): { Name: string, Level: number, Col
 	return nil
 end
 
+---------------------------------------------------------------- коллекция (этап 6, блок H2)
+
+-- Карточки экспонатов по порядку: 18 экспонатов постаментов, последней — Мона Лиза.
+function Progress.collectionExhibits(): { string }
+	local list = table.clone(Config.Exhibits.Slots)
+	table.insert(list, Config.Collection.MonaLisa)
+	return list
+end
+
+-- Имя карточки для игрока: "Thief:Shadow" → "SHADOW", "Exhibit:Diamond" → "DIAMOND".
+function Progress.cardTitle(card: string): string
+	local group, id = string.match(card, "^(%a+):(.+)$")
+	if group == "Thief" and id then
+		local info = (Config.ThiefTypes :: any)[id]
+		return string.upper(if info then tostring(info.Title) else id)
+	elseif group == "Exhibit" and id then
+		if id == Config.Collection.MonaLisa then
+			return string.upper(Config.Collection.MonaLisaTitle)
+		end
+		local info = (Config.Exhibits.Kinds :: any)[id]
+		return string.upper(if info then tostring(info.Title) else id)
+	end
+	return string.upper(card)
+end
+
+-- Сколько карточек открыто: воры (открыто, всего) и экспонаты (открыто, всего).
+function Progress.collectionCount(data: Data): (number, number, number, number)
+	local thieves, exhibits = 0, 0
+	for _, kind in Config.Collection.Thieves do
+		if data.kinds[kind] then
+			thieves += 1
+		end
+	end
+	local list = Progress.collectionExhibits()
+	for _, id in list do
+		if data.exhibits[id] then
+			exhibits += 1
+		end
+	end
+	return thieves, #Config.Collection.Thieves, exhibits, #list
+end
+
 ---------------------------------------------------------------- данные
 
 function Progress.newData(): Data
-	return { xp = 0, levelPaid = 1, questDay = 0, quests = {}, stats = {}, kinds = {}, badges = {}, freeTries = 0 }
+	return {
+		xp = 0,
+		levelPaid = 1,
+		questDay = 0,
+		quests = {},
+		stats = {},
+		kinds = {},
+		badges = {},
+		freeTries = 0,
+		exhibits = {},
+		colPaid = {},
+	}
 end
 
 function Progress.newDelta(): Delta
-	return { xp = 0, questDay = 0, quest = {}, stats = {}, best = {}, kinds = {} }
+	return { xp = 0, questDay = 0, quest = {}, stats = {}, best = {}, kinds = {}, exhibits = {} }
 end
 
 local function questInfo(kind: any): { [string]: any }?
@@ -159,9 +219,27 @@ function Progress.clean(raw: any): Data
 		end
 	end
 	if typeof(raw.kinds) == "table" then
-		for _, kind in Config.ThiefOrder do
+		for _, kind in Config.Collection.Thieves do
 			if raw.kinds[kind] == true then
 				data.kinds[kind] = true
+			end
+		end
+	end
+	if typeof(raw.exhibits) == "table" then
+		for _, id in Progress.collectionExhibits() do
+			if raw.exhibits[id] == true then
+				data.exhibits[id] = true
+			end
+		end
+	end
+	-- Мону Лизу охраняют, а не покупают: старый профиль с пережитыми ночами видит её сразу
+	if (data.stats.nights or 0) >= Config.Collection.MonaLisaNights then
+		data.exhibits[Config.Collection.MonaLisa] = true
+	end
+	if typeof(raw.colPaid) == "table" then
+		for _, name in { "thieves", "exhibits" } do
+			if raw.colPaid[name] == true then
+				data.colPaid[name] = true
 			end
 		end
 	end
@@ -182,7 +260,7 @@ function Progress.pack(data: Data): { [string]: any }
 	for _, q in data.quests do
 		table.insert(quests, { k = q.k, g = q.g, r = q.r, c = q.c, p = q.p, d = q.d })
 	end
-	local stats, kinds, badges = {}, {}, {}
+	local stats, kinds, badges, exhibits, colPaid = {}, {}, {}, {}, {}
 	for name, value in data.stats do
 		stats[name] = value
 	end
@@ -191,6 +269,12 @@ function Progress.pack(data: Data): { [string]: any }
 	end
 	for id in data.badges do
 		badges[id] = true
+	end
+	for id in data.exhibits do
+		exhibits[id] = true
+	end
+	for name in data.colPaid do
+		colPaid[name] = true
 	end
 	return {
 		xp = data.xp,
@@ -201,6 +285,8 @@ function Progress.pack(data: Data): { [string]: any }
 		kinds = kinds,
 		badges = badges,
 		freeTries = data.freeTries,
+		exhibits = exhibits,
+		colPaid = colPaid,
 	}
 end
 
@@ -273,12 +359,12 @@ function Progress.badgeProgress(id: string, data: Data): (number, number)
 	end
 	if info.Stat == "kinds" then
 		local have = 0
-		for _, kind in Config.ThiefOrder do
+		for _, kind in Config.Collection.Thieves do
 			if data.kinds[kind] then
 				have += 1
 			end
 		end
-		local goal = if (info.Goal or 0) > 0 then info.Goal else #Config.ThiefOrder
+		local goal = if (info.Goal or 0) > 0 then info.Goal else #Config.Collection.Thieves
 		return math.min(have, goal), goal
 	end
 	local goal = math.max(1, info.Goal or 1)
@@ -291,7 +377,7 @@ end
 -- Возвращает события и сколько за них алмазов (их прибавляет вызывающий). today — номер дня UTC.
 -- Один и тот же код — в памяти сервера (показать сразу) и внутри UpdateAsync (сохранить по сохранённому).
 function Progress.apply(data: Data, delta: Delta, today: number, userId: number, owned: { string }): Events
-	local events: Events = { levels = {}, ranks = {}, quests = {}, badges = {}, diamonds = 0 }
+	local events: Events = { levels = {}, ranks = {}, quests = {}, badges = {}, cards = {}, collections = {}, diamonds = 0 }
 	-- Опыт и уровни
 	if delta.xp > 0 then
 		data.xp += delta.xp
@@ -331,8 +417,32 @@ function Progress.apply(data: Data, delta: Delta, today: number, userId: number,
 	for name, n in delta.best do
 		data.stats[name] = math.max(data.stats[name] or 0, n)
 	end
-	for kind in delta.kinds do
-		data.kinds[kind] = true
+	-- Коллекция (этап 6, блок H2): новые карточки воров и экспонатов, Мона Лиза после первой пережитой ночи
+	for _, kind in Config.Collection.Thieves do
+		if delta.kinds[kind] and not data.kinds[kind] then
+			data.kinds[kind] = true
+			table.insert(events.cards, "Thief:" .. kind)
+		end
+	end
+	local monaLisa = Config.Collection.MonaLisa
+	for _, id in Progress.collectionExhibits() do
+		local earned = delta.exhibits[id] == true
+			or (id == monaLisa and (data.stats.nights or 0) >= Config.Collection.MonaLisaNights)
+		if earned and not data.exhibits[id] then
+			data.exhibits[id] = true
+			table.insert(events.cards, "Exhibit:" .. id)
+		end
+	end
+	local thieves, thievesTotal, exhibits, exhibitsTotal = Progress.collectionCount(data)
+	if thieves >= thievesTotal and not data.colPaid.thieves then
+		data.colPaid.thieves = true
+		events.diamonds += Config.Collection.ThievesDiamonds
+		table.insert(events.collections, "thieves")
+	end
+	if exhibits >= exhibitsTotal and not data.colPaid.exhibits then
+		data.colPaid.exhibits = true
+		events.diamonds += Config.Collection.ExhibitsDiamonds
+		table.insert(events.collections, "exhibits")
 	end
 	-- Достижения
 	for _, id in Config.Badges.Order do
@@ -350,7 +460,7 @@ end
 -- Есть ли в delta что-то, что надо записать.
 function Progress.isEmpty(delta: Delta): boolean
 	return delta.xp == 0 and next(delta.quest) == nil and next(delta.stats) == nil and next(delta.best) == nil
-		and next(delta.kinds) == nil
+		and next(delta.kinds) == nil and next(delta.exhibits) == nil
 end
 
 function Progress.copyDelta(delta: Delta): Delta
@@ -361,6 +471,7 @@ function Progress.copyDelta(delta: Delta): Delta
 		stats = table.clone(delta.stats),
 		best = table.clone(delta.best),
 		kinds = table.clone(delta.kinds),
+		exhibits = table.clone(delta.exhibits),
 	}
 end
 
@@ -384,6 +495,9 @@ function Progress.merge(into: Delta, delta: Delta)
 	end
 	for kind in delta.kinds do
 		into.kinds[kind] = true
+	end
+	for id in delta.exhibits do
+		into.exhibits[id] = true
 	end
 end
 
@@ -415,6 +529,9 @@ function Progress.subtract(pending: Delta, sent: Delta)
 	end
 	for kind in sent.kinds do
 		pending.kinds[kind] = nil
+	end
+	for id in sent.exhibits do
+		pending.exhibits[id] = nil
 	end
 end
 
@@ -533,10 +650,16 @@ function Progress.decodeQuests(text: any): (number, { Quest })
 	return data.questDay, data.quests
 end
 
--- Счётчики, виды воров и достижения → JSON для атрибута Stats (окно достижений).
+-- Счётчики, виды воров, экспонаты коллекции и достижения → JSON для атрибута Stats (окна достижений и коллекции).
 function Progress.encodeStats(data: Data): string
 	local packed = Progress.pack(data)
-	return HttpService:JSONEncode({ stats = packed.stats, kinds = packed.kinds, badges = packed.badges })
+	return HttpService:JSONEncode({
+		stats = packed.stats,
+		kinds = packed.kinds,
+		badges = packed.badges,
+		exhibits = packed.exhibits,
+		colPaid = packed.colPaid,
+	})
 end
 
 function Progress.decodeStats(text: any): Data
