@@ -50,15 +50,45 @@ local repairLamp: BasePart? = nil
 local installedFolder: Folder
 local dayActive = false
 
--- Камера на конце кронштейна, смотрит вперёд (−Z): поворотный шарнир, корпус с козырьком, объектив, огонёк.
-local CAMERA_STUB: { ModelLibrary.StubPart } = {
-	{ name = "Swivel", size = Vector3.new(0.7, 0.7, 0.7), offset = CFrame.identity, color = Color3.fromHex("3A3F4B"), material = Enum.Material.Metal, shape = Enum.PartType.Ball },
-	{ name = "Body", size = Vector3.new(1.2, 1, 2), offset = CFrame.new(0, 0, -1), color = Color3.fromHex("DDE1E6") },
-	{ name = "Hood", size = Vector3.new(1.4, 0.15, 2.4), offset = CFrame.new(0, 0.58, -1.15), color = Color3.fromHex("3A3F4B"), material = Enum.Material.Metal },
-	{ name = "Lens", size = Vector3.new(0.3, 0.7, 0.7), offset = CFrame.new(0, 0, -2.1) * CFrame.Angles(0, math.rad(90), 0), color = Color3.fromHex("15181F"), shape = Enum.PartType.Cylinder },
-	{ name = "Glass", size = Vector3.new(0.05, 0.5, 0.5), offset = CFrame.new(0, 0, -2.27) * CFrame.Angles(0, math.rad(90), 0), color = Color3.fromHex("3B6E9C"), material = Enum.Material.Glass, shape = Enum.PartType.Cylinder },
-	{ name = "Led", size = Vector3.new(0.18, 0.18, 0.18), offset = CFrame.new(0.42, 0.3, -2.05), color = Color3.fromHex("FF3B3B"), material = Enum.Material.Neon, shape = Enum.PartType.Ball },
-}
+-- Камера на конце кронштейна (R3), смотрит вперёд (−Z): шарнир с вилкой, двухцветный корпус со скосами,
+-- козырёк со щёчками, кабель, ступенчатый объектив со стеклом, ИК-диодами и красным индикатором.
+local function buildCameraStub(): { ModelLibrary.StubPart }
+	local hex = Color3.fromHex
+	local dark = hex("242936")
+	local shell = hex("F2EEE6")
+	local navy = hex("1E2A44")
+	local metal = hex("8A93A6")
+	local list: { ModelLibrary.StubPart } = {
+		{ name = "Swivel", size = Vector3.new(0.7, 0.7, 0.7), offset = CFrame.identity, color = dark, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+		{ name = "SwivelCollar", size = Vector3.new(0.2, 0.56, 0.56), offset = CFrame.new(0, 0, 0.24) * CFrame.Angles(0, math.rad(90), 0), color = metal, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "ForkBase", size = Vector3.new(1.06, 0.22, 0.24), offset = CFrame.new(0, -0.38, -0.15), color = dark, material = Enum.Material.Metal },
+		{ name = "ForkL", size = Vector3.new(0.14, 0.5, 0.24), offset = CFrame.new(-0.46, -0.15, -0.15), color = dark, material = Enum.Material.Metal },
+		{ name = "ForkR", size = Vector3.new(0.14, 0.5, 0.24), offset = CFrame.new(0.46, -0.15, -0.15), color = dark, material = Enum.Material.Metal },
+		{ name = "Body", size = Vector3.new(1.16, 0.78, 1.9), offset = CFrame.new(0, 0.04, -1.06), color = shell },
+		{ name = "BodyLower", size = Vector3.new(1.08, 0.24, 1.82), offset = CFrame.new(0, -0.42, -1.06), color = navy, material = Enum.Material.Metal },
+		{ name = "BodyBevelL", size = Vector3.new(1.86, 0.16, 0.16), offset = CFrame.new(-0.5, 0.5, -1.06) * CFrame.Angles(0, math.rad(90), 0), color = shell, wedge = true },
+		{ name = "BodyBevelR", size = Vector3.new(1.86, 0.16, 0.16), offset = CFrame.new(0.5, 0.5, -1.06) * CFrame.Angles(0, math.rad(-90), 0), color = shell, wedge = true },
+		{ name = "BodyTop", size = Vector3.new(0.84, 0.16, 1.86), offset = CFrame.new(0, 0.5, -1.06), color = shell },
+		{ name = "Hood", size = Vector3.new(1.38, 0.12, 2.34), offset = CFrame.new(0, 0.62, -1.2), color = dark, material = Enum.Material.Metal },
+		{ name = "HoodCheekL", size = Vector3.new(0.08, 0.36, 0.5), offset = CFrame.new(-0.65, 0.44, -2.08), color = dark, material = Enum.Material.Metal, wedge = true },
+		{ name = "HoodCheekR", size = Vector3.new(0.08, 0.36, 0.5), offset = CFrame.new(0.65, 0.44, -2.08), color = dark, material = Enum.Material.Metal, wedge = true },
+		{ name = "Cable", size = Vector3.new(0.14, 0.14, 0.75), offset = CFrame.new(0.28, -0.22, -0.25) * CFrame.Angles(math.rad(-22), math.rad(18), 0), color = hex("15181F"), material = Enum.Material.Rubber, shape = Enum.PartType.Cylinder },
+		{ name = "LensRing", size = Vector3.new(0.24, 0.86, 0.86), offset = CFrame.new(0, 0.02, -2.06) * CFrame.Angles(0, math.rad(90), 0), color = metal, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "Lens", size = Vector3.new(0.32, 0.7, 0.7), offset = CFrame.new(0, 0.02, -2.14) * CFrame.Angles(0, math.rad(90), 0), color = hex("15181F"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "Glass", size = Vector3.new(0.06, 0.54, 0.54), offset = CFrame.new(0, 0.02, -2.31) * CFrame.Angles(0, math.rad(90), 0), color = hex("3BC6C1"), material = Enum.Material.Glass, transparency = 0.52, shape = Enum.PartType.Cylinder },
+		{ name = "LedBezel", size = Vector3.new(0.06, 0.24, 0.24), offset = CFrame.new(0.42, 0.3, -2.03) * CFrame.Angles(0, math.rad(90), 0), color = hex("15181F"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "Led", size = Vector3.new(0.16, 0.16, 0.16), offset = CFrame.new(0.42, 0.3, -2.07), color = hex("FF3B3B"), material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+	}
+	for _, x in { -0.59, 0.59 } do
+		table.insert(list, { name = "Vent", size = Vector3.new(0.04, 0.24, 0.7), offset = CFrame.new(x, 0.04, -0.75), color = navy })
+	end
+	for i = 0, 3 do
+		local a = i * math.pi / 2 + math.pi / 4
+		table.insert(list, { name = "IRLed", size = Vector3.new(0.08, 0.08, 0.08), offset = CFrame.new(math.cos(a) * 0.28, 0.02 + math.sin(a) * 0.28, -2.28), color = hex("FF6B6B"), material = Enum.Material.Neon, shape = Enum.PartType.Ball })
+	end
+	return list
+end
+local CAMERA_STUB: { ModelLibrary.StubPart } = buildCameraStub()
 
 ---------------------------------------------------------------- покупка
 

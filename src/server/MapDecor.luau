@@ -1077,12 +1077,43 @@ local function buildFloorLampStub(): Stub
 end
 local FLOOR_LAMP_STUB: Stub = buildFloorLampStub()
 
+-- Столбики с провисающим бархатным канатом (R3): тяжёлые круглые основания, точёные стойки с шарами и дуга каната.
+function MapDecor.barrierStub(halfSpan: number): Stub
+	local brassDark = hex("C9922A")
+	local list: Stub = {}
+	for _, s in { -1, 1 } do
+		local x = s * halfSpan
+		table.insert(list, { name = "Base", size = Vector3.new(0.16, 1.0, 1.0), offset = CFrame.new(x, 0.08, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder })
+		table.insert(list, { name = "BaseBell", size = Vector3.new(0.24, 0.62, 0.62), offset = CFrame.new(x, 0.28, 0) * CFrame.Angles(0, 0, rad(90)), color = brassDark, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+		table.insert(list, { name = "Post", size = Vector3.new(2.65, 0.28, 0.28), offset = CFrame.new(x, 1.62, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder })
+		table.insert(list, { name = "PostCollar", size = Vector3.new(0.14, 0.38, 0.38), offset = CFrame.new(x, 2.48, 0) * CFrame.Angles(0, 0, rad(90)), color = brassDark, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+		table.insert(list, { name = "Finial", size = Vector3.new(0.42, 0.42, 0.42), offset = CFrame.new(x, 3.04, 0), color = GOLD, material = Enum.Material.Metal, shape = Enum.PartType.Ball, collide = false })
+		table.insert(list, { name = "Clasp", size = Vector3.new(0.2, 0.26, 0.26), offset = CFrame.new(x - s * 0.18, 2.48, 0), color = brassDark, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+	end
+	local span = math.max(0.4, halfSpan - 0.16)
+	local segments = 5
+	for i = 1, segments do
+		local t0 = -1 + (i - 1) * (2 / segments)
+		local t1 = -1 + i * (2 / segments)
+		local p0 = Vector3.new(t0 * span, 2.48 - 0.4 * (1 - t0 * t0), 0)
+		local p1 = Vector3.new(t1 * span, 2.48 - 0.4 * (1 - t1 * t1), 0)
+		local mid = (p0 + p1) / 2
+		local len = (p1 - p0).Magnitude + 0.08
+		table.insert(list, {
+			name = "Rope",
+			size = Vector3.new(len, 0.2, 0.2),
+			offset = CFrame.lookAt(mid, p1) * CFrame.Angles(0, rad(90), 0),
+			color = RED,
+			material = Enum.Material.Fabric,
+			shape = Enum.PartType.Cylinder,
+			collide = false,
+		})
+	end
+	return list
+end
+
 -- Столбики с канатом перед статуей (шире, чем у Моны Лизы: под постамент 3.4).
-local ROPE_STUB: Stub = {
-	{ name = "Post", size = Vector3.new(0.4, 3, 0.4), offset = CFrame.new(-2.3, 1.5, 0), color = GOLD, material = Enum.Material.Metal },
-	{ name = "Post", size = Vector3.new(0.4, 3, 0.4), offset = CFrame.new(2.3, 1.5, 0), color = GOLD, material = Enum.Material.Metal },
-	{ name = "Rope", size = Vector3.new(4.6, 0.25, 0.25), offset = CFrame.new(0, 2.5, 0), color = RED, material = Enum.Material.Fabric, collide = false },
-}
+local ROPE_STUB: Stub = MapDecor.barrierStub(2.3)
 
 -- Что лежит в витринах у стен центра (по кругу) и что написано на табличке.
 local CASE_ITEMS = {

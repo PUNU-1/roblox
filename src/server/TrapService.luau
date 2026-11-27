@@ -123,6 +123,27 @@ local function trimPart(parent: Instance, name: string, size: Vector3, cframe: C
 	return part
 end
 
+local function addPostDecor(model: Instance, corner: Vector3)
+	local dark = Color3.fromHex("1C1F26")
+	local slate = Color3.fromHex("364054")
+	local steel = Color3.fromHex("9AA6BC")
+	local hazard = Color3.fromHex("F2C230")
+	local base = trimPart(model, "PostBase", Vector3.new(0.18, 0.96, 0.96), CFrame.new(corner + Vector3.new(0, 0.09, 0)) * CFrame.Angles(0, 0, math.pi / 2), dark, Enum.Material.Metal, Enum.PartType.Cylinder)
+	base.CanQuery = false
+	trimPart(model, "PostPlinth", Vector3.new(0.22, 0.68, 0.68), CFrame.new(corner + Vector3.new(0, 0.28, 0)) * CFrame.Angles(0, 0, math.pi / 2), slate, Enum.Material.Metal, Enum.PartType.Cylinder)
+	trimPart(model, "PostBand", Vector3.new(0.14, 0.46, 0.46), CFrame.new(corner + Vector3.new(0, 0.52, 0)) * CFrame.Angles(0, 0, math.pi / 2), hazard, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+	trimPart(model, "PostCollar", Vector3.new(0.14, 0.48, 0.48), CFrame.new(corner + Vector3.new(0, Laser.PostHeight - 0.12, 0)) * CFrame.Angles(0, 0, math.pi / 2), steel, Enum.Material.Metal, Enum.PartType.Cylinder)
+	trimPart(model, "PostCap", Vector3.new(0.58, 0.22, 0.58), CFrame.new(corner + Vector3.new(0, Laser.PostHeight + 0.1, 0)), dark, Enum.Material.Metal)
+	trimPart(model, "BeaconCage", Vector3.new(0.32, 0.2, 0.32), CFrame.new(corner + Vector3.new(0, Laser.PostHeight + 0.25, 0)), steel, Enum.Material.Metal)
+	trimPart(model, "PostTop", Vector3.new(0.22, 0.22, 0.22), CFrame.new(corner + Vector3.new(0, Laser.PostHeight + 0.36, 0)), Laser.BeamColor, Enum.Material.Neon, Enum.PartType.Ball)
+	for _, height in Laser.BeamHeights do
+		trimPart(model, "EmitterHousing", Vector3.new(0.28, 0.54, 0.54), CFrame.new(corner + Vector3.new(0, height, 0)) * CFrame.Angles(0, 0, math.pi / 2), dark, Enum.Material.Metal, Enum.PartType.Cylinder)
+		local lens = trimPart(model, "Lens", Vector3.new(0.2, 0.58, 0.58), CFrame.new(corner + Vector3.new(0, height, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromHex("3A0F12"), Enum.Material.Glass, Enum.PartType.Cylinder)
+		lens.Transparency = 0.55
+		trimPart(model, "EmitterCore", Vector3.new(0.08, 0.59, 0.59), CFrame.new(corner + Vector3.new(0, height, 0)) * CFrame.Angles(0, 0, math.pi / 2), Laser.BeamColor, Enum.Material.Neon, Enum.PartType.Cylinder)
+	end
+end
+
 local function buildFence(grid: Grid)
 	local center, corners = fenceCorners(grid.exhibit)
 	local model = Instance.new("Model")
@@ -131,26 +152,21 @@ local function buildFence(grid: Grid)
 	for index, corner in corners do
 		local post = Instance.new("Part")
 		post.Name = "Post" .. index
-		post.Size = Vector3.new(0.4, Laser.PostHeight, 0.4)
-		post.CFrame = CFrame.new(corner + Vector3.new(0, Laser.PostHeight / 2, 0))
+		post.Shape = Enum.PartType.Cylinder
+		post.Size = Vector3.new(Laser.PostHeight, 0.38, 0.38)
+		post.CFrame = CFrame.new(corner + Vector3.new(0, Laser.PostHeight / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2)
 		post.Color = Color3.fromHex("2A2F3A")
 		post.Material = Enum.Material.Metal
 		post.Anchored = true
 		post.CanCollide = false
 		post.Parent = model
-		-- Этап 5, блок F2: тяжёлое основание, колпак сверху, тёмные линзы излучателей на высоте лучей
-		local base = trimPart(model, "PostBase", Vector3.new(0.2, 0.8, 0.8), CFrame.new(corner + Vector3.new(0, 0.1, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromHex("1C1F26"), Enum.Material.Metal, Enum.PartType.Cylinder)
-		base.CanQuery = false
-		trimPart(model, "PostCap", Vector3.new(0.55, 0.25, 0.55), CFrame.new(corner + Vector3.new(0, Laser.PostHeight + 0.12, 0)), Color3.fromHex("1C1F26"), Enum.Material.Metal)
-		trimPart(model, "PostTop", Vector3.new(0.22, 0.22, 0.22), CFrame.new(corner + Vector3.new(0, Laser.PostHeight + 0.32, 0)), Laser.BeamColor, Enum.Material.Neon, Enum.PartType.Ball)
-		for _, height in Laser.BeamHeights do
-			trimPart(model, "Lens", Vector3.new(0.18, 0.52, 0.52), CFrame.new(corner + Vector3.new(0, height, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromHex("3A0F12"), Enum.Material.Glass, Enum.PartType.Cylinder)
-		end
+		addPostDecor(model, corner)
 		attachments[index] = {}
 		for level, height in Laser.BeamHeights do
 			local attachment = Instance.new("Attachment")
 			attachment.Name = "Laser" .. level
-			attachment.Position = Vector3.new(0, height - Laser.PostHeight / 2, 0)
+			-- Ось X цилиндра направлена вверх по Y из-за поворота CFrame.Angles(0, 0, pi/2)
+			attachment.Position = Vector3.new(height - Laser.PostHeight / 2, 0, 0)
 			attachment.Parent = post
 			attachments[index][level] = attachment
 		end
@@ -485,7 +501,9 @@ local function laserPreview(exhibitId: string, isMain: boolean): Model
 		Vector3.new(-halfX, 0, centerZ + halfZ),
 	}
 	for index, corner in corners do
-		previewPart(model, "Post", Vector3.new(0.4, Laser.PostHeight, 0.4), CFrame.new(corner + Vector3.new(0, Laser.PostHeight / 2, 0)), PREVIEW_POST, Enum.Material.Metal)
+		local post = previewPart(model, "Post", Vector3.new(Laser.PostHeight, 0.38, 0.38), CFrame.new(corner + Vector3.new(0, Laser.PostHeight / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2), PREVIEW_POST, Enum.Material.Metal)
+		post.Shape = Enum.PartType.Cylinder
+		addPostDecor(model, corner)
 		local nextCorner = corners[index % #corners + 1]
 		for _, height in Laser.BeamHeights do
 			local a = corner + Vector3.new(0, height, 0)

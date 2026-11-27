@@ -804,27 +804,48 @@ local function benchStub(): { ModelLibrary.StubPart }
 end
 local BENCH_STUB: { ModelLibrary.StubPart } = benchStub()
 
--- Створка входной двери: стекло в золотой раме, ручка у внутреннего края (+X). Низ по центру.
-local ENTRANCE_DOOR_STUB: { ModelLibrary.StubPart } = {
-	{ name = "StileOuter", size = Vector3.new(0.45, DOOR_H, 0.4), offset = CFrame.new(-2.275, DOOR_H / 2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
-	{ name = "StileInner", size = Vector3.new(0.45, DOOR_H, 0.4), offset = CFrame.new(2.275, DOOR_H / 2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
-	{ name = "RailTop", size = Vector3.new(4.1, 0.5, 0.4), offset = CFrame.new(0, DOOR_H - 0.25, 0), color = COLORS.Gold, material = Enum.Material.Metal },
-	{ name = "RailBottom", size = Vector3.new(4.1, 0.9, 0.4), offset = CFrame.new(0, 0.45, 0), color = COLORS.Gold, material = Enum.Material.Metal },
-	{ name = "RailMiddle", size = Vector3.new(4.1, 0.3, 0.4), offset = CFrame.new(0, 3.2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
-	{ name = "GlassLow", size = Vector3.new(4.1, 2.15, 0.12), offset = CFrame.new(0, 1.975, 0), color = COLORS.Glass, material = Enum.Material.Glass, transparency = 0.55 },
-	{ name = "GlassHigh", size = Vector3.new(4.1, 6.1, 0.12), offset = CFrame.new(0, 6.4, 0), color = COLORS.Glass, material = Enum.Material.Glass, transparency = 0.55 },
-	{ name = "HandleIn", size = Vector3.new(0.18, 2.2, 0.18), offset = CFrame.new(1.7, 4.6, -0.35), color = COLORS.WhiteMarble, material = Enum.Material.Metal },
-	{ name = "HandleOut", size = Vector3.new(0.18, 2.2, 0.18), offset = CFrame.new(1.7, 4.6, 0.35), color = COLORS.WhiteMarble, material = Enum.Material.Metal },
-	{ name = "Emblem", size = Vector3.new(1.2, 1.2, 0.14), offset = CFrame.new(0, 6.4, 0), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
-	-- Этап 5, блок F2: матовая полоса на стекле, латунные накладки у ручек, заклёпки по углам
-	{ name = "Frost", size = Vector3.new(4.1, 0.5, 0.14), offset = CFrame.new(0, 4.8, 0), color = hex("F4FAFF"), material = Enum.Material.Glass, transparency = 0.35 },
-	{ name = "PushPlateIn", size = Vector3.new(0.5, 2.6, 0.04), offset = CFrame.new(1.7, 4.6, -0.22), color = COLORS.Gold, material = Enum.Material.Metal },
-	{ name = "PushPlateOut", size = Vector3.new(0.5, 2.6, 0.04), offset = CFrame.new(1.7, 4.6, 0.22), color = COLORS.Gold, material = Enum.Material.Metal },
-	{ name = "Stud", size = Vector3.new(0.24, 0.24, 0.46), offset = CFrame.new(-2.275, 0.45, 0), color = COLORS.WhiteMarble, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
-	{ name = "Stud", size = Vector3.new(0.24, 0.24, 0.46), offset = CFrame.new(2.275, 0.45, 0), color = COLORS.WhiteMarble, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
-	{ name = "Stud", size = Vector3.new(0.24, 0.24, 0.46), offset = CFrame.new(-2.275, DOOR_H - 0.25, 0), color = COLORS.WhiteMarble, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
-	{ name = "Stud", size = Vector3.new(0.24, 0.24, 0.46), offset = CFrame.new(2.275, DOOR_H - 0.25, 0), color = COLORS.WhiteMarble, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
-}
+-- Створка входной двери (R3): стекло в золотой раме с внутренним багетом, решётка внизу, медальон
+-- с ромбом, матовая полоса с окантовкой, трубчатые ручки на стойках и заклёпки. Низ по центру, край в +X.
+local function buildEntranceDoorStub(): { ModelLibrary.StubPart }
+	local brassDark = hex("C9922A")
+	local list: { ModelLibrary.StubPart } = {
+		{ name = "StileOuter", size = Vector3.new(0.45, DOOR_H, 0.4), offset = CFrame.new(-2.275, DOOR_H / 2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+		{ name = "StileInner", size = Vector3.new(0.45, DOOR_H, 0.4), offset = CFrame.new(2.275, DOOR_H / 2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+		{ name = "RailTop", size = Vector3.new(4.1, 0.52, 0.4), offset = CFrame.new(0, DOOR_H - 0.26, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+		{ name = "RailBottom", size = Vector3.new(4.1, 0.9, 0.4), offset = CFrame.new(0, 0.45, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+		{ name = "KickPlate", size = Vector3.new(3.9, 0.55, 0.44), offset = CFrame.new(0, 0.45, 0), color = brassDark, material = Enum.Material.Metal, collide = false },
+		{ name = "RailMiddle", size = Vector3.new(4.1, 0.34, 0.4), offset = CFrame.new(0, 3.2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+		{ name = "GlassLow", size = Vector3.new(4.1, 2.15, 0.12), offset = CFrame.new(0, 1.975, 0), color = COLORS.Glass, material = Enum.Material.Glass, transparency = 0.55 },
+		{ name = "GlassHigh", size = Vector3.new(4.1, 6.1, 0.12), offset = CFrame.new(0, 6.4, 0), color = COLORS.Glass, material = Enum.Material.Glass, transparency = 0.55 },
+		-- Внутренняя решётка в нижней секции и медальон на верхнем стекле
+		{ name = "MullionV", size = Vector3.new(0.1, 2.1, 0.18), offset = CFrame.new(0, 1.98, 0), color = brassDark, material = Enum.Material.Metal, collide = false },
+		{ name = "MullionH", size = Vector3.new(4.05, 0.1, 0.18), offset = CFrame.new(0, 1.98, 0), color = brassDark, material = Enum.Material.Metal, collide = false },
+		{ name = "Emblem", size = Vector3.new(0.16, 1.32, 1.32), offset = CFrame.new(0, 6.4, 0) * CFrame.Angles(0, math.rad(90), 0), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "EmblemCore", size = Vector3.new(0.18, 0.94, 0.94), offset = CFrame.new(0, 6.4, 0) * CFrame.Angles(0, math.rad(90), 0), color = COLORS.Navy, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "EmblemGem", size = Vector3.new(0.42, 0.42, 0.22), offset = CFrame.new(0, 6.4, 0) * CFrame.Angles(0, 0, math.rad(45)), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		-- Матовая полоса с золотыми кантами
+		{ name = "Frost", size = Vector3.new(4.1, 0.5, 0.14), offset = CFrame.new(0, 4.8, 0), color = hex("F4FAFF"), material = Enum.Material.Glass, transparency = 0.35 },
+		{ name = "FrostTrimTop", size = Vector3.new(4.05, 0.06, 0.17), offset = CFrame.new(0, 5.06, 0), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		{ name = "FrostTrimBot", size = Vector3.new(4.05, 0.06, 0.17), offset = CFrame.new(0, 4.54, 0), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		-- Ручки с обеих сторон на накладках и стойках
+		{ name = "PushPlateIn", size = Vector3.new(0.52, 2.7, 0.05), offset = CFrame.new(1.7, 4.6, -0.21), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		{ name = "PushPlateOut", size = Vector3.new(0.52, 2.7, 0.05), offset = CFrame.new(1.7, 4.6, 0.21), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		{ name = "HandleIn", size = Vector3.new(2.2, 0.16, 0.16), offset = CFrame.new(1.7, 4.6, -0.44) * CFrame.Angles(0, 0, math.rad(90)), color = COLORS.WhiteMarble, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+		{ name = "HandleOut", size = Vector3.new(2.2, 0.16, 0.16), offset = CFrame.new(1.7, 4.6, 0.44) * CFrame.Angles(0, 0, math.rad(90)), color = COLORS.WhiteMarble, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	}
+	for _, z in { -0.32, 0.32 } do
+		for _, y in { 3.7, 5.5 } do
+			table.insert(list, stubAxisCyl("HandleStand", 0.26, 0.14, CFrame.new(1.7, y, z) * CFrame.Angles(0, math.rad(90), 0), brassDark, Enum.Material.Metal, false))
+		end
+	end
+	for _, x in { -2.275, 2.275 } do
+		for _, y in { 0.45, DOOR_H - 0.26 } do
+			table.insert(list, { name = "Stud", size = Vector3.new(0.24, 0.24, 0.48), offset = CFrame.new(x, y, 0), color = COLORS.WhiteMarble, material = Enum.Material.Metal, shape = Enum.PartType.Ball, collide = false })
+		end
+	end
+	return list
+end
+local ENTRANCE_DOOR_STUB: { ModelLibrary.StubPart } = buildEntranceDoorStub()
 
 -- Створка двери STAFF ONLY: серый металл, окошко, табличка, ручка. Низ по центру.
 local STAFF_DOOR_STUB: { ModelLibrary.StubPart } = {
@@ -900,17 +921,53 @@ local RECEPTION_STUB: { ModelLibrary.StubPart } = {
 	{ name = "Bell", size = Vector3.new(0.5, 0.5, 0.5), offset = CFrame.new(0, 3.75, -0.6), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
 }
 
--- Щиток POWER: металлический шкаф у стены, дверца с молнией, рубильники. Задник на z = 0, перед в −Z.
-local FUSEBOX_STUB: { ModelLibrary.StubPart } = {
-	{ name = "Cabinet", size = Vector3.new(3, 4.4, 1), offset = CFrame.new(0, 2.6, -0.5), color = hex("6E7686"), material = Enum.Material.Metal },
-	{ name = "Door", size = Vector3.new(2.6, 3.4, 0.1), offset = CFrame.new(0, 2.9, -1.05), color = hex("8A93A6"), material = Enum.Material.Metal },
-	{ name = "Bolt", size = Vector3.new(0.2, 0.6, 0.2), offset = CFrame.new(1.05, 2.9, -1.15), color = COLORS.Dark },
-	{ name = "Warning", size = Vector3.new(1.2, 1.2, 0.05), offset = CFrame.new(0, 3.6, -1.12), color = hex("F2C230") },
-	{ name = "Lever", size = Vector3.new(0.3, 1.2, 0.3), offset = CFrame.new(1.8, 3, -0.6) * CFrame.Angles(0, 0, math.rad(-20)), color = COLORS.Red, material = Enum.Material.Metal },
-	{ name = "Pipe", size = Vector3.new(0.4, 4, 0.4), offset = CFrame.new(-1, 6.8, -0.3), color = hex("4A5060"), material = Enum.Material.Metal },
-	{ name = "Lamp", size = Vector3.new(0.4, 0.4, 0.2), offset = CFrame.new(-0.9, 4.5, -1.1), color = hex("3FB56B"), material = Enum.Material.Neon },
-	{ name = "Feet", size = Vector3.new(3.2, 0.4, 1.1), offset = CFrame.new(0, 0.2, -0.55), color = hex("2B2F3A"), material = Enum.Material.Metal },
-}
+-- Щиток POWER (R3): стальной шкаф у стены с дверцей, петлями, вентиляцией, знаком молнии,
+-- вольтметром, боковым рубильником, кабелепроводами и индикатором Lamp (для BlackoutService). Задник на z = 0.
+local function buildFuseboxStub(): { ModelLibrary.StubPart }
+	local steelMid = hex("6E7686")
+	local steelLight = hex("8A93A6")
+	local steelDark = hex("2B2F3A")
+	local hazardYellow = hex("F2C230")
+	local list: { ModelLibrary.StubPart } = {
+		{ name = "Feet", size = Vector3.new(3.2, 0.36, 1.1), offset = CFrame.new(0, 0.18, -0.55), color = steelDark, material = Enum.Material.Metal },
+		{ name = "Cabinet", size = Vector3.new(3, 4.4, 1), offset = CFrame.new(0, 2.58, -0.5), color = steelMid, material = Enum.Material.Metal },
+		stubWedge("HoodBevel", Vector3.new(3.16, 0.24, 1.12), CFrame.new(0, 4.9, -0.55), steelDark, Enum.Material.Metal, false),
+		{ name = "DoorGasket", size = Vector3.new(2.74, 3.54, 0.06), offset = CFrame.new(0, 2.76, -1.01), color = hex("1C1F26"), collide = false },
+		{ name = "Door", size = Vector3.new(2.6, 3.4, 0.1), offset = CFrame.new(0, 2.76, -1.07), color = steelLight, material = Enum.Material.Metal, collide = false },
+		{ name = "DoorHandle", size = Vector3.new(0.16, 0.65, 0.14), offset = CFrame.new(1.04, 2.76, -1.16), color = COLORS.Dark, material = Enum.Material.Metal, collide = false },
+		{ name = "DoorKey", size = Vector3.new(0.08, 0.14, 0.06), offset = CFrame.new(1.04, 2.4, -1.14), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		-- Знак высокого напряжения (ромб и молния)
+		{ name = "WarningRim", size = Vector3.new(1.18, 1.18, 0.04), offset = CFrame.new(0, 3.55, -1.13) * CFrame.Angles(0, 0, math.rad(45)), color = hex("1C1F26"), collide = false },
+		{ name = "Warning", size = Vector3.new(1.04, 1.04, 0.05), offset = CFrame.new(0, 3.55, -1.14) * CFrame.Angles(0, 0, math.rad(45)), color = hazardYellow, collide = false },
+		{ name = "LightningTop", size = Vector3.new(0.16, 0.42, 0.06), offset = CFrame.new(0.05, 3.74, -1.16) * CFrame.Angles(0, 0, math.rad(-25)), color = hex("1C1F26"), collide = false },
+		{ name = "LightningMid", size = Vector3.new(0.3, 0.12, 0.06), offset = CFrame.new(0, 3.55, -1.16), color = hex("1C1F26"), collide = false },
+		{ name = "LightningBot", size = Vector3.new(0.16, 0.42, 0.06), offset = CFrame.new(-0.05, 3.36, -1.16) * CFrame.Angles(0, 0, math.rad(-25)), color = hex("1C1F26"), collide = false },
+		-- Вольтметр на дверце и индикатор Lamp в защитном кольце
+		stubAxisCyl("MeterBezel", 0.08, 0.68, CFrame.new(-0.62, 2.35, -1.13) * CFrame.Angles(0, math.rad(90), 0), steelDark, Enum.Material.Metal, false),
+		stubAxisCyl("MeterFace", 0.09, 0.54, CFrame.new(-0.62, 2.35, -1.14) * CFrame.Angles(0, math.rad(90), 0), hex("F8FAFC"), nil, false),
+		{ name = "MeterNeedle", size = Vector3.new(0.04, 0.24, 0.04), offset = CFrame.new(-0.56, 2.4, -1.19) * CFrame.Angles(0, 0, math.rad(-35)), color = COLORS.Red, collide = false },
+		stubAxisCyl("LampBezel", 0.1, 0.54, CFrame.new(-0.95, 4.52, -1.03) * CFrame.Angles(0, math.rad(90), 0), steelDark, Enum.Material.Metal, false),
+		{ name = "Lamp", size = Vector3.new(0.4, 0.4, 0.36), offset = CFrame.new(-0.95, 4.52, -1.08), color = hex("3FB56B"), material = Enum.Material.Neon, shape = Enum.PartType.Ball, collide = false },
+		-- Боковой силовой рубильник и верхняя распредкоробка с трубами
+		{ name = "SwitchBox", size = Vector3.new(0.28, 0.85, 0.6), offset = CFrame.new(1.62, 2.8, -0.5), color = steelDark, material = Enum.Material.Metal, collide = false },
+		stubAxisCyl("SwitchHub", 0.36, 0.3, CFrame.new(1.76, 2.8, -0.5), steelLight, Enum.Material.Metal, false),
+		{ name = "Lever", size = Vector3.new(0.18, 1.1, 0.22), offset = CFrame.new(1.88, 3.25, -0.56) * CFrame.Angles(math.rad(-20), 0, math.rad(-14)), color = COLORS.Metal, material = Enum.Material.Metal, collide = false },
+		stubAxisCyl("LeverGrip", 0.24, 0.32, CFrame.new(2.02, 3.74, -0.74), COLORS.Red, Enum.Material.Rubber, false),
+		{ name = "JunctionBox", size = Vector3.new(1.5, 0.75, 0.65), offset = CFrame.new(-0.6, 5.38, -0.36), color = steelDark, material = Enum.Material.Metal, collide = false },
+	}
+	for _, y in { 1.8, 3.7 } do
+		table.insert(list, stubCyl("Hinge", 0.32, 0.16, Vector3.new(-1.32, y, -1.07), steelDark, Enum.Material.Metal, false))
+	end
+	for i = 0, 3 do
+		table.insert(list, { name = "Vent", size = Vector3.new(1.6, 0.08, 0.06), offset = CFrame.new(0.2, 1.32 + i * 0.16, -1.13), color = steelDark, material = Enum.Material.Metal, collide = false })
+	end
+	for _, x in { -1.0, -0.35 } do
+		table.insert(list, stubCyl("Pipe", 4.4, 0.32, Vector3.new(x, 7.8, -0.35), hex("4A5060"), Enum.Material.Metal, false))
+		table.insert(list, stubCyl("PipeClamp", 0.16, 0.44, Vector3.new(x, 7.2, -0.35), steelDark, Enum.Material.Metal, false))
+	end
+	return list
+end
+local FUSEBOX_STUB: { ModelLibrary.StubPart } = buildFuseboxStub()
 
 -- Пустая оружейная стойка у стены (товары — блок 4): задняя панель, крючки, полка. Задник на z = 0.
 local WEAPON_RACK_STUB: { ModelLibrary.StubPart } = {
@@ -1467,11 +1524,7 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 	console:SetAttribute("MapObstacle", true)
 
 	-- Канатное ограждение перед Моной Лизой, с проходом посередине
-	local barrier = {
-		{ size = Vector3.new(0.4, 3, 0.4), offset = CFrame.new(-1.8, 1.5, 0), color = COLORS.Gold, material = Enum.Material.Metal },
-		{ size = Vector3.new(0.4, 3, 0.4), offset = CFrame.new(1.8, 1.5, 0), color = COLORS.Gold, material = Enum.Material.Metal },
-		{ size = Vector3.new(3.6, 0.25, 0.25), offset = CFrame.new(0, 2.5, 0), color = COLORS.Red, material = Enum.Material.Fabric },
-	}
+	local barrier = MapDecor.barrierStub(1.8)
 	placeModel(MapSchema.Models.Barrier, CFrame.new(-5, 0, 7.5), barrier)
 	placeModel(MapSchema.Models.Barrier, CFrame.new(5, 0, 7.5), barrier)
 	for _, x in { -11, 11 } do -- по бокам от ковровой дорожки, лицом к картине
