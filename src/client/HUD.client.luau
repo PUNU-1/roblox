@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -18,6 +19,7 @@ local ClassCards = require(script.Parent:WaitForChild("UI"):WaitForChild("ClassC
 local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelButton"))
 local GoalBar = require(script.Parent:WaitForChild("UI"):WaitForChild("GoalBar"))
 local PixelIcon = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelIcon"))
+local MvpShowcase = require(script.Parent:WaitForChild("UI"):WaitForChild("MvpShowcase"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -145,6 +147,12 @@ end)
 
 ---------------------------------------------------------------- итог ночи
 
+local PANEL_SOLO_W = 640
+local PANEL_MVP_W = 860
+local PANEL_H = 570
+local CHOICE_H = 114
+local COL_GAP = 16
+
 local resultsFrame = Theme.new("Frame", {
 	Name = "Results",
 	Size = UDim2.fromScale(1, 1),
@@ -155,61 +163,86 @@ local resultsFrame = Theme.new("Frame", {
 	Parent = gui,
 })
 
--- Этап 6, блок H2: панель выше — внизу место под полоску награды, сундук и «чуть-чуть не хватило»
-local resultsPanel = Theme.new("Frame", {
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.fromScale(0.5, 0.03),
-	Size = UDim2.fromScale(0.58, 0.8),
-	BackgroundColor3 = Colors.Navy,
+local resultsContainer = Theme.new("Frame", {
+	Name = "Container",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(PANEL_SOLO_W, PANEL_H),
+	BackgroundTransparency = 1,
 	ZIndex = 5,
 	Parent = resultsFrame,
-}, { Theme.corner(18), Theme.stroke(Colors.Gold, 3), Theme.padding(16), Theme.new("UISizeConstraint", { MinSize = Vector2.new(400, 420) }) })
+})
+local resultsScale = Theme.new("UIScale", { Parent = resultsContainer })
 
-local resultsTitle = Theme.label({ Size = UDim2.fromScale(1, 0.13), MaxTextSize = 56, ZIndex = 5, Parent = resultsPanel })
+-- Этап 6, блоки H2 и I3: панель итога и витрина MVP справа (масштабируется целиком под экран)
+local resultsPanel = Theme.new("Frame", {
+	Position = UDim2.fromOffset(0, 0),
+	Size = UDim2.fromOffset(PANEL_SOLO_W, PANEL_H),
+	BackgroundColor3 = Colors.Navy,
+	ZIndex = 5,
+	Parent = resultsContainer,
+}, { Theme.corner(18), Theme.stroke(Colors.Gold, 3), Theme.padding(16) })
+
+local resultsTitle = Theme.label({ Size = UDim2.new(1, 0, 0, 60), MaxTextSize = 52, ZIndex = 5, Parent = resultsPanel })
 local resultsCaught = Theme.label({
-	Position = UDim2.fromScale(0, 0.14),
-	Size = UDim2.fromScale(1, 0.08),
+	Position = UDim2.fromOffset(0, 62),
+	Size = UDim2.new(1, 0, 0, 34),
 	TextColor3 = Colors.Marble,
+	MaxTextSize = 26,
 	ZIndex = 5,
 	Parent = resultsPanel,
 })
+
+local mvpShowcase = MvpShowcase.new(resultsPanel, 6)
+mvpShowcase.frame.AnchorPoint = Vector2.new(1, 0)
+mvpShowcase.frame.Position = UDim2.new(1, 0, 0, 102)
+
+local resultsLeftCol = Theme.new("Frame", {
+	Name = "LeftColumn",
+	Position = UDim2.fromOffset(0, 102),
+	Size = UDim2.new(1, 0, 0, 392),
+	BackgroundTransparency = 1,
+	ZIndex = 5,
+	Parent = resultsPanel,
+})
+
 -- «Thieves used: Decoy, Pincer» — какие планы были у воров (блок 3; заранее о планах ничего не говорится)
 local resultsPlans = Theme.label({
-	Position = UDim2.fromScale(0, 0.22),
-	Size = UDim2.fromScale(1, 0.05),
+	Position = UDim2.fromOffset(0, 0),
+	Size = UDim2.new(1, 0, 0, 24),
 	Font = Theme.BodyFont,
 	TextColor3 = Colors.Gold,
 	MaxTextSize = 20,
 	ZIndex = 5,
-	Parent = resultsPanel,
+	Parent = resultsLeftCol,
 })
 -- Алмазы 💎 (этап 4, блок 1): «+12 💎» за эту ночь или «Diamonds this run: +46 💎» на GAME OVER
 local resultsDiamonds = Theme.label({
-	Position = UDim2.fromScale(0, 0.275),
-	Size = UDim2.fromScale(1, 0.065),
+	Position = UDim2.fromOffset(0, 28),
+	Size = UDim2.new(1, 0, 0, 34),
 	RichText = true,
 	TextColor3 = Colors.Diamond,
 	MaxTextSize = 30,
 	ZIndex = 5,
-	Parent = resultsPanel,
+	Parent = resultsLeftCol,
 })
 Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = resultsDiamonds })
 local resultsList = Theme.new("Frame", {
-	Position = UDim2.fromScale(0, 0.35),
-	Size = UDim2.fromScale(1, 0.27),
+	Position = UDim2.fromOffset(0, 68),
+	Size = UDim2.new(1, 0, 0, 146),
 	BackgroundTransparency = 1,
 	ZIndex = 5,
-	Parent = resultsPanel,
+	Parent = resultsLeftCol,
 })
 Theme.new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = resultsList })
 -- Низ панели (этап 6, блок H2): полоска до ближайшей награды, сундук после ночи, «чуть-чуть не хватило» на GAME OVER
 local resultsExtras = Theme.new("Frame", {
 	Name = "Extras",
-	Position = UDim2.fromScale(0, 0.63),
-	Size = UDim2.fromScale(1, 0.27),
+	Position = UDim2.fromOffset(0, 220),
+	Size = UDim2.new(1, 0, 0, 168),
 	BackgroundTransparency = 1,
 	ZIndex = 5,
-	Parent = resultsPanel,
+	Parent = resultsLeftCol,
 })
 -- GAME OVER (этап 6, блок H2): крупно ближайшая цель — «1 NIGHT TO BEAT YOUR RECORD!», «30 💎 TO TECHNICIAN»
 local nearMiss = Theme.label({
@@ -327,8 +360,8 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 local resultsFooter = Theme.label({
-	Position = UDim2.fromScale(0, 0.9),
-	Size = UDim2.fromScale(1, 0.1),
+	Position = UDim2.fromOffset(0, 502),
+	Size = UDim2.new(1, 0, 0, 34),
 	Font = Theme.BodyFont,
 	TextColor3 = Colors.Gray,
 	MaxTextSize = 18,
@@ -337,6 +370,7 @@ local resultsFooter = Theme.label({
 })
 
 local resultsGameOver = false
+local resultsMvpVisible = false
 
 ---------------------------------------------------------------- конец забега: Play again / Lobby (блок 6)
 -- Кнопки под экраном GAME OVER. Пока они видны, курсор свободен (Modal), с клавиатуры — P и L.
@@ -345,13 +379,41 @@ local resultsGameOver = false
 local choiceBar = Theme.new("Frame", {
 	Name = "GameOverChoice",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0.85, 0),
-	Size = UDim2.new(0.5, 0, 0, 72),
+	Position = UDim2.new(0.5, 0, 0, PANEL_H + 12),
+	Size = UDim2.fromOffset(520, 72),
 	BackgroundTransparency = 1,
 	Visible = false,
 	ZIndex = 6,
-	Parent = resultsFrame,
-}, { Theme.new("UISizeConstraint", { MinSize = Vector2.new(380, 0) }) })
+	Parent = resultsContainer,
+})
+
+local function rescaleResults()
+	local panelW = if resultsMvpVisible then PANEL_MVP_W else PANEL_SOLO_W
+	local totalH = if choiceBar.Visible then PANEL_H + CHOICE_H else PANEL_H
+	resultsContainer.Size = UDim2.fromOffset(panelW, totalH)
+	resultsPanel.Size = UDim2.fromOffset(panelW, PANEL_H)
+	resultsLeftCol.Size = if resultsMvpVisible
+		then UDim2.new(1, -(mvpShowcase.width + COL_GAP), 0, 392)
+		else UDim2.new(1, 0, 0, 392)
+	local camera = Workspace.CurrentCamera
+	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+	resultsScale.Scale = math.clamp(math.min((viewport.X - 24) / panelW, (viewport.Y - 24) / totalH), 0.35, 1)
+end
+
+local viewportConn: RBXScriptConnection? = nil
+local function watchViewport()
+	if viewportConn then
+		viewportConn:Disconnect()
+		viewportConn = nil
+	end
+	local camera = Workspace.CurrentCamera
+	if camera then
+		viewportConn = camera:GetPropertyChangedSignal("ViewportSize"):Connect(rescaleResults)
+	end
+	rescaleResults()
+end
+watchViewport()
+local camPropConn = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchViewport)
 -- Этап 6, блок H2: PLAY AGAIN крупнее, ярче и «дышит», LOBBY — маленькая и спокойная
 local AGAIN_COLOR = Color3.fromHex("56D97F")
 -- Пиксельные кнопки с текстом, как в хабе (этап 5, блок D)
@@ -517,13 +579,18 @@ local function showResults(results: { [string]: any })
 	local wallets = if typeof(results.wallets) == "table" then results.wallets else {}
 	local gems = if typeof(results.diamonds) == "table" then results.diamonds else {}
 	local best = tonumber(results.bestUserId) or 0
+	local bestCatches = tonumber(results.bestCatches)
+		or (if best ~= 0 then tonumber(catches[tostring(best)]) or 0 else 0)
+	local bestName = if typeof(results.bestName) == "string" and results.bestName ~= "" then results.bestName else nil
 	local order = 0
 	for userIdText, amount in earnings do
 		order += 1
 		local userId = tonumber(userIdText) or 0
 		local player = Players:GetPlayerByUserId(userId)
 		local name = if player then player.DisplayName else "Guard"
-		local star = if userId == best and best ~= 0 then "  ★ BEST GUARD" else ""
+		if userId == best and not bestName then
+			bestName = name
+		end
 		Theme.label({
 			LayoutOrder = order,
 			Font = Theme.BodyFont,
@@ -533,18 +600,26 @@ local function showResults(results: { [string]: any })
 			MaxTextSize = 18,
 			ZIndex = 5,
 			-- Имя, поймал (и сколько заработал арестами), сколько денег у него сейчас, алмазы за ночь
-			Text = ('%s   caught: %d <font color="#3FB56B">(+$%d)</font>   money: <font color="#D4A93A">$%d</font>   <font color="#%s">+%d 💎</font>%s'):format(
+			Text = ('%s   caught: %d <font color="#3FB56B">(+$%d)</font>   money: <font color="#D4A93A">$%d</font>   <font color="#%s">+%d 💎</font>'):format(
 				name,
 				tonumber(catches[userIdText]) or 0,
 				tonumber(amount) or 0,
 				tonumber(wallets[userIdText]) or 0,
 				Colors.Diamond:ToHex(),
-				tonumber(gems[userIdText]) or 0,
-				star
+				tonumber(gems[userIdText]) or 0
 			),
 			Parent = resultsList,
 		})
 	end
+	resultsMvpVisible = best ~= 0 and bestCatches > 0
+	if resultsMvpVisible then
+		local bestPlayer = Players:GetPlayerByUserId(best)
+		local displayName = bestName or (if bestPlayer then bestPlayer.DisplayName else "Guard")
+		mvpShowcase.show(best, displayName, bestCatches)
+	else
+		mvpShowcase.hide()
+	end
+	rescaleResults()
 	resultsGoal.refresh()
 	-- Низ панели: на GAME OVER сверху крупная цель, под ней полоска; после ночи — полоска и сундук
 	if resultsGameOver then
@@ -666,8 +741,20 @@ RunService.Heartbeat:Connect(function(dt)
 			else ("Day %d starts in %s"):format((tonumber(GameState.get(Attr.NightNumber)) or 0) + 1, left)
 	elseif phase == Phase.Lobby or phase == Phase.Day then
 		-- Прячем итог только в лобби: событие с итогом может прийти чуть раньше смены фазы
-		resultsFrame.Visible = false
+		if resultsFrame.Visible then
+			resultsFrame.Visible = false
+			mvpShowcase.hide()
+		end
 		choiceOpen = false
 		choiceBar.Visible = false
 	end
+end)
+
+gui.Destroying:Connect(function()
+	mvpShowcase.destroy()
+	if viewportConn then
+		viewportConn:Disconnect()
+		viewportConn = nil
+	end
+	camPropConn:Disconnect()
 end)
