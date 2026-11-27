@@ -44,6 +44,7 @@ local ProfileStore = require(Server:WaitForChild("ProfileStore"))
 local ProgressService = require(Server:WaitForChild("ProgressService"))
 local Purchase = require(Server:WaitForChild("Purchase"))
 local ShopService = require(Server:WaitForChild("ShopService"))
+local ChestService = require(Server:WaitForChild("ChestService"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -51,6 +52,7 @@ local Attr = GameState.Attr
 ProfileStore.init() -- алмазы 💎 и купленные классы (этап 4, блок 1): грузятся сразу, как игрок вошёл
 -- Опыт, уровни, задания, достижения (этап 6, блок H1). От первого лица своя плашка над головой не видна
 ProgressService.init({ hideOwnPlate = true })
+ChestService.init() -- сундук после ночи (этап 6, блок H2)
 ModelLibrary.setupCollisionGroups()
 -- Тени и реалистичная графика в музее: мягкие тени, отражения, bloom, цветокоррекция и лёгкая дымка
 Lighting.GlobalShadows = true
@@ -338,6 +340,8 @@ local function runResults(survived: boolean, night: number): { Player }
 	results.best = bestNights
 	results.plans = WaveService.usedPlans() -- «Thieves used: …» — единственная подсказка о планах воров
 	results.choice = gameOver -- кнопки Play again / Lobby
+	-- Сундук после пережитой ночи (этап 6, блок H2): только бесплатно, случай считает сервер
+	results.chests = if survived then ChestService.grantAll(RoleService.participants(), night) else {}
 	resultsRemote:FireAllClients(results)
 	if gameOver then
 		-- Пробный забег кончился (этап 6, блок H1): предложить купить класс в магазине хаба
@@ -353,11 +357,13 @@ local function runResults(survived: boolean, night: number): { Player }
 	while GameState.secondsLeft() > 0 do
 		tick()
 	end
+	ChestService.flush() -- кто не открыл сундук — алмазы всё равно его
 	return {}
 end
 
 -- Конец забега: всех обратно в комнату охраны, музей с нуля.
 local function finishRun()
+	ChestService.flush()
 	Audio.stopMusic()
 	VoteService.setRunActive(false)
 	TouristService.endDay()

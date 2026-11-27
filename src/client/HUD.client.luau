@@ -5,6 +5,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -15,6 +16,7 @@ local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
 local ClassCards = require(script.Parent:WaitForChild("UI"):WaitForChild("ClassCards"))
 local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelButton"))
 local GoalBar = require(script.Parent:WaitForChild("UI"):WaitForChild("GoalBar"))
+local PixelIcon = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelIcon"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -208,6 +210,95 @@ local resultsExtras = Theme.new("Frame", {
 local resultsGoal = GoalBar.new(resultsExtras, { width = 380, zIndex = 6 })
 resultsGoal.frame.AnchorPoint = Vector2.new(0.5, 0)
 resultsGoal.frame.Position = UDim2.fromScale(0.5, 0)
+
+-- Сундук после ночи (этап 6, блок H2): «OPEN FREE CHEST», сколько внутри — решает сервер (ChestService).
+-- Только бесплатно. Не открыл до конца итога — алмазы всё равно начислятся.
+local chestRow = Theme.new("Frame", {
+	Name = "Chest",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 60),
+	Size = UDim2.fromOffset(380, 64),
+	BackgroundTransparency = 1,
+	Visible = false,
+	ZIndex = 6,
+	Parent = resultsExtras,
+})
+local GOLD_CHEST: PixelIcon.Icon = {
+	rows = PixelIcon.Icons.Chest.rows,
+	palette = { K = "141420", b = "D4A93A", h = "FFE08A", y = "FFFFFF", d = "8B5A2B" },
+}
+local chestIcon = PixelIcon.new("Chest", true, 7)
+chestIcon.Size = PixelIcon.size("Chest", 4)
+chestIcon.Parent = chestRow
+local chestGoldIcon = PixelIcon.new(GOLD_CHEST, true, 7)
+chestGoldIcon.Size = chestIcon.Size
+chestGoldIcon.Visible = false
+chestGoldIcon.Parent = chestRow
+local chestScale = Theme.new("UIScale", { Parent = chestRow })
+local chestState = "none" -- "none" | "ready" | "opening" | "open"
+local function openChest()
+	if chestState ~= "ready" then
+		return
+	end
+	chestState = "opening"
+	Remotes.get(Remotes.Names.OpenChest):FireServer()
+end
+local chestButton = PixelButton.text({
+	name = "OpenChest",
+	text = if touchOnly then "OPEN FREE CHEST" else "OPEN FREE CHEST [O]",
+	color = Colors.Gold,
+	textSize = 12,
+	position = UDim2.fromOffset(76, 6),
+	size = UDim2.new(1, -76, 0, 52),
+	zIndex = 7,
+	parent = chestRow,
+	onActivated = openChest,
+})
+chestButton.root.Modal = true -- курсор свободен, пока кнопка на экране
+local chestText = Theme.label({
+	Position = UDim2.fromOffset(76, 0),
+	Size = UDim2.new(1, -76, 1, 0),
+	RichText = true,
+	TextColor3 = Colors.Diamond,
+	MaxTextSize = 30,
+	Visible = false,
+	ZIndex = 7,
+	Parent = chestRow,
+})
+Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = chestText })
+
+local function resetChest(has: boolean)
+	chestState = if has then "ready" else "none"
+	chestRow.Visible = has
+	chestButton.root.Visible = has
+	chestText.Visible = false
+	chestIcon.Visible = true
+	chestGoldIcon.Visible = false
+	chestScale.Scale = 1
+end
+
+Remotes.get(Remotes.Names.ChestResult).OnClientEvent:Connect(function(amount, gold)
+	if typeof(amount) ~= "number" or chestState == "none" then
+		return
+	end
+	chestState = "open"
+	chestButton.root.Visible = false
+	chestIcon.Visible = gold ~= true
+	chestGoldIcon.Visible = gold == true
+	chestText.Text = if gold == true
+		then ('<font color="#FFE08A">GOLDEN CHEST! x%d</font>   +%d 💎'):format(Config.Chest.GoldMultiplier, amount)
+		else ("+%d 💎"):format(amount)
+	chestText.Visible = true
+	-- Подпрыгивает, когда открылся
+	chestScale.Scale = 0.7
+	TweenService:Create(chestScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.O and resultsFrame.Visible then
+		openChest()
+	end
+end)
 local resultsFooter = Theme.label({
 	Position = UDim2.fromScale(0, 0.9),
 	Size = UDim2.fromScale(1, 0.1),
@@ -399,6 +490,8 @@ local function showResults(results: { [string]: any })
 		})
 	end
 	resultsGoal.refresh()
+	local chests = if typeof(results.chests) == "table" then results.chests else {}
+	resetChest(not resultsGameOver and chests[myKey] == true)
 	resultsFrame.Visible = true
 end
 

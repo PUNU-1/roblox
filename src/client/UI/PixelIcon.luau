@@ -785,6 +785,29 @@ Icons.Exhibit = {
 	palette = { K = OUTLINE, v = GOLD, h = WHITE, m = "E8DCC4" },
 }
 
+-- Сундук после ночи (этап 6, блок H2): деревянный, золотые полосы и замок; золотой — перекраской палитры
+Icons.Chest = {
+	rows = {
+		"................",
+		"................",
+		"...KKKKKKKKKK...",
+		"..KbbbbbbbbbbK..",
+		"..KbhhhhhhhhbK..",
+		"..KbbbbbbbbbbK..",
+		"..KyyyyyyyyyyK..",
+		"..KKKKKyyKKKKK..",
+		"..KbbbKyyKbbbK..",
+		"..KbbbKddKbbbK..",
+		"..KbbbbKKbbbbK..",
+		"..KbbbbbbbbbbK..",
+		"..KyyyyyyyyyyK..",
+		"..KbbbbbbbbbbK..",
+		"..KKKKKKKKKKKK..",
+		"................",
+	},
+	palette = { K = OUTLINE, b = "8B5A2B", h = "A8743F", y = GOLD, d = "3A2A1A" },
+}
+
 PixelIcon.Icons = Icons
 
 local function resolve(icon: Icon | string): Icon

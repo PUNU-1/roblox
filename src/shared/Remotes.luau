@@ -36,6 +36,8 @@ local NAMES: { [string]: string } = {
 	ClaimGift = "ClaimGift", -- () забрать подарок дня; сервер сам проверяет день и серию по сохранённым данным
 	-- этап 5, блок C: обучение
 	SetTutorial = "SetTutorial", -- (on: boolean) включить / выключить обучение навсегда (профиль); хаб и музей
+	-- этап 6, блок H2: сундук после ночи
+	OpenChest = "OpenChest", -- () открыть свой сундук на экране итога; сервер сам проверяет, есть ли он
 
 	-- сервер -> клиенты
 	PhraseShown = "PhraseShown", -- (userId: number, index: number)
@@ -53,6 +55,7 @@ local NAMES: { [string]: string } = {
 	-- этап 6, блок H2: "Card" (title, group: "Thief" | "Exhibit") — новая карточка коллекции,
 	-- "Collection" (name: "thieves" | "exhibits", diamonds) — собрана вся коллекция
 	ProgressEvent = "ProgressEvent",
+	ChestResult = "ChestResult", -- (amount: number, gold: boolean) ответ на OpenChest: сколько алмазов в сундуке (этап 6, блок H2)
 }
 Remotes.Names = NAMES
 
