@@ -357,6 +357,17 @@ local Config = {
 		ButtonGap = 6, -- отступ слева от кнопки SHOP
 	},
 
+	Results = { -- экран итога ночи и витрина MVP (этап 6, блок I3)
+		MvpWidth = 260, -- ширина ViewportFrame
+		MvpHeight = 300, -- высота ViewportFrame
+		MvpSpinSpeed = 0.65, -- медленное вращение витрины (рад/сек)
+		MvpFieldOfView = 34, -- угол обзора камеры витрины
+		MvpPedestalHeight = 1.6, -- высота пьедестала (стады)
+		MvpCrownGap = 0.45, -- зазор над головой и шапкой до короны (стады)
+		MvpCrownFloatAmplitude = 0.1, -- мягкое покачивание короны (стады)
+		MvpCrownFloatSpeed = 2.2, -- скорость покачивания короны
+	},
+
 	Lobby = { -- круг START SHIFT в комнате охраны (блок B1): встал в круг — ты в команде
 		-- В команде не больше Config.Players.Max (5) игроков
 		CircleRadius = 6, -- стадов от центра круга до края (считаем по HumanoidRootPart)

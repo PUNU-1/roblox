@@ -34,6 +34,8 @@ export type Results = {
 	catches: { [string]: number }, -- userId (строкой) -> поймано
 	wallets: { [string]: number }, -- userId (строкой) -> сколько денег у игрока сейчас
 	bestUserId: number, -- 0 — никто никого не поймал
+	bestCatches: number?, -- сколько арестов у лучшего охранника за ночь (этап 6, блок I3)
+	bestName: string?, -- DisplayName лучшего охранника (если выйдет до показа итога)
 	night: number?, -- какая это была ночь
 	gameOver: boolean?, -- Мону Лизу вынесли, забег окончен
 	nightsSurvived: number?, -- сколько ночей продержались за этот забег
@@ -142,7 +144,8 @@ function ScoreService.finish(survived: boolean, raided: boolean?): Results
 	local diamonds: { [string]: number } = {}
 	local runDiamonds: { [string]: number } = {}
 	local friendsBonus: { [string]: number } = {}
-	local bestUserId, bestCount = 0, 0
+	local bestUserId, bestCount, bestRevives = 0, 0, -1
+	local bestName: string? = nil
 	-- Кто сейчас на смене (бонус за друга — только если друг тоже на смене)
 	local team: { Player } = {}
 	for _, userId in participantIds do
@@ -156,10 +159,13 @@ function ScoreService.finish(survived: boolean, raided: boolean?): Results
 		earnings[key] = arrestMoneyByUser[userId] or 0
 		local caught = catchesByUser[userId] or 0
 		catches[key] = caught
-		if caught > bestCount then
-			bestUserId, bestCount = userId, caught
-		end
 		local player = Players:GetPlayerByUserId(userId)
+		local revives = if player then tonumber(player:GetAttribute(GameState.PlayerAttr.RunRevives)) or 0 else 0
+		-- Лучший охранник: больше арестов за ночь, при равенстве — больше поднятий товарищей (этап 6, блок I3)
+		if caught > 0 and (caught > bestCount or (caught == bestCount and revives > bestRevives)) then
+			bestUserId, bestCount, bestRevives = userId, caught, revives
+			bestName = if player then player.DisplayName else nil
+		end
 		wallets[key] = if player then tonumber(player:GetAttribute(GameState.PlayerAttr.Money)) or 0 else 0
 		-- Алмазы — только тем, кто ещё на сервере и на смене
 		local award = 0
@@ -188,6 +194,8 @@ function ScoreService.finish(survived: boolean, raided: boolean?): Results
 		catches = catches,
 		wallets = wallets,
 		bestUserId = bestUserId,
+		bestCatches = bestCount,
+		bestName = bestName,
 		tickets = dayTickets,
 		diamonds = diamonds,
 		diamondsRun = runDiamonds,
