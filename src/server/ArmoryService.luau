@@ -144,28 +144,56 @@ end
 
 ---------------------------------------------------------------- прилавок с оружием
 
--- Стеклянный прилавок: тумба, бархат внутри, стеклянный короб с золотыми рёбрами. Низ по центру, перед — в −Z.
+-- Стеклянный прилавок (R3): тумба с дверцами, замком и подсветкой цоколя, бархат с ложементами,
+-- внутренний светильник, стеклянный короб с золотыми рёбрами и табличка Sign (для textCard). Низ по центру, перед в −Z.
 local CASE_W, CASE_D = 16, 2.6
-local CASE_STUB: { ModelLibrary.StubPart } = {
-	{ name = "Cabinet", size = Vector3.new(CASE_W, 2.4, CASE_D), offset = CFrame.new(0, 1.2, 0), color = COLORS.Cabinet, material = M.Metal },
-	{ name = "Kick", size = Vector3.new(CASE_W - 0.2, 0.3, CASE_D - 0.3), offset = CFrame.new(0, 0.15, 0.05), color = hex("1C1F26") },
-	{ name = "Panel", size = Vector3.new(CASE_W - 0.6, 1.6, 0.06), offset = CFrame.new(0, 1.3, -CASE_D / 2 - 0.02), color = COLORS.CabinetTop, material = M.Metal },
-	{ name = "Stripe", size = Vector3.new(CASE_W - 0.6, 0.12, 0.08), offset = CFrame.new(0, 2.25, -CASE_D / 2 - 0.03), color = COLORS.Trim, material = M.Metal },
-	{ name = "Velvet", size = Vector3.new(CASE_W - 0.3, 0.1, CASE_D - 0.3), offset = CFrame.new(0, 2.45, 0), color = COLORS.Velvet, material = M.Fabric },
-	{ name = "Glass", size = Vector3.new(CASE_W - 0.2, 1.05, CASE_D - 0.2), offset = CFrame.new(0, 2.95, 0), color = COLORS.Glass, material = M.Glass, transparency = 0.72 },
-	{ name = "EdgeFL", size = Vector3.new(CASE_W, 0.08, 0.08), offset = CFrame.new(0, 3.48, -CASE_D / 2 + 0.06), color = COLORS.Trim, material = M.Metal },
-	{ name = "EdgeBL", size = Vector3.new(CASE_W, 0.08, 0.08), offset = CFrame.new(0, 3.48, CASE_D / 2 - 0.06), color = COLORS.Trim, material = M.Metal },
-	{ name = "EdgeL", size = Vector3.new(0.08, 0.08, CASE_D), offset = CFrame.new(-CASE_W / 2 + 0.06, 3.48, 0), color = COLORS.Trim, material = M.Metal },
-	{ name = "EdgeR", size = Vector3.new(0.08, 0.08, CASE_D), offset = CFrame.new(CASE_W / 2 - 0.06, 3.48, 0), color = COLORS.Trim, material = M.Metal },
-	{ name = "PostFL", size = Vector3.new(0.08, 1.05, 0.08), offset = CFrame.new(-CASE_W / 2 + 0.06, 2.95, -CASE_D / 2 + 0.06), color = COLORS.Trim, material = M.Metal },
-	{ name = "PostFR", size = Vector3.new(0.08, 1.05, 0.08), offset = CFrame.new(CASE_W / 2 - 0.06, 2.95, -CASE_D / 2 + 0.06), color = COLORS.Trim, material = M.Metal },
-	{ name = "PostBL", size = Vector3.new(0.08, 1.05, 0.08), offset = CFrame.new(-CASE_W / 2 + 0.06, 2.95, CASE_D / 2 - 0.06), color = COLORS.Trim, material = M.Metal },
-	{ name = "PostBR", size = Vector3.new(0.08, 1.05, 0.08), offset = CFrame.new(CASE_W / 2 - 0.06, 2.95, CASE_D / 2 - 0.06), color = COLORS.Trim, material = M.Metal },
-	{ name = "Divider", size = Vector3.new(0.06, 0.95, CASE_D - 0.3), offset = CFrame.new(-5, 2.95, 0), color = COLORS.Trim, material = M.Metal },
-	{ name = "Divider", size = Vector3.new(0.06, 0.95, CASE_D - 0.3), offset = CFrame.new(-2.6, 2.95, 0), color = COLORS.Trim, material = M.Metal },
-	{ name = "Divider", size = Vector3.new(0.06, 0.95, CASE_D - 0.3), offset = CFrame.new(2.6, 2.95, 0), color = COLORS.Trim, material = M.Metal },
-	{ name = "Sign", size = Vector3.new(7, 0.6, 0.06), offset = CFrame.new(0, 1.1, -CASE_D / 2 - 0.06), color = COLORS.Red },
-}
+local function buildCaseStub(): { ModelLibrary.StubPart }
+	local darkMetal = hex("1C1F26")
+	local brassDark = hex("B8892A")
+	local list: { ModelLibrary.StubPart } = {
+		{ name = "Cabinet", size = Vector3.new(CASE_W, 2.4, CASE_D), offset = CFrame.new(0, 1.2, 0), color = COLORS.Cabinet, material = M.Metal },
+		{ name = "Kick", size = Vector3.new(CASE_W - 0.2, 0.3, CASE_D - 0.3), offset = CFrame.new(0, 0.15, 0.05), color = darkMetal },
+		{ name = "ToeGlow", size = Vector3.new(CASE_W - 0.5, 0.05, 0.06), offset = CFrame.new(0, 0.3, -CASE_D / 2 + 0.08), color = COLORS.Red, material = M.Neon, collide = false },
+		{ name = "Panel", size = Vector3.new(CASE_W - 0.6, 1.6, 0.06), offset = CFrame.new(0, 1.3, -CASE_D / 2 - 0.02), color = COLORS.CabinetTop, material = M.Metal },
+		{ name = "Stripe", size = Vector3.new(CASE_W - 0.6, 0.12, 0.08), offset = CFrame.new(0, 2.25, -CASE_D / 2 - 0.03), color = COLORS.Trim, material = M.Metal },
+		{ name = "WaistCap", size = Vector3.new(CASE_W + 0.12, 0.12, CASE_D + 0.12), offset = CFrame.new(0, 2.4, 0), color = brassDark, material = M.Metal, collide = false },
+		{ name = "Velvet", size = Vector3.new(CASE_W - 0.3, 0.1, CASE_D - 0.3), offset = CFrame.new(0, 2.45, 0), color = COLORS.Velvet, material = M.Fabric },
+		{ name = "Glass", size = Vector3.new(CASE_W - 0.2, 1.05, CASE_D - 0.2), offset = CFrame.new(0, 2.95, 0), color = COLORS.Glass, material = M.Glass, transparency = 0.65 },
+		{ name = "LightBar", size = Vector3.new(CASE_W - 0.7, 0.05, 0.14), offset = CFrame.new(0, 3.41, 0), color = hex("FFE7B8"), material = M.Neon, collide = false },
+		{ name = "EdgeFL", size = Vector3.new(CASE_W, 0.09, 0.09), offset = CFrame.new(0, 3.48, -CASE_D / 2 + 0.06), color = COLORS.Trim, material = M.Metal },
+		{ name = "EdgeBL", size = Vector3.new(CASE_W, 0.09, 0.09), offset = CFrame.new(0, 3.48, CASE_D / 2 - 0.06), color = COLORS.Trim, material = M.Metal },
+		{ name = "EdgeL", size = Vector3.new(0.09, 0.09, CASE_D), offset = CFrame.new(-CASE_W / 2 + 0.06, 3.48, 0), color = COLORS.Trim, material = M.Metal },
+		{ name = "EdgeR", size = Vector3.new(0.09, 0.09, CASE_D), offset = CFrame.new(CASE_W / 2 - 0.06, 3.48, 0), color = COLORS.Trim, material = M.Metal },
+		{ name = "PostFL", size = Vector3.new(0.09, 1.05, 0.09), offset = CFrame.new(-CASE_W / 2 + 0.06, 2.95, -CASE_D / 2 + 0.06), color = COLORS.Trim, material = M.Metal },
+		{ name = "PostFR", size = Vector3.new(0.09, 1.05, 0.09), offset = CFrame.new(CASE_W / 2 - 0.06, 2.95, -CASE_D / 2 + 0.06), color = COLORS.Trim, material = M.Metal },
+		{ name = "PostBL", size = Vector3.new(0.09, 1.05, 0.09), offset = CFrame.new(-CASE_W / 2 + 0.06, 2.95, CASE_D / 2 - 0.06), color = COLORS.Trim, material = M.Metal },
+		{ name = "PostBR", size = Vector3.new(0.09, 1.05, 0.09), offset = CFrame.new(CASE_W / 2 - 0.06, 2.95, CASE_D / 2 - 0.06), color = COLORS.Trim, material = M.Metal },
+		{ name = "Divider", size = Vector3.new(0.06, 0.95, CASE_D - 0.3), offset = CFrame.new(-5, 2.95, 0), color = COLORS.Trim, material = M.Metal },
+		{ name = "Divider", size = Vector3.new(0.06, 0.95, CASE_D - 0.3), offset = CFrame.new(-2.6, 2.95, 0), color = COLORS.Trim, material = M.Metal },
+		{ name = "Divider", size = Vector3.new(0.06, 0.95, CASE_D - 0.3), offset = CFrame.new(2.6, 2.95, 0), color = COLORS.Trim, material = M.Metal },
+		{ name = "SignBezel", size = Vector3.new(7.24, 0.8, 0.06), offset = CFrame.new(0, 1.1, -CASE_D / 2 - 0.04), color = COLORS.Trim, material = M.Metal, collide = false },
+		{ name = "Sign", size = Vector3.new(7, 0.6, 0.06), offset = CFrame.new(0, 1.1, -CASE_D / 2 - 0.08), color = COLORS.Red },
+	}
+	-- Дверцы тумбы с ручками сзади/спереди и боковые щитки
+	for _, x in { -5.4, 5.4 } do
+		table.insert(list, { name = "DoorPanel", size = Vector3.new(3.6, 1.28, 0.05), offset = CFrame.new(x, 1.15, -CASE_D / 2 - 0.04), color = darkMetal, material = M.Metal, collide = false })
+		table.insert(list, { name = "DoorHandle", size = Vector3.new(0.5, 0.08, 0.08), offset = CFrame.new(x, 1.56, -CASE_D / 2 - 0.09), color = COLORS.Trim, material = M.Metal, collide = false })
+	end
+	for _, x in { -CASE_W / 2 - 0.02, CASE_W / 2 + 0.02 } do
+		table.insert(list, { name = "SidePanel", size = Vector3.new(0.05, 1.6, CASE_D - 0.5), offset = CFrame.new(x, 1.3, 0), color = COLORS.CabinetTop, material = M.Metal, collide = false })
+	end
+	-- Угловые шары-колпачки и ложементы под каждый образец оружия
+	for _, x in { -CASE_W / 2 + 0.06, CASE_W / 2 - 0.06 } do
+		for _, z in { -CASE_D / 2 + 0.06, CASE_D / 2 - 0.06 } do
+			table.insert(list, { name = "CornerCap", size = Vector3.new(0.18, 0.18, 0.18), offset = CFrame.new(x, 3.52, z), color = COLORS.Trim, material = M.Metal, shape = Enum.PartType.Ball, collide = false })
+		end
+	end
+	for _, cradle in { { x = -6.3, w = 1.1 }, { x = -3.8, w = 1.2 }, { x = 0, w = 2.6 }, { x = 5.3, w = 2.6 } } do
+		table.insert(list, { name = "Cradle", size = Vector3.new(cradle.w, 0.06, 0.8), offset = CFrame.new(cradle.x, 2.53, 0.1), color = brassDark, material = M.Metal, collide = false })
+	end
+	return list
+end
+local CASE_STUB: { ModelLibrary.StubPart } = buildCaseStub()
 
 -- Что лежит в прилавке: место вдоль прилавка (x) и где у модели середина относительно рукояти (вдоль ствола).
 local CASE_ITEMS = {
@@ -194,23 +222,44 @@ end
 
 ---------------------------------------------------------------- стол с патронами и аптечками
 
-local TABLE_STUB: { ModelLibrary.StubPart } = {
-	{ name = "Top", size = Vector3.new(12, 0.25, 3), offset = CFrame.new(0, 2.9, 0), color = COLORS.Wood, material = M.Wood },
-	{ name = "Edge", size = Vector3.new(12.1, 0.12, 3.1), offset = CFrame.new(0, 2.74, 0), color = COLORS.Steel, material = M.Metal },
-	{ name = "Shelf", size = Vector3.new(11.4, 0.15, 2.6), offset = CFrame.new(0, 0.7, 0), color = COLORS.Steel, material = M.Metal },
-	{ name = "Leg", size = Vector3.new(0.25, 2.8, 0.25), offset = CFrame.new(-5.8, 1.4, -1.35), color = COLORS.Steel, material = M.Metal },
-	{ name = "Leg", size = Vector3.new(0.25, 2.8, 0.25), offset = CFrame.new(5.8, 1.4, -1.35), color = COLORS.Steel, material = M.Metal },
-	{ name = "Leg", size = Vector3.new(0.25, 2.8, 0.25), offset = CFrame.new(-5.8, 1.4, 1.35), color = COLORS.Steel, material = M.Metal },
-	{ name = "Leg", size = Vector3.new(0.25, 2.8, 0.25), offset = CFrame.new(5.8, 1.4, 1.35), color = COLORS.Steel, material = M.Metal },
-	-- Ящики на нижней полке
-	{ name = "Crate", size = Vector3.new(2.4, 1.1, 1.8), offset = CFrame.new(-3.5, 1.33, 0), color = hex("4B5A3A"), material = M.Wood },
-	{ name = "Crate", size = Vector3.new(2.4, 1.1, 1.8), offset = CFrame.new(0, 1.33, 0), color = hex("5A4A2E"), material = M.Wood },
-	{ name = "Crate", size = Vector3.new(2.4, 1.1, 1.8), offset = CFrame.new(3.5, 1.33, 0), color = hex("4B5A3A"), material = M.Wood },
-}
+local function buildTableStub(): { ModelLibrary.StubPart }
+	local darkSteel = hex("2B2F3A")
+	local list: { ModelLibrary.StubPart } = {
+		{ name = "Top", size = Vector3.new(12, 0.25, 3), offset = CFrame.new(0, 2.9, 0), color = COLORS.Wood, material = M.Wood },
+		{ name = "Edge", size = Vector3.new(12.12, 0.14, 3.12), offset = CFrame.new(0, 2.74, 0), color = COLORS.Steel, material = M.Metal },
+		{ name = "ApronF", size = Vector3.new(11.4, 0.22, 0.08), offset = CFrame.new(0, 2.58, -1.35), color = darkSteel, material = M.Metal, collide = false },
+		{ name = "ApronB", size = Vector3.new(11.4, 0.22, 0.08), offset = CFrame.new(0, 2.58, 1.35), color = darkSteel, material = M.Metal, collide = false },
+		{ name = "Shelf", size = Vector3.new(11.4, 0.15, 2.6), offset = CFrame.new(0, 0.7, 0), color = COLORS.Steel, material = M.Metal },
+		{ name = "ShelfLipF", size = Vector3.new(11.4, 0.12, 0.06), offset = CFrame.new(0, 0.82, -1.27), color = darkSteel, material = M.Metal, collide = false },
+		{ name = "ShelfLipB", size = Vector3.new(11.4, 0.12, 0.06), offset = CFrame.new(0, 0.82, 1.27), color = darkSteel, material = M.Metal, collide = false },
+		{ name = "MatRoll", size = Vector3.new(1.8, 0.52, 0.52), offset = CFrame.new(4.9, 1.04, 0.4) * CFrame.Angles(0, math.rad(18), 0), color = COLORS.Navy, material = M.Fabric, shape = Enum.PartType.Cylinder, collide = false },
+	}
+	for _, x in { -5.8, 5.8 } do
+		for _, z in { -1.35, 1.35 } do
+			table.insert(list, { name = "Leg", size = Vector3.new(0.26, 2.78, 0.26), offset = CFrame.new(x, 1.39, z), color = COLORS.Steel, material = M.Metal })
+			table.insert(list, { name = "Foot", size = Vector3.new(0.12, 0.4, 0.4), offset = CFrame.new(x, 0.06, z) * CFrame.Angles(0, 0, math.pi / 2), color = darkSteel, material = M.Rubber, shape = Enum.PartType.Cylinder, collide = false })
+			table.insert(list, { name = "CornerBumper", size = Vector3.new(0.32, 0.28, 0.32), offset = CFrame.new(x * 1.015, 2.9, z * 1.03), color = darkSteel, material = M.Metal, collide = false })
+		end
+	end
+	for _, x in { -5.45, 5.45 } do
+		table.insert(list, { name = "Gusset", size = Vector3.new(0.16, 0.55, 0.55), offset = CFrame.new(x, 2.42, -1.15) * CFrame.Angles(0, math.rad(if x < 0 then 90 else -90), 0), color = darkSteel, material = M.Metal, wedge = true, collide = false })
+	end
+	-- Детализированные ящики на нижней полке с обвязкой и замками
+	for index, x in { -3.6, -0.2, 3.1 } do
+		local crateColor = if index == 2 then hex("5A4A2E") else hex("4B5A3A")
+		local dark = crateColor:Lerp(Color3.new(0, 0, 0), 0.25)
+		table.insert(list, { name = "Crate", size = Vector3.new(2.4, 1.08, 1.8), offset = CFrame.new(x, 1.32, 0), color = crateColor, material = M.Wood })
+		table.insert(list, { name = "CrateLid", size = Vector3.new(2.48, 0.14, 1.88), offset = CFrame.new(x, 1.9, 0), color = dark, material = M.Wood, collide = false })
+		table.insert(list, { name = "CrateBandL", size = Vector3.new(0.14, 1.12, 1.84), offset = CFrame.new(x - 0.85, 1.32, 0), color = darkSteel, material = M.Metal, collide = false })
+		table.insert(list, { name = "CrateBandR", size = Vector3.new(0.14, 1.12, 1.84), offset = CFrame.new(x + 0.85, 1.32, 0), color = darkSteel, material = M.Metal, collide = false })
+		table.insert(list, { name = "CrateClasp", size = Vector3.new(0.24, 0.28, 0.06), offset = CFrame.new(x, 1.72, -0.92), color = COLORS.Trim, material = M.Metal, collide = false })
+	end
+	return list
+end
+local TABLE_STUB: { ModelLibrary.StubPart } = buildTableStub()
 
--- Коробка патронов (этап 5, блок F3): армейский ящик своего цвета с рёбрами, крышкой, рычагом-защёлкой сбоку
--- и откидной ручкой; спереди и сзади табличка с калибром и оружием (9MM / PISTOL…) и рядом значок-патрон
--- (виден и в 3D-картинке окна магазина, где надписей нет); сверху на картонном лотке 4 патрона. Низ по центру.
+-- Коробка патронов (R3): армейский ящик своего цвета с фасками крышки, уплотнителем, боковыми рёбрами,
+-- петлями, рычагом-защёлкой с проволочным кольцом, ножками и откидной ручкой; Label / LabelBack сохранены.
 local AMMO_LOOK = {
 	PistolAmmo = { name = "prop_ammo_pistol_01", color = hex("3F6B3A"), label = "9MM", weapon = "PISTOL", round = hex("D9A441"), tip = hex("B87333"), shell = false },
 	RifleAmmo = { name = "prop_ammo_rifle_01", color = hex("6B6B3A"), label = "5.56", weapon = "RIFLE", round = hex("D9A441"), tip = hex("2B2F3A"), shell = false },
@@ -221,24 +270,41 @@ local UPRIGHT = CFrame.Angles(0, 0, math.pi / 2) -- ось цилиндра ве
 
 local function ammoBoxModel(item: string): PVInstance
 	local look = AMMO_LOOK[item]
-	local dark = look.color:Lerp(Color3.new(0, 0, 0), 0.22)
+	local dark = look.color:Lerp(Color3.new(0, 0, 0), 0.24)
+	local light = look.color:Lerp(Color3.new(1, 1, 1), 0.16)
+	local darkMetal = hex("2B2F3A")
 	local stub: { ModelLibrary.StubPart } = {
-		{ name = "Box", size = Vector3.new(1.5, 0.7, 0.95), offset = CFrame.new(0, 0.35, 0), color = look.color, material = M.Metal },
-		{ name = "Rib", size = Vector3.new(1.52, 0.05, 0.97), offset = CFrame.new(0, 0.15, 0), color = dark, material = M.Metal },
-		{ name = "Rib", size = Vector3.new(1.52, 0.05, 0.97), offset = CFrame.new(0, 0.55, 0), color = dark, material = M.Metal },
-		{ name = "Lid", size = Vector3.new(1.56, 0.12, 1.0), offset = CFrame.new(0, 0.76, 0), color = look.color:Lerp(Color3.new(1, 1, 1), 0.15), material = M.Metal },
+		{ name = "Box", size = Vector3.new(1.5, 0.68, 0.95), offset = CFrame.new(0, 0.36, 0), color = look.color, material = M.Metal },
+		{ name = "Rib", size = Vector3.new(1.53, 0.05, 0.98), offset = CFrame.new(0, 0.16, 0), color = dark, material = M.Metal },
+		{ name = "Rib", size = Vector3.new(1.53, 0.05, 0.98), offset = CFrame.new(0, 0.56, 0), color = dark, material = M.Metal },
+		{ name = "Gasket", size = Vector3.new(1.54, 0.04, 0.99), offset = CFrame.new(0, 0.7, 0), color = hex("1C1F26"), material = M.Rubber },
+		{ name = "Lid", size = Vector3.new(1.56, 0.1, 0.86), offset = CFrame.new(0, 0.77, 0), color = light, material = M.Metal },
+		{ name = "LidBevelF", size = Vector3.new(1.56, 0.1, 0.08), offset = CFrame.new(0, 0.77, -0.47), color = light, material = M.Metal, wedge = true },
+		{ name = "LidBevelB", size = Vector3.new(1.56, 0.1, 0.08), offset = CFrame.new(0, 0.77, 0.47) * CFrame.Angles(0, math.pi, 0), color = light, material = M.Metal, wedge = true },
 		-- Рычаг-защёлка на правом боку
-		{ name = "Latch", size = Vector3.new(0.04, 0.3, 0.2), offset = CFrame.new(0.77, 0.6, 0), color = COLORS.Steel, material = M.Metal },
-		{ name = "LatchPivot", size = Vector3.new(0.06, 0.1, 0.1), offset = CFrame.new(0.79, 0.75, 0), color = hex("2B2F3A"), material = M.Metal, shape = Enum.PartType.Cylinder },
-		-- Откидная ручка
-		{ name = "HandlePost", size = Vector3.new(0.06, 0.1, 0.06), offset = CFrame.new(-0.28, 0.87, 0), color = hex("2B2F3A"), material = M.Metal },
-		{ name = "HandlePost", size = Vector3.new(0.06, 0.1, 0.06), offset = CFrame.new(0.28, 0.87, 0), color = hex("2B2F3A"), material = M.Metal },
+		{ name = "Latch", size = Vector3.new(0.05, 0.32, 0.22), offset = CFrame.new(0.77, 0.58, 0), color = COLORS.Steel, material = M.Metal },
+		{ name = "LatchWire", size = Vector3.new(0.04, 0.12, 0.24), offset = CFrame.new(0.79, 0.44, 0), color = darkMetal, material = M.Metal },
+		{ name = "LatchPivot", size = Vector3.new(0.08, 0.11, 0.11), offset = CFrame.new(0.79, 0.74, 0), color = darkMetal, material = M.Metal, shape = Enum.PartType.Cylinder },
+		-- Петли сзади и откидная ручка сверху
+		{ name = "HingeL", size = Vector3.new(0.18, 0.08, 0.08), offset = CFrame.new(-0.46, 0.71, 0.5), color = COLORS.Steel, material = M.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "HingeR", size = Vector3.new(0.18, 0.08, 0.08), offset = CFrame.new(0.46, 0.71, 0.5), color = COLORS.Steel, material = M.Metal, shape = Enum.PartType.Cylinder },
+		{ name = "HandlePost", size = Vector3.new(0.06, 0.11, 0.06), offset = CFrame.new(-0.28, 0.87, 0), color = darkMetal, material = M.Metal },
+		{ name = "HandlePost", size = Vector3.new(0.06, 0.11, 0.06), offset = CFrame.new(0.28, 0.87, 0), color = darkMetal, material = M.Metal },
 		{ name = "Handle", size = Vector3.new(0.62, 0.07, 0.12), offset = CFrame.new(0, 0.94, 0), color = hex("1C1F26"), material = M.Rubber },
-		-- Таблички спереди и сзади, лоток для патронов
+		-- Таблички спереди и сзади, лоток для патронов с бортиком
 		{ name = "Label", size = Vector3.new(0.9, 0.36, 0.04), offset = CFrame.new(0, 0.38, -0.49), color = COLORS.Paper },
 		{ name = "LabelBack", size = Vector3.new(0.9, 0.36, 0.04), offset = CFrame.new(0, 0.38, 0.49), color = COLORS.Paper },
-		{ name = "Tray", size = Vector3.new(1.1, 0.06, 0.22), offset = CFrame.new(0, 0.85, 0.25), color = hex("C9A26B"), material = M.Cardboard },
+		{ name = "Tray", size = Vector3.new(1.14, 0.06, 0.24), offset = CFrame.new(0, 0.85, 0.24), color = hex("C9A26B"), material = M.Cardboard },
+		{ name = "TrayRim", size = Vector3.new(1.18, 0.05, 0.28), offset = CFrame.new(0, 0.83, 0.24), color = hex("9E7A48"), material = M.Cardboard },
 	}
+	for _, x in { -0.66, 0.66 } do
+		for _, z in { -0.4, 0.4 } do
+			table.insert(stub, { name = "CornerFoot", size = Vector3.new(0.14, 0.04, 0.14), offset = CFrame.new(x, 0.02, z), color = darkMetal, material = M.Rubber })
+		end
+	end
+	for _, x in { -0.76, 0.76 } do
+		table.insert(stub, { name = "SideRib", size = Vector3.new(0.03, 0.34, 0.46), offset = CFrame.new(x, 0.36, 0), color = dark, material = M.Metal })
+	end
 	-- Значок-патрон справа от таблички (спереди) и с другой стороны сзади
 	for _, side in { { x = 0.6, z = -0.5 }, { x = -0.6, z = 0.5 } } do
 		if look.shell then
@@ -310,14 +376,25 @@ end
 
 ---------------------------------------------------------------- манекен в бронежилете
 
+-- Манекен в бронежилете (R3): ступенчатое основание с золотой каймой, телескопическая стойка
+-- с зажимом, талия и голова-болванка; Torso (2 × 1.6 × 1 на y = 4.15) сохранён под guard_vest_01.
 local MANNEQUIN_STUB: { ModelLibrary.StubPart } = {
-	{ name = "Base", size = Vector3.new(0.25, 2.2, 2.2), offset = CFrame.new(0, 0.12, 0) * CFrame.Angles(0, 0, math.pi / 2), color = hex("2B2F3A"), material = M.Metal, shape = Enum.PartType.Cylinder },
-	{ name = "Pole", size = Vector3.new(2.7, 0.25, 0.25), offset = CFrame.new(0, 1.55, 0) * CFrame.Angles(0, 0, math.pi / 2), color = COLORS.Steel, material = M.Metal, shape = Enum.PartType.Cylinder },
-	{ name = "Hips", size = Vector3.new(1.9, 0.5, 1), offset = CFrame.new(0, 3.1, 0), color = COLORS.Mannequin },
+	{ name = "Base", size = Vector3.new(0.2, 2.2, 2.2), offset = CFrame.new(0, 0.1, 0) * CFrame.Angles(0, 0, math.pi / 2), color = hex("2B2F3A"), material = M.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "BaseRing", size = Vector3.new(0.12, 1.65, 1.65), offset = CFrame.new(0, 0.25, 0) * CFrame.Angles(0, 0, math.pi / 2), color = COLORS.Trim, material = M.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "PoleCollar", size = Vector3.new(0.24, 0.56, 0.56), offset = CFrame.new(0, 0.42, 0) * CFrame.Angles(0, 0, math.pi / 2), color = COLORS.Steel, material = M.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "Pole", size = Vector3.new(2.6, 0.26, 0.26), offset = CFrame.new(0, 1.6, 0) * CFrame.Angles(0, 0, math.pi / 2), color = COLORS.Steel, material = M.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "LockCollar", size = Vector3.new(0.2, 0.38, 0.38), offset = CFrame.new(0, 1.55, 0) * CFrame.Angles(0, 0, math.pi / 2), color = hex("2B2F3A"), material = M.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "ThumbScrew", size = Vector3.new(0.16, 0.08, 0.08), offset = CFrame.new(0.22, 1.55, 0), color = COLORS.Trim, material = M.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "Hips", size = Vector3.new(1.9, 0.48, 1), offset = CFrame.new(0, 3.08, 0), color = COLORS.Mannequin },
+	{ name = "Waist", size = Vector3.new(1.7, 0.34, 0.9), offset = CFrame.new(0, 3.44, 0), color = hex("C8B79E"), collide = false },
 	{ name = "Torso", size = Vector3.new(2, 1.6, 1), offset = CFrame.new(0, 4.15, 0), color = COLORS.Mannequin },
-	{ name = "ShoulderL", size = Vector3.new(0.7, 0.7, 0.9), offset = CFrame.new(-1.05, 4.65, 0), color = COLORS.Mannequin, sphere = true },
-	{ name = "ShoulderR", size = Vector3.new(0.7, 0.7, 0.9), offset = CFrame.new(1.05, 4.65, 0), color = COLORS.Mannequin, sphere = true },
-	{ name = "Neck", size = Vector3.new(0.4, 0.5, 0.5), offset = CFrame.new(0, 5.15, 0) * CFrame.Angles(0, 0, math.pi / 2), color = COLORS.Mannequin, shape = Enum.PartType.Cylinder },
+	{ name = "ShoulderRingL", size = Vector3.new(0.1, 0.66, 0.66), offset = CFrame.new(-0.98, 4.65, 0), color = hex("2B2F3A"), material = M.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "ShoulderRingR", size = Vector3.new(0.1, 0.66, 0.66), offset = CFrame.new(0.98, 4.65, 0), color = hex("2B2F3A"), material = M.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "ShoulderL", size = Vector3.new(0.68, 0.68, 0.88), offset = CFrame.new(-1.05, 4.65, 0), color = COLORS.Mannequin, sphere = true },
+	{ name = "ShoulderR", size = Vector3.new(0.68, 0.68, 0.88), offset = CFrame.new(1.05, 4.65, 0), color = COLORS.Mannequin, sphere = true },
+	{ name = "NeckCollar", size = Vector3.new(0.12, 0.72, 0.72), offset = CFrame.new(0, 4.98, 0) * CFrame.Angles(0, 0, math.pi / 2), color = hex("2B2F3A"), material = M.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "Neck", size = Vector3.new(0.45, 0.48, 0.48), offset = CFrame.new(0, 5.2, 0) * CFrame.Angles(0, 0, math.pi / 2), color = COLORS.Mannequin, shape = Enum.PartType.Cylinder },
+	{ name = "Head", size = Vector3.new(0.86, 1.04, 0.94), offset = CFrame.new(0, 5.82, -0.02), color = COLORS.Mannequin, sphere = true, collide = false },
 }
 
 local function buildMannequin(rack: CFrame)

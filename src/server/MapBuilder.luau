@@ -969,22 +969,46 @@ local function buildFuseboxStub(): { ModelLibrary.StubPart }
 end
 local FUSEBOX_STUB: { ModelLibrary.StubPart } = buildFuseboxStub()
 
--- Пустая оружейная стойка у стены (товары — блок 4): задняя панель, крючки, полка. Задник на z = 0.
-local WEAPON_RACK_STUB: { ModelLibrary.StubPart } = {
-	{ name = "Board", size = Vector3.new(8, 5, 0.3), offset = CFrame.new(0, 4, -0.15), color = hex("2B2F3A"), material = Enum.Material.Metal },
-	{ name = "Frame", size = Vector3.new(8.4, 0.3, 0.5), offset = CFrame.new(0, 6.6, -0.25), color = COLORS.Red, material = Enum.Material.Metal },
-	{ name = "Shelf", size = Vector3.new(8, 0.3, 1.2), offset = CFrame.new(0, 1.4, -0.6), color = hex("4A5060"), material = Enum.Material.Metal },
-	{ name = "Leg", size = Vector3.new(0.3, 1.4, 0.3), offset = CFrame.new(-3.8, 0.7, -1), color = hex("4A5060"), material = Enum.Material.Metal },
-	{ name = "Leg", size = Vector3.new(0.3, 1.4, 0.3), offset = CFrame.new(3.8, 0.7, -1), color = hex("4A5060"), material = Enum.Material.Metal },
-	{ name = "Hook", size = Vector3.new(0.2, 0.2, 0.7), offset = CFrame.new(-2.7, 5.4, -0.5), color = COLORS.Metal, material = Enum.Material.Metal },
-	{ name = "Hook", size = Vector3.new(0.2, 0.2, 0.7), offset = CFrame.new(-0.9, 5.4, -0.5), color = COLORS.Metal, material = Enum.Material.Metal },
-	{ name = "Hook", size = Vector3.new(0.2, 0.2, 0.7), offset = CFrame.new(0.9, 5.4, -0.5), color = COLORS.Metal, material = Enum.Material.Metal },
-	{ name = "Hook", size = Vector3.new(0.2, 0.2, 0.7), offset = CFrame.new(2.7, 5.4, -0.5), color = COLORS.Metal, material = Enum.Material.Metal },
-	{ name = "Hook", size = Vector3.new(0.2, 0.2, 0.7), offset = CFrame.new(-2.7, 3.4, -0.5), color = COLORS.Metal, material = Enum.Material.Metal },
-	{ name = "Hook", size = Vector3.new(0.2, 0.2, 0.7), offset = CFrame.new(-0.9, 3.4, -0.5), color = COLORS.Metal, material = Enum.Material.Metal },
-	{ name = "Hook", size = Vector3.new(0.2, 0.2, 0.7), offset = CFrame.new(0.9, 3.4, -0.5), color = COLORS.Metal, material = Enum.Material.Metal },
-	{ name = "Hook", size = Vector3.new(0.2, 0.2, 0.7), offset = CFrame.new(2.7, 3.4, -0.5), color = COLORS.Metal, material = Enum.Material.Metal },
-}
+-- Пустая оружейная стойка у стены (R3): перфорированный щит с боковыми рейками, красный козырёк со светильником,
+-- обрезиненные крючки с ограничителями (под Rifle/Shotgun), полка с ковриком и ложементами (под Pistol/Taser).
+-- Задник на z = 0, верх полки ровно на y = 1.55.
+local function buildWeaponRackStub(): { ModelLibrary.StubPart }
+	local darkSteel = hex("2B2F3A")
+	local midSteel = hex("4A5060")
+	local pegSteel = hex("1B202B")
+	local list: { ModelLibrary.StubPart } = {
+		{ name = "Board", size = Vector3.new(8, 5, 0.3), offset = CFrame.new(0, 4, -0.15), color = darkSteel, material = Enum.Material.Metal },
+		{ name = "SideRailL", size = Vector3.new(0.24, 5.2, 0.4), offset = CFrame.new(-4.08, 4, -0.2), color = midSteel, material = Enum.Material.Metal },
+		{ name = "SideRailR", size = Vector3.new(0.24, 5.2, 0.4), offset = CFrame.new(4.08, 4, -0.2), color = midSteel, material = Enum.Material.Metal },
+		{ name = "Frame", size = Vector3.new(8.4, 0.34, 0.56), offset = CFrame.new(0, 6.62, -0.28), color = COLORS.Red, material = Enum.Material.Metal },
+		{ name = "LightHood", size = Vector3.new(7.4, 0.16, 0.42), offset = CFrame.new(0, 6.56, -0.72), color = darkSteel, material = Enum.Material.Metal, collide = false },
+		{ name = "LightBar", size = Vector3.new(7.1, 0.06, 0.2), offset = CFrame.new(0, 6.46, -0.72), color = hex("FFE7B8"), material = Enum.Material.Neon, collide = false },
+		{ name = "Shelf", size = Vector3.new(8, 0.26, 1.2), offset = CFrame.new(0, 1.38, -0.6), color = midSteel, material = Enum.Material.Metal },
+		{ name = "ShelfMat", size = Vector3.new(7.8, 0.04, 1.08), offset = CFrame.new(0, 1.53, -0.6), color = pegSteel, material = Enum.Material.Rubber, collide = false },
+		{ name = "LegL", size = Vector3.new(0.3, 1.26, 0.3), offset = CFrame.new(-3.8, 0.65, -1), color = midSteel, material = Enum.Material.Metal },
+		{ name = "LegR", size = Vector3.new(0.3, 1.26, 0.3), offset = CFrame.new(3.8, 0.65, -1), color = midSteel, material = Enum.Material.Metal },
+		{ name = "FootL", size = Vector3.new(0.42, 0.1, 0.42), offset = CFrame.new(-3.8, 0.05, -1), color = pegSteel, material = Enum.Material.Rubber, collide = false },
+		{ name = "FootR", size = Vector3.new(0.42, 0.1, 0.42), offset = CFrame.new(3.8, 0.05, -1), color = pegSteel, material = Enum.Material.Rubber, collide = false },
+	}
+	for _, x in { -3.2, 3.2 } do
+		table.insert(list, stubWedge("ShelfBracket", Vector3.new(0.2, 0.65, 0.65), CFrame.new(x, 0.95, -0.34), darkSteel, Enum.Material.Metal, false))
+	end
+	for _, y in { 2.4, 4.4, 5.8 } do
+		table.insert(list, { name = "PegStrip", size = Vector3.new(7.6, 0.14, 0.04), offset = CFrame.new(0, y, -0.31), color = pegSteel, collide = false })
+	end
+	for _, x in { -2.7, -0.9, 0.9, 2.7 } do
+		for _, y in { 5.4, 3.4 } do
+			table.insert(list, { name = "HookBase", size = Vector3.new(0.28, 0.34, 0.06), offset = CFrame.new(x, y, -0.32), color = COLORS.Metal, material = Enum.Material.Metal, collide = false })
+			table.insert(list, { name = "Hook", size = Vector3.new(0.14, 0.14, 0.68), offset = CFrame.new(x, y, -0.58), color = COLORS.Metal, material = Enum.Material.Metal, collide = false })
+			table.insert(list, { name = "HookTip", size = Vector3.new(0.14, 0.24, 0.12), offset = CFrame.new(x, y + 0.08, -0.9), color = COLORS.Red, material = Enum.Material.Rubber, collide = false })
+		end
+	end
+	for _, x in { -2.2, 2.4 } do
+		table.insert(list, { name = "PistolCradle", size = Vector3.new(0.9, 0.1, 0.52), offset = CFrame.new(x, 1.59, -0.6), color = COLORS.Red, material = Enum.Material.Metal, collide = false })
+	end
+	return list
+end
+local WEAPON_RACK_STUB: { ModelLibrary.StubPart } = buildWeaponRackStub()
 
 -- Касса SHOP у Моны Лизы (R1): точёные угловые пилястры, фаска мраморной столешницы, кассовый аппарат с чеком и кнопками,
 -- подарочные пакеты с печатями, книги-путеводители, звонок, банка с монетами и вывеска SHOP с цоколями лампочек.

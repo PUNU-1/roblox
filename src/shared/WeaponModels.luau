@@ -375,29 +375,38 @@ end)
 
 ---------------------------------------------------------------- вещи
 
--- Аптечка: белый чемоданчик со скруглёнными серыми углами, красный крест насквозь (виден с обеих сторон),
--- шов крышки, петля сзади, золотые защёлки, ручка с резиновой накладкой, ножки (точка привязки — ручка).
+-- Аптечка (R3): белый чемоданчик со скруглёнными серыми углами, фаской крышки, бирюзовыми полосами,
+-- медальоном красного креста насквозь, табличкой FIRST AID, петлёй сзади, золотыми защёлками и ножками.
+-- Точка привязки — ручка (0, 0, 0), низ ножек на y = -0.99.
 local MEDKIT: { Spec } = {
-	box("Case", v3(1.2, 0.8, 0.45), at(0, -0.55, 0), C.White),
-	box("Rim", v3(1.22, 0.05, 0.47), at(0, -0.32, 0), C.Grey),
-	box("CrossH", v3(0.42, 0.13, 0.47), at(0, -0.62, 0), C.Red),
-	box("CrossV", v3(0.13, 0.42, 0.47), at(0, -0.62, 0), C.Red),
-	cyl("Hinge", 0.9, 0.05, at(0, -0.32, 0.235), C.SteelLight, M.Metal),
+	box("Case", v3(1.2, 0.78, 0.45), at(0, -0.56, 0), C.White),
+	wedge("LidBevelF", v3(1.18, 0.06, 0.08), at(0, -0.14, -0.19), C.White),
+	wedge("LidBevelB", v3(1.18, 0.06, 0.08), at(0, -0.14, 0.19) * CFrame.Angles(0, math.pi, 0), C.White),
+	box("LidTop", v3(1.18, 0.06, 0.3), at(0, -0.14, 0), C.White),
+	box("Rim", v3(1.23, 0.05, 0.48), at(0, -0.32, 0), C.Grey),
+	cyl("CrossBadge", 0.47, 0.56, at(0, -0.62, 0) * ALONG_Z, hex("E6ECF2")),
+	box("CrossH", v3(0.4, 0.13, 0.49), at(0, -0.62, 0), C.Red),
+	box("CrossV", v3(0.13, 0.4, 0.49), at(0, -0.62, 0), C.Red),
+	box("StripeL", v3(0.18, 0.05, 0.47), at(-0.46, -0.62, 0), C.Turquoise),
+	box("StripeR", v3(0.18, 0.05, 0.47), at(0.46, -0.62, 0), C.Turquoise),
+	box("Label", v3(0.58, 0.12, 0.02), at(0, -0.22, -0.23), C.Red),
+	cyl("Hinge", 0.9, 0.06, at(0, -0.32, 0.24), C.SteelLight, M.Metal),
+	cyl("HingePin", 0.96, 0.035, at(0, -0.32, 0.24), C.SteelDark, M.Metal),
 	box("Handle", v3(0.5, 0.08, 0.1), at(0, 0, 0), C.Polymer),
-	box("HandleGrip", v3(0.34, 0.1, 0.12), at(0, 0, 0), C.Black, M.Rubber),
-	box("PostL", v3(0.08, 0.16, 0.1), at(-0.21, -0.08, 0), C.Polymer),
-	box("PostR", v3(0.08, 0.16, 0.1), at(0.21, -0.08, 0), C.Polymer),
-	box("PostBaseL", v3(0.14, 0.03, 0.16), at(-0.21, -0.15, 0), C.SteelLight, M.Metal),
-	box("PostBaseR", v3(0.14, 0.03, 0.16), at(0.21, -0.15, 0), C.SteelLight, M.Metal),
-	box("LatchL", v3(0.12, 0.12, 0.03), at(-0.38, -0.32, -0.235), C.Gold, M.Metal),
-	box("LatchR", v3(0.12, 0.12, 0.03), at(0.38, -0.32, -0.235), C.Gold, M.Metal),
-	box("ClipL", v3(0.07, 0.06, 0.03), at(-0.38, -0.38, -0.25), C.SteelLight, M.Metal),
-	box("ClipR", v3(0.07, 0.06, 0.03), at(0.38, -0.38, -0.25), C.SteelLight, M.Metal),
+	box("HandleGrip", v3(0.34, 0.105, 0.125), at(0, 0, 0), C.Black, M.Rubber),
+	box("PostL", v3(0.08, 0.16, 0.1), at(-0.21, -0.07, 0), C.Polymer),
+	box("PostR", v3(0.08, 0.16, 0.1), at(0.21, -0.07, 0), C.Polymer),
+	box("PostBaseL", v3(0.14, 0.03, 0.16), at(-0.21, -0.11, 0), C.SteelLight, M.Metal),
+	box("PostBaseR", v3(0.14, 0.03, 0.16), at(0.21, -0.11, 0), C.SteelLight, M.Metal),
+	box("LatchL", v3(0.13, 0.13, 0.03), at(-0.38, -0.32, -0.24), C.Gold, M.Metal),
+	box("LatchR", v3(0.13, 0.13, 0.03), at(0.38, -0.32, -0.24), C.Gold, M.Metal),
+	box("ClipL", v3(0.07, 0.07, 0.035), at(-0.38, -0.38, -0.255), C.SteelLight, M.Metal),
+	box("ClipR", v3(0.07, 0.07, 0.035), at(0.38, -0.38, -0.255), C.SteelLight, M.Metal),
 }
 -- Скруглённые углы (резиновые) и ножки
 for _, corner in { { -0.6, -0.225 }, { 0.6, -0.225 }, { -0.6, 0.225 }, { 0.6, 0.225 } } do
-	table.insert(MEDKIT, cyl("Corner", 0.8, 0.1, at(corner[1], -0.55, corner[2]) * ALONG_Y, C.Grey, M.Rubber))
-	table.insert(MEDKIT, box("Foot", v3(0.12, 0.04, 0.1), at(corner[1] * 0.75, -0.97, corner[2] * 0.6), C.Black, M.Rubber))
+	table.insert(MEDKIT, cyl("Corner", 0.78, 0.1, at(corner[1], -0.56, corner[2]) * ALONG_Y, C.Grey, M.Rubber))
+	table.insert(MEDKIT, box("Foot", v3(0.13, 0.04, 0.11), at(corner[1] * 0.75, -0.97, corner[2] * 0.6), C.Black, M.Rubber))
 end
 
 -- Дубинка грабителя: резиновая рукоять с кольцами, стальной воротник, два колена с кольцом между ними, боковая
@@ -497,7 +506,12 @@ local INFO: { [string]: Info } = {
 		support = at(0, 0.14, -1.45),
 		labels = { { part = "CaliberPlate", face = Enum.NormalId.Left, text = "5.56", color = C.Gold, pixelsPerStud = 240 } },
 	},
-	Medkit = { specs = MEDKIT, muzzle = at(0, -0.55, -0.3), support = at(-0.55, -0.55, 0) },
+	Medkit = {
+		specs = MEDKIT,
+		muzzle = at(0, -0.55, -0.3),
+		support = at(-0.55, -0.55, 0),
+		labels = { { part = "Label", face = Enum.NormalId.Front, text = "FIRST AID", color = C.White, pixelsPerStud = 160 } },
+	},
 	Baton = { specs = BATON, muzzle = at(0, 0, -1.9), support = at(0, 0, 0) },
 	Smoke = {
 		specs = SMOKE,
