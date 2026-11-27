@@ -582,21 +582,49 @@ local function chandelier(x: number, z: number, ceilingY: number, drop: number?)
 	light.Shadows = true
 	light:SetAttribute(DAY_LIGHT, true)
 	light.Parent = core
+	-- Этап 5, блок F2: изогнутые рожки к свечам, чашечки, хрустальные подвески, корона сверху
+	local crown = decorPart("ChandelierCrown", Vector3.new(0.3, 2, 2), CFrame.new(x, hangY + 1.6, z) * CFrame.Angles(0, 0, math.rad(90)), COLORS.Gold, Enum.Material.Metal)
+	crown.Shape = Enum.PartType.Cylinder
+	local pendant = decorPart("ChandelierDrop", Vector3.new(0.5, 0.5, 0.5), CFrame.new(x, hangY - 1.3, z), hex("DFF6FF"), Enum.Material.Glass)
+	pendant.Shape = Enum.PartType.Ball
+	pendant.Transparency = 0.3
 	for i = 1, 6 do
 		local angle = i / 6 * math.pi * 2
+		local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local base = Vector3.new(x, hangY, z)
+		local armFrom, armTo = base + out * 0.5 + Vector3.new(0, -0.45, 0), base + out * 2 + Vector3.new(0, 0.1, 0)
+		decorPart("ChandelierArm", Vector3.new(0.14, 0.14, (armTo - armFrom).Magnitude), CFrame.lookAt((armFrom + armTo) / 2, armTo), COLORS.Gold, Enum.Material.Metal)
+		local cup = decorPart("CandleCup", Vector3.new(0.2, 0.5, 0.5), CFrame.new(base + out * 2 + Vector3.new(0, 0.18, 0)) * CFrame.Angles(0, 0, math.rad(90)), COLORS.Gold, Enum.Material.Metal)
+		cup.Shape = Enum.PartType.Cylinder
 		local bulb = decorPart("Bulb", Vector3.new(0.6, 0.6, 0.6), CFrame.new(x + math.cos(angle) * 2, hangY + 0.5, z + math.sin(angle) * 2), settings.Color, Enum.Material.Neon)
 		bulb.Shape = Enum.PartType.Ball
 		bulb:SetAttribute(DAY_LIGHT, true)
+		local crystal = decorPart("Crystal", Vector3.new(0.22, 0.4, 0.22), CFrame.new(base + Vector3.new(math.cos(angle + 0.52), 0, math.sin(angle + 0.52)) * 2.1 + Vector3.new(0, -0.45, 0)) * CFrame.Angles(0, angle, math.rad(45)), hex("DFF6FF"), Enum.Material.Glass)
+		crystal.Transparency = 0.3
 	end
 end
 
+-- Растение в кадке (этап 5, блок F2): терракотовый горшок с ободом и золотым пояском, земля, пышная крона из шаров
+-- и листья-перья, торчащие во все стороны. Твёрдый только горшок (2 × 2), как раньше.
 local function plant(x: number, z: number)
 	local pot = solidPart("PlantPot", Vector3.new(1.6, 2, 2), CFrame.new(x, 0.8, z) * CFrame.Angles(0, 0, math.rad(90)), COLORS.Terracotta)
 	pot.Shape = Enum.PartType.Cylinder
+	local rim = decorPart("PlantPotRim", Vector3.new(0.3, 2.3, 2.3), CFrame.new(x, 1.6, z) * CFrame.Angles(0, 0, math.rad(90)), COLORS.Terracotta)
+	rim.Shape = Enum.PartType.Cylinder
+	local band = decorPart("PlantPotBand", Vector3.new(0.16, 2.06, 2.06), CFrame.new(x, 0.75, z) * CFrame.Angles(0, 0, math.rad(90)), COLORS.Gold, Enum.Material.Metal)
+	band.Shape = Enum.PartType.Cylinder
+	local soil = decorPart("PlantSoil", Vector3.new(0.1, 1.9, 1.9), CFrame.new(x, 1.74, z) * CFrame.Angles(0, 0, math.rad(90)), hex("3B2A1E"), Enum.Material.Ground)
+	soil.Shape = Enum.PartType.Cylinder
 	local leaves = decorPart("Leaves", Vector3.new(2.8, 2.8, 2.8), CFrame.new(x, 2.8, z), COLORS.Leaves, Enum.Material.Grass)
 	leaves.Shape = Enum.PartType.Ball
 	local top = decorPart("Leaves", Vector3.new(1.9, 1.9, 1.9), CFrame.new(x + 0.3, 4, z - 0.2), COLORS.LeavesLight, Enum.Material.Grass)
 	top.Shape = Enum.PartType.Ball
+	local side = decorPart("Leaves", Vector3.new(1.6, 1.6, 1.6), CFrame.new(x - 0.8, 3.3, z + 0.6), COLORS.LeavesLight, Enum.Material.Grass)
+	side.Shape = Enum.PartType.Ball
+	for i = 0, 5 do
+		local blade = CFrame.new(x, 2.4, z) * CFrame.Angles(0, i * math.pi / 3 + 0.3, 0) * CFrame.Angles(math.rad(35), 0, 0) * CFrame.new(0, 0, -1.6)
+		decorPart("Frond", Vector3.new(0.5, 0.08, 1.8), blade, if i % 2 == 0 then COLORS.Leaves else COLORS.LeavesLight, Enum.Material.Grass)
+	end
 end
 
 -- Лампа на стене: светящаяся планка + точечный свет. Ночью это почти единственный свет в залах.
@@ -717,15 +745,40 @@ end
 
 ---------------------------------------------------------------- модели-заглушки
 
--- Банкетка без спинки: тёмно-синее сиденье, золотая рама и ножки (в залах и в лобби)
-local BENCH_STUB: { ModelLibrary.StubPart } = {
-	{ size = Vector3.new(6, 0.5, 2), offset = CFrame.new(0, 1.35, 0), color = COLORS.Navy, material = Enum.Material.Fabric },
-	{ size = Vector3.new(6.2, 0.2, 2.2), offset = CFrame.new(0, 1, 0), color = COLORS.Gold, material = Enum.Material.Metal },
-	{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(-2.8, 0.45, -0.8), color = COLORS.Gold, material = Enum.Material.Metal },
-	{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(2.8, 0.45, -0.8), color = COLORS.Gold, material = Enum.Material.Metal },
-	{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(-2.8, 0.45, 0.8), color = COLORS.Gold, material = Enum.Material.Metal },
-	{ size = Vector3.new(0.3, 0.9, 0.3), offset = CFrame.new(2.8, 0.45, 0.8), color = COLORS.Gold, material = Enum.Material.Metal },
-}
+-- Помощники для заглушек (этап 5, блок F2): стоячий цилиндр, шар, деталь-украшение без столкновений.
+local function stubCyl(name: string, height: number, diameter: number, position: Vector3, color: Color3, material: Enum.Material?, collide: boolean?): ModelLibrary.StubPart
+	return { name = name, size = Vector3.new(height, diameter, diameter), offset = CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90)), color = color, material = material, shape = Enum.PartType.Cylinder, collide = collide }
+end
+
+local function stubBall(name: string, diameter: number, position: Vector3, color: Color3, material: Enum.Material?): ModelLibrary.StubPart
+	return { name = name, size = Vector3.new(diameter, diameter, diameter), offset = CFrame.new(position), color = color, material = material, shape = Enum.PartType.Ball, collide = false }
+end
+
+-- Банкетка без спинки: стёганое тёмно-синее сиденье с золотыми пуговицами и кантом, золотая рама,
+-- точёные ножки с шарами внизу, перекладина (в залах и в лобби). 6.2 × 2.2, как раньше.
+local function benchStub(): { ModelLibrary.StubPart }
+	local list: { ModelLibrary.StubPart } = {
+		{ name = "Seat", size = Vector3.new(6, 0.5, 2), offset = CFrame.new(0, 1.35, 0), color = COLORS.Navy, material = Enum.Material.Fabric },
+		{ name = "Piping", size = Vector3.new(6.06, 0.08, 2.06), offset = CFrame.new(0, 1.56, 0), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+		{ name = "Frame", size = Vector3.new(6.2, 0.2, 2.2), offset = CFrame.new(0, 1, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+		{ name = "Apron", size = Vector3.new(5.4, 0.28, 0.08), offset = CFrame.new(0, 0.76, -0.98), color = COLORS.DarkWood, material = Enum.Material.Wood, collide = false },
+		{ name = "Apron", size = Vector3.new(5.4, 0.28, 0.08), offset = CFrame.new(0, 0.76, 0.98), color = COLORS.DarkWood, material = Enum.Material.Wood, collide = false },
+		{ name = "Stretcher", size = Vector3.new(5.4, 0.12, 0.12), offset = CFrame.new(0, 0.35, 0), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+	}
+	for _, x in { -2.8, 2.8 } do
+		for _, z in { -0.8, 0.8 } do
+			table.insert(list, stubCyl("Leg", 0.9, 0.3, Vector3.new(x, 0.5, z), COLORS.Gold, Enum.Material.Metal))
+			table.insert(list, stubBall("Foot", 0.36, Vector3.new(x, 0.14, z), COLORS.Gold, Enum.Material.Metal))
+		end
+	end
+	for i = -2, 2 do
+		for _, z in { -0.45, 0.45 } do
+			table.insert(list, stubBall("Tuft", 0.14, Vector3.new(i * 1.15 + (if z > 0 then 0.55 else 0), 1.6, z), COLORS.Gold, Enum.Material.Metal))
+		end
+	end
+	return list
+end
+local BENCH_STUB: { ModelLibrary.StubPart } = benchStub()
 
 -- Створка входной двери: стекло в золотой раме, ручка у внутреннего края (+X). Низ по центру.
 local ENTRANCE_DOOR_STUB: { ModelLibrary.StubPart } = {
@@ -739,6 +792,14 @@ local ENTRANCE_DOOR_STUB: { ModelLibrary.StubPart } = {
 	{ name = "HandleIn", size = Vector3.new(0.18, 2.2, 0.18), offset = CFrame.new(1.7, 4.6, -0.35), color = COLORS.WhiteMarble, material = Enum.Material.Metal },
 	{ name = "HandleOut", size = Vector3.new(0.18, 2.2, 0.18), offset = CFrame.new(1.7, 4.6, 0.35), color = COLORS.WhiteMarble, material = Enum.Material.Metal },
 	{ name = "Emblem", size = Vector3.new(1.2, 1.2, 0.14), offset = CFrame.new(0, 6.4, 0), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	-- Этап 5, блок F2: матовая полоса на стекле, латунные накладки у ручек, заклёпки по углам
+	{ name = "Frost", size = Vector3.new(4.1, 0.5, 0.14), offset = CFrame.new(0, 4.8, 0), color = hex("F4FAFF"), material = Enum.Material.Glass, transparency = 0.35 },
+	{ name = "PushPlateIn", size = Vector3.new(0.5, 2.6, 0.04), offset = CFrame.new(1.7, 4.6, -0.22), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "PushPlateOut", size = Vector3.new(0.5, 2.6, 0.04), offset = CFrame.new(1.7, 4.6, 0.22), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Stud", size = Vector3.new(0.24, 0.24, 0.46), offset = CFrame.new(-2.275, 0.45, 0), color = COLORS.WhiteMarble, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+	{ name = "Stud", size = Vector3.new(0.24, 0.24, 0.46), offset = CFrame.new(2.275, 0.45, 0), color = COLORS.WhiteMarble, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+	{ name = "Stud", size = Vector3.new(0.24, 0.24, 0.46), offset = CFrame.new(-2.275, DOOR_H - 0.25, 0), color = COLORS.WhiteMarble, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
+	{ name = "Stud", size = Vector3.new(0.24, 0.24, 0.46), offset = CFrame.new(2.275, DOOR_H - 0.25, 0), color = COLORS.WhiteMarble, material = Enum.Material.Metal, shape = Enum.PartType.Ball },
 }
 
 -- Створка двери STAFF ONLY: серый металл, окошко, табличка, ручка. Низ по центру.
@@ -748,6 +809,16 @@ local STAFF_DOOR_STUB: { ModelLibrary.StubPart } = {
 	{ name = "KickPlate", size = Vector3.new(5.4, 1.1, 0.36), offset = CFrame.new(0, 0.75, 0), color = hex("4A5060"), material = Enum.Material.DiamondPlate },
 	{ name = "Stripe", size = Vector3.new(5.8, 0.4, 0.34), offset = CFrame.new(0, 4.2, 0), color = hex("F2C230") },
 	{ name = "Handle", size = Vector3.new(0.9, 0.2, 0.2), offset = CFrame.new(2.1, 4.2, -0.3), color = COLORS.WhiteMarble, material = Enum.Material.Metal },
+	{ name = "HandleBack", size = Vector3.new(0.9, 0.2, 0.2), offset = CFrame.new(2.1, 4.2, 0.3), color = COLORS.WhiteMarble, material = Enum.Material.Metal },
+	-- Этап 5, блок F2: рамка окошка, петли, решётка вентиляции, табличка
+	{ name = "WindowFrame", size = Vector3.new(1.9, 1.9, 0.32), offset = CFrame.new(0, 6.4, 0), color = hex("3A4050"), material = Enum.Material.Metal },
+	{ name = "Hinge", size = Vector3.new(0.6, 0.24, 0.24), offset = CFrame.new(-2.9, 1.6, 0) * CFrame.Angles(0, 0, math.rad(90)), color = hex("3A4050"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "Hinge", size = Vector3.new(0.6, 0.24, 0.24), offset = CFrame.new(-2.9, 4.4, 0) * CFrame.Angles(0, 0, math.rad(90)), color = hex("3A4050"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "Hinge", size = Vector3.new(0.6, 0.24, 0.24), offset = CFrame.new(-2.9, 7.2, 0) * CFrame.Angles(0, 0, math.rad(90)), color = hex("3A4050"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder },
+	{ name = "Vent", size = Vector3.new(2, 0.12, 0.34), offset = CFrame.new(0, 1.7, 0), color = hex("3A4050"), material = Enum.Material.Metal },
+	{ name = "Vent", size = Vector3.new(2, 0.12, 0.34), offset = CFrame.new(0, 1.95, 0), color = hex("3A4050"), material = Enum.Material.Metal },
+	{ name = "Vent", size = Vector3.new(2, 0.12, 0.34), offset = CFrame.new(0, 2.2, 0), color = hex("3A4050"), material = Enum.Material.Metal },
+	{ name = "SignPlate", size = Vector3.new(1.6, 0.5, 0.34), offset = CFrame.new(0, 5.1, 0), color = COLORS.Red },
 }
 
 -- Витрина-укрытие: тумба тёмного дерева с золотой каймой и стеклянный короб. Низ по центру, 4 × 2.
@@ -758,6 +829,15 @@ local DISPLAY_CASE_STUB: { ModelLibrary.StubPart } = {
 	{ name = "Velvet", size = Vector3.new(3.6, 0.1, 1.6), offset = CFrame.new(0, 2.65, 0), color = COLORS.Velvet, material = Enum.Material.Fabric },
 	{ name = "Glass", size = Vector3.new(3.8, 1.7, 1.8), offset = CFrame.new(0, 3.45, 0), color = COLORS.Glass, material = Enum.Material.Glass, transparency = 0.75 },
 	{ name = "Lid", size = Vector3.new(4, 0.15, 2), offset = CFrame.new(0, 4.37, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+	-- Этап 5, блок F2: латунные стойки по углам стекла, подсветка под крышкой, филёнки и замочки на тумбе
+	{ name = "Post", size = Vector3.new(0.12, 1.7, 0.12), offset = CFrame.new(-1.9, 3.45, -0.9), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+	{ name = "Post", size = Vector3.new(0.12, 1.7, 0.12), offset = CFrame.new(1.9, 3.45, -0.9), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+	{ name = "Post", size = Vector3.new(0.12, 1.7, 0.12), offset = CFrame.new(-1.9, 3.45, 0.9), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+	{ name = "Post", size = Vector3.new(0.12, 1.7, 0.12), offset = CFrame.new(1.9, 3.45, 0.9), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
+	{ name = "LidLight", size = Vector3.new(3.4, 0.05, 0.12), offset = CFrame.new(0, 4.27, 0), color = hex("FFE7B8"), material = Enum.Material.Neon, collide = false },
+	{ name = "Panel", size = Vector3.new(3.4, 1.5, 0.06), offset = CFrame.new(0, 1.3, -1.02), color = hex("4A2A16"), material = Enum.Material.Wood, collide = false },
+	{ name = "Panel", size = Vector3.new(3.4, 1.5, 0.06), offset = CFrame.new(0, 1.3, 1.02), color = hex("4A2A16"), material = Enum.Material.Wood, collide = false },
+	{ name = "Lock", size = Vector3.new(0.2, 0.2, 0.08), offset = CFrame.new(0, 2.2, -1.04), color = COLORS.Gold, material = Enum.Material.Metal, collide = false },
 }
 
 -- Стойка TICKETS во входном холле: деревянный прилавок с мраморной столешницей. Перед — к посетителю (−Z).
@@ -839,6 +919,16 @@ local SHOP_COUNTER_STUB: { ModelLibrary.StubPart } = {
 	{ name = "Bulb", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(0, 7.78, 1.2), color = SHOP_BULB, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
 	{ name = "Bulb", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(1.4, 7.78, 1.2), color = SHOP_BULB, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
 	{ name = "Bulb", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(2.8, 7.78, 1.2), color = SHOP_BULB, material = Enum.Material.Neon, shape = Enum.PartType.Ball },
+	-- Этап 5, блок F2: банка с монетами, открытки на подставке, мини-ваза, подсветка у пола
+	{ name = "CoinJar", size = Vector3.new(0.55, 0.42, 0.42), offset = CFrame.new(-0.9, 3.87, -0.7) * CFrame.Angles(0, 0, math.pi / 2), color = hex("DFF6FF"), material = Enum.Material.Glass, transparency = 0.55, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "Coins", size = Vector3.new(0.25, 0.32, 0.32), offset = CFrame.new(-0.9, 3.72, -0.7) * CFrame.Angles(0, 0, math.pi / 2), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "CardRack", size = Vector3.new(0.9, 0.6, 0.45), offset = CFrame.new(0.8, 3.9, 0.55), color = COLORS.DarkWood, material = Enum.Material.Wood, wedge = true, collide = false },
+	{ name = "Card", size = Vector3.new(0.26, 0.36, 0.03), offset = CFrame.new(0.52, 4.02, 0.5) * CFrame.Angles(math.rad(-50), 0, 0), color = hex("5CB8FF"), collide = false },
+	{ name = "Card", size = Vector3.new(0.26, 0.36, 0.03), offset = CFrame.new(0.82, 4.02, 0.5) * CFrame.Angles(math.rad(-50), 0, 0), color = hex("FF9F5A"), collide = false },
+	{ name = "Card", size = Vector3.new(0.26, 0.36, 0.03), offset = CFrame.new(1.1, 4.02, 0.5) * CFrame.Angles(math.rad(-50), 0, 0), color = hex("5EC250"), collide = false },
+	{ name = "MiniVase", size = Vector3.new(0.4, 0.4, 0.4), offset = CFrame.new(-0.9, 3.85, 0.7), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Ball, collide = false },
+	{ name = "MiniVaseNeck", size = Vector3.new(0.3, 0.2, 0.2), offset = CFrame.new(-0.9, 4.15, 0.7) * CFrame.Angles(0, 0, math.pi / 2), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "ToeLight", size = Vector3.new(6.8, 0.06, 0.06), offset = CFrame.new(0, 0.33, -1.47), color = SHOP_BULB, material = Enum.Material.Neon, collide = false },
 	{ name = "PromptPoint", size = Vector3.new(1, 1, 1), offset = CFrame.new(0, 3.9, -1.2), color = COLORS.Gold, transparency = 1, collide = false },
 }
 
@@ -1047,6 +1137,15 @@ local PARTITION_STUB: { ModelLibrary.StubPart } = {
 	{ name = "Top", size = Vector3.new(PARTITION.length + 0.4, 0.4, 1.3), offset = CFrame.new(0, PARTITION.height + 0.7, 0), color = COLORS.Gold, material = Enum.Material.Metal },
 	{ name = "Edge", size = Vector3.new(0.4, PARTITION.height, 1.3), offset = CFrame.new(-PARTITION.length / 2 - 0.1, 0.5 + PARTITION.height / 2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
 	{ name = "Edge", size = Vector3.new(0.4, PARTITION.height, 1.3), offset = CFrame.new(PARTITION.length / 2 + 0.1, 0.5 + PARTITION.height / 2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+	-- Этап 5, блок F2: пилястры по бокам картин, латунные лампы над картинами с обеих сторон, шары на краях
+	{ name = "Pilaster", size = Vector3.new(0.3, PARTITION.height, 1.12), offset = CFrame.new(-4.6, 0.5 + PARTITION.height / 2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "Pilaster", size = Vector3.new(0.3, PARTITION.height, 1.12), offset = CFrame.new(4.6, 0.5 + PARTITION.height / 2, 0), color = COLORS.Gold, material = Enum.Material.Metal },
+	{ name = "LampBar", size = Vector3.new(3.2, 0.2, 0.2), offset = CFrame.new(0, 8.6, -0.78), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "LampBar", size = Vector3.new(3.2, 0.2, 0.2), offset = CFrame.new(0, 8.6, 0.78), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "LampGlow", size = Vector3.new(3, 0.05, 0.08), offset = CFrame.new(0, 8.48, -0.8), color = hex("FFE7B8"), material = Enum.Material.Neon, collide = false },
+	{ name = "LampGlow", size = Vector3.new(3, 0.05, 0.08), offset = CFrame.new(0, 8.48, 0.8), color = hex("FFE7B8"), material = Enum.Material.Neon, collide = false },
+	{ name = "Finial", size = Vector3.new(0.6, 0.6, 0.6), offset = CFrame.new(-PARTITION.length / 2 - 0.1, PARTITION.height + 1.2, 0), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Ball, collide = false },
+	{ name = "Finial", size = Vector3.new(0.6, 0.6, 0.6), offset = CFrame.new(PARTITION.length / 2 + 0.1, PARTITION.height + 1.2, 0), color = COLORS.Gold, material = Enum.Material.Metal, shape = Enum.PartType.Ball, collide = false },
 }
 
 local function buildPartitions()
@@ -1165,6 +1264,23 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 		local button = decorPart("ConsoleButton", Vector3.new(0.4, 0.15, 0.4), CFrame.new(i * 1.05, BALCONY_Y + 3.65, N + 1.6) * CFrame.Angles(math.rad(20), 0, 0), color, Enum.Material.Neon)
 		button.Shape = Enum.PartType.Cylinder
 	end
+	-- Этап 5, блок F2: клавиатура, джойстик, микрофон, кружка, лампа REC над мониторами
+	decorPart("Keyboard", Vector3.new(3, 0.12, 0.9), CFrame.new(0, BALCONY_Y + 3.36, N + 3.1), hex("2B2F3A"), Enum.Material.Metal)
+	decorPart("Keys", Vector3.new(2.8, 0.05, 0.7), CFrame.new(0, BALCONY_Y + 3.44, N + 3.1), hex("4A5266"))
+	decorPart("JoystickBase", Vector3.new(0.7, 0.15, 0.7), CFrame.new(3.4, BALCONY_Y + 3.38, N + 3), hex("15181F"), Enum.Material.Metal)
+	decorPart("JoystickStick", Vector3.new(0.12, 0.6, 0.12), CFrame.new(3.4, BALCONY_Y + 3.75, N + 3) * CFrame.Angles(math.rad(-10), 0, 0), COLORS.Metal, Enum.Material.Metal)
+	local knob = decorPart("JoystickKnob", Vector3.new(0.3, 0.3, 0.3), CFrame.new(3.4, BALCONY_Y + 4.08, N + 2.95), COLORS.Red)
+	knob.Shape = Enum.PartType.Ball
+	local micBase = decorPart("MicBase", Vector3.new(0.1, 0.5, 0.5), CFrame.new(-2.2, BALCONY_Y + 3.35, N + 2.6) * CFrame.Angles(0, 0, math.rad(90)), hex("15181F"), Enum.Material.Metal)
+	micBase.Shape = Enum.PartType.Cylinder
+	decorPart("MicStem", Vector3.new(0.06, 0.06, 0.9), CFrame.lookAt(Vector3.new(-2.2, BALCONY_Y + 3.7, N + 2.75), Vector3.new(-2.2, BALCONY_Y + 4.05, N + 3.1)), COLORS.Metal, Enum.Material.Metal)
+	local mic = decorPart("Mic", Vector3.new(0.22, 0.22, 0.22), CFrame.new(-2.2, BALCONY_Y + 4.1, N + 3.15), hex("15181F"), Enum.Material.Metal)
+	mic.Shape = Enum.PartType.Ball
+	local mug = decorPart("Mug", Vector3.new(0.45, 0.36, 0.36), CFrame.new(-3.9, BALCONY_Y + 3.52, N + 3.1) * CFrame.Angles(0, 0, math.rad(90)), COLORS.WhiteMarble)
+	mug.Shape = Enum.PartType.Cylinder
+	decorPart("MugHandle", Vector3.new(0.08, 0.26, 0.16), CFrame.new(-3.66, BALCONY_Y + 3.52, N + 3.1), COLORS.WhiteMarble)
+	local rec = decorPart("RecLamp", Vector3.new(0.3, 0.3, 0.3), CFrame.new(5.2, BALCONY_Y + 8.7, N + 0.35), COLORS.Red, Enum.Material.Neon)
+	rec.Shape = Enum.PartType.Ball
 	decorPart("MonitorWall", Vector3.new(11.4, 5, 0.3), CFrame.new(0, BALCONY_Y + 6.6, N + 0.15), hex("15181F"), Enum.Material.Metal)
 	for row = 0, 1 do
 		for col = -1, 1 do

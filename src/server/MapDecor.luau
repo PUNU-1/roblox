@@ -283,8 +283,21 @@ local function trexSkeletonStub(): Stub
 			table.insert(list, { name = "Tooth", size = Vector3.new(0.12, 0.3, 0.12), offset = CFrame.new(s * 0.45, 9.38, -9.9 - i * 0.4) * CFrame.Angles(math.pi, 0, 0), color = hex("F7F3EA"), wedge = true, collide = false })
 		end
 	end
+	-- Этап 5, блок F2: когти на ручках и пальцах ног, шевроны под хвостом, кольца на подпорках
+	for _, s in { -1, 1 } do
+		table.insert(list, { name = "Claw", size = Vector3.new(0.1, 0.3, 0.1), offset = CFrame.new(s * 1, 7.15, -6.4) * CFrame.Angles(rad(-40), 0, 0), color = BONE_DARK, wedge = true, collide = false })
+		for i = -1, 1 do
+			table.insert(list, { name = "ToeClaw", size = Vector3.new(0.16, 0.18, 0.3), offset = CFrame.new(s * 1.35 + i * 0.4, 0.12, -1.35), color = BONE_DARK, wedge = true, collide = false })
+		end
+	end
+	for _, point in { Vector3.new(0, 4.2, 8), Vector3.new(0, 5.3, 6), Vector3.new(0, 6.4, 4) } do
+		table.insert(list, { name = "Chevron", size = Vector3.new(0.18, 0.7, 0.18), offset = CFrame.new(point + Vector3.new(0, -0.65, 0.1)) * CFrame.Angles(rad(-20), 0, 0), color = BONE_DARK, collide = false })
+	end
 	supportRod(list, 0, -3, 7.8)
 	supportRod(list, 0, 4, 6)
+	for _, z in { -3, 4 } do
+		table.insert(list, { name = "SupportBase", size = Vector3.new(0.12, 1, 1), offset = CFrame.new(0, 0.06, z) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+	end
 	return list
 end
 
@@ -330,9 +343,25 @@ local function longneckSkeletonStub(): Stub
 	for _, s in { -1, 1 } do
 		table.insert(list, { name = "Eye", size = Vector3.new(0.08, 0.3, 0.35), offset = CFrame.new(s * 0.48, 13.85, -11.8), color = hex("3A2E22"), collide = false })
 	end
+	-- Этап 5, блок F2: когти на лапах, шейные рёбрышки, подставки под подпорками
+	for _, s in { -1, 1 } do
+		for _, z in { -3, 3 } do
+			for i = -1, 1 do
+				table.insert(list, { name = "ToeClaw", size = Vector3.new(0.18, 0.2, 0.3), offset = CFrame.new(s * 1.6 + i * 0.35, 0.1, z - 0.85), color = BONE, wedge = true, collide = false })
+			end
+		end
+	end
+	for _, point in { Vector3.new(0, 9.6, -5.5), Vector3.new(0, 10.7, -7), Vector3.new(0, 11.8, -8.4) } do
+		for _, s in { -1, 1 } do
+			table.insert(list, { name = "NeckRib", size = Vector3.new(0.14, 0.14, 0.7), offset = CFrame.new(point + Vector3.new(s * 0.45, -0.3, 0.1)) * CFrame.Angles(rad(60), 0, 0), color = BONE_DARK, collide = false })
+		end
+	end
 	supportRod(list, 0, -6, 9.8)
 	supportRod(list, 0, -9.2, 12.4)
 	supportRod(list, 0, 8.4, 5.4)
+	for _, z in { -6, -9.2, 8.4 } do
+		table.insert(list, { name = "SupportBase", size = Vector3.new(0.12, 1, 1), offset = CFrame.new(0, 0.06, z) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder, collide = false })
+	end
 	return list
 end
 
@@ -425,6 +454,12 @@ local PLANET_STUB: Stub = {
 	{ name = "Band", size = Vector3.new(7.05, 0.7, 7.05), offset = CFrame.new(0, -1.3, 0), color = hex("D6B67A"), sphere = true, collide = false },
 	{ name = "RingInner", size = Vector3.new(0.13, 10, 10), offset = CFrame.Angles(rad(18), 0, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("8E7A52"), transparency = 0.3, shape = Enum.PartType.Cylinder, collide = false },
 	{ name = "Ring", size = Vector3.new(0.12, 13, 13), offset = CFrame.Angles(rad(18), 0, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("D9C28A"), transparency = 0.15, shape = Enum.PartType.Cylinder, collide = false },
+	-- Этап 5, блок F2: ещё полосы, внешнее бледное кольцо, полюс, маленький спутник
+	{ name = "Band", size = Vector3.new(7.05, 0.5, 7.05), offset = CFrame.new(0, 2.3, 0), color = hex("B8955A"), sphere = true, collide = false },
+	{ name = "Band", size = Vector3.new(7.05, 0.45, 7.05), offset = CFrame.new(0, -0.2, 0), color = hex("EAD7A6"), sphere = true, collide = false },
+	{ name = "Pole", size = Vector3.new(3.2, 0.6, 3.2), offset = CFrame.new(0, 3.25, 0), color = hex("A88A55"), sphere = true, collide = false },
+	{ name = "RingOuter", size = Vector3.new(0.1, 14.4, 14.4), offset = CFrame.Angles(rad(18), 0, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("F2E3B8"), transparency = 0.55, shape = Enum.PartType.Cylinder, collide = false },
+	{ name = "Moon", size = Vector3.new(1.2, 1.2, 1.2), offset = CFrame.new(8.5, 1.4, -2), color = hex("C9C3B8"), shape = Enum.PartType.Ball, collide = false },
 }
 
 -- Большая ракета на стартовом столе и красная башня обслуживания. Низ по центру.
@@ -460,6 +495,23 @@ local function rocketStub(): Stub
 		table.insert(list, { name = "TowerBar", size = Vector3.new(3.3, 0.3, 0.3), offset = CFrame.new(0, y, 3.6), color = RED, material = Enum.Material.Metal })
 	end
 	table.insert(list, { name = "TowerArm", size = Vector3.new(0.3, 0.3, 2.3), offset = CFrame.new(0, 11.5, 2.4), color = DARK_METAL, material = Enum.Material.Metal })
+	-- Этап 5, блок F2: два боковых ускорителя, сопла, ряд иллюминаторов, надпись-полоса, площадки и маячок башни
+	for _, x in { -2.15, 2.15 } do
+		table.insert(list, { name = "Booster", size = Vector3.new(6.4, 1.1, 1.1), offset = CFrame.new(x, 4.9, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("E8ECF2"), shape = Enum.PartType.Cylinder })
+		table.insert(list, { name = "BoosterNose", size = Vector3.new(1.1, 1.1, 1.1), offset = CFrame.new(x, 8.1, 0), color = RED, shape = Enum.PartType.Ball })
+		table.insert(list, { name = "BoosterBand", size = Vector3.new(0.3, 1.16, 1.16), offset = CFrame.new(x, 6.6, 0) * CFrame.Angles(0, 0, rad(90)), color = DARK_METAL, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder })
+		table.insert(list, { name = "BoosterNozzle", size = Vector3.new(0.5, 0.8, 0.8), offset = CFrame.new(x, 1.45, 0) * CFrame.Angles(0, 0, rad(90)), color = hex("4A5060"), material = Enum.Material.Metal, shape = Enum.PartType.Cylinder })
+		table.insert(list, { name = "Strut", size = Vector3.new(1, 0.25, 0.25), offset = CFrame.new(x * 0.78, 6.2, 0), color = DARK_METAL, material = Enum.Material.Metal })
+	end
+	for _, y in { 8.9, 12 } do
+		table.insert(list, { name = "Porthole", size = Vector3.new(0.12, 0.7, 0.7), offset = CFrame.new(0, y, -1.38) * CFrame.Angles(0, rad(90), 0), color = hex("7FE7FF"), material = Enum.Material.Neon, shape = Enum.PartType.Cylinder })
+	end
+	table.insert(list, { name = "Stripe", size = Vector3.new(0.1, 1.8, 0.4), offset = CFrame.new(0, 5.6, -1.61), color = hex("243B6B") })
+	for y = 4, 13, 3 do
+		table.insert(list, { name = "TowerDeck", size = Vector3.new(3.5, 0.15, 1.2), offset = CFrame.new(0, y, 3.6), color = hex("F2C230"), material = Enum.Material.DiamondPlate, collide = false })
+	end
+	table.insert(list, { name = "Beacon", size = Vector3.new(0.5, 0.5, 0.5), offset = CFrame.new(0, 16.25, 3.6), color = RED, material = Enum.Material.Neon, shape = Enum.PartType.Ball, collide = false })
+	table.insert(list, { name = "BeaconPost", size = Vector3.new(0.2, 0.5, 0.2), offset = CFrame.new(0, 15.9, 3.6), color = DARK_METAL, material = Enum.Material.Metal, collide = false })
 	return list
 end
 
@@ -701,6 +753,13 @@ local function planet(room: Room, x: number, y: number, z: number, diameter: num
 		local bump = kit.decor("PlanetSpot", Vector3.new(size, size, size), center * CFrame.new(direction * (diameter / 2 - size * 0.32)), spotColor)
 		bump.Shape = Enum.PartType.Ball
 	end
+	-- Этап 5, блок F2: прозрачная дымка атмосферы чуть больше планеты
+	if diameter >= 3 then
+		local haze = kit.decor("Atmosphere", Vector3.new(diameter * 1.08, diameter * 1.08, diameter * 1.08), center, color:Lerp(Color3.new(1, 1, 1), 0.5), Enum.Material.Glass)
+		haze.Shape = Enum.PartType.Ball
+		haze.Transparency = 0.82
+		haze.CastShadow = false
+	end
 	kit.decor("Wire", Vector3.new(0.06, room.height - y - diameter / 2, 0.06), room.cf(CFrame.new(x, (room.height + y + diameter / 2) / 2, z)), STEEL, Enum.Material.Metal)
 end
 
@@ -770,6 +829,18 @@ local PLANTER_TREE_STUB: Stub = {
 	{ name = "Crown", size = Vector3.new(3.8, 3.8, 3.8), offset = CFrame.new(0, 6.8, 0), color = LEAF, material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
 	{ name = "Crown", size = Vector3.new(2.8, 2.8, 2.8), offset = CFrame.new(0.9, 7.9, 0.4), color = LEAF_DARK, material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
 	{ name = "Crown", size = Vector3.new(2.6, 2.6, 2.6), offset = CFrame.new(-0.9, 7.6, -0.5), color = hex("4FA352"), material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
+	-- Этап 5, блок F2: латунные уголки ящика, ветки, ещё листва и цветы-ягоды
+	{ name = "Corner", size = Vector3.new(0.18, 1.8, 0.18), offset = CFrame.new(-1.32, 0.9, -1.32), color = GOLD, material = Enum.Material.Metal, collide = false },
+	{ name = "Corner", size = Vector3.new(0.18, 1.8, 0.18), offset = CFrame.new(1.32, 0.9, -1.32), color = GOLD, material = Enum.Material.Metal, collide = false },
+	{ name = "Corner", size = Vector3.new(0.18, 1.8, 0.18), offset = CFrame.new(-1.32, 0.9, 1.32), color = GOLD, material = Enum.Material.Metal, collide = false },
+	{ name = "Corner", size = Vector3.new(0.18, 1.8, 0.18), offset = CFrame.new(1.32, 0.9, 1.32), color = GOLD, material = Enum.Material.Metal, collide = false },
+	{ name = "Branch", size = Vector3.new(0.22, 0.22, 1.6), offset = CFrame.new(0.55, 5.6, 0.2) * CFrame.Angles(rad(-50), rad(70), 0), color = hex("6B4A2E"), material = Enum.Material.Wood, collide = false },
+	{ name = "Branch", size = Vector3.new(0.2, 0.2, 1.4), offset = CFrame.new(-0.5, 5.4, -0.3) * CFrame.Angles(rad(-50), rad(-110), 0), color = hex("6B4A2E"), material = Enum.Material.Wood, collide = false },
+	{ name = "Crown", size = Vector3.new(2.2, 2.2, 2.2), offset = CFrame.new(0.2, 8.6, -0.3), color = hex("5CE06E"), material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
+	{ name = "Crown", size = Vector3.new(2, 2, 2), offset = CFrame.new(-0.3, 6.9, 1.2), color = LEAF_DARK, material = Enum.Material.Grass, shape = Enum.PartType.Ball, collide = false },
+	{ name = "Berry", size = Vector3.new(0.3, 0.3, 0.3), offset = CFrame.new(1.4, 7.2, -1), color = RED, shape = Enum.PartType.Ball, collide = false },
+	{ name = "Berry", size = Vector3.new(0.3, 0.3, 0.3), offset = CFrame.new(-1.6, 7.9, 0.4), color = RED, shape = Enum.PartType.Ball, collide = false },
+	{ name = "Berry", size = Vector3.new(0.3, 0.3, 0.3), offset = CFrame.new(0.4, 6.4, -1.75), color = RED, shape = Enum.PartType.Ball, collide = false },
 }
 
 -- Напольный светильник: тяжёлое основание, золотая стойка, тканевый абажур, лампочка Bulb (игра вешает на неё свет). Низ по центру.

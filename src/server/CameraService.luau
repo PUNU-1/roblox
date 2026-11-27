@@ -172,6 +172,28 @@ local function refreshRepair()
 	refreshAll() -- кнопки «Repair camera» и надписи на табличках
 end
 
+-- Деталь-украшение, приваренная к месту (без столкновений): болты, ручки, полоски (этап 5, блок F2).
+local function trimPart(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): Part
+	local part = Instance.new("Part")
+	part.Name = name
+	if shape then
+		part.Shape = shape
+	end
+	part.Size = size
+	part.CFrame = cframe
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
 -- Рубильник справа от пульта (если смотреть на пульт с юга, с балкона).
 local function buildResetSwitch(console: BasePart): BasePart
 	local size = Cameras.ResetSwitchSize
@@ -212,6 +234,27 @@ local function buildResetSwitch(console: BasePart): BasePart
 	lamp.CFrame = switch.CFrame * CFrame.new(0, size.Y / 2 - 0.6, size.Z / 2)
 	lamp.Parent = switch
 	repairLamp = lamp
+
+	-- Этап 5, блок F2: рычаг с красной ручкой сбоку, жёлто-чёрная полоса внизу, болты, кабель в пол.
+	-- Лицо рубильника — сторона +Z (к игроку на балконе).
+	local dark = Color3.fromHex("1C1F26")
+	local steel = Color3.fromHex("9AA6BC")
+	local frame = switch.CFrame
+	trimPart(switch, "LeverHub", Vector3.new(0.3, 0.5, 0.5), frame * CFrame.new(size.X / 2 + 0.15, 0.3, 0), steel, Enum.Material.Metal, Enum.PartType.Cylinder)
+	local leverTop = frame * CFrame.new(size.X / 2 + 0.25, 1.1, 0.35)
+	local leverFrom = (frame * CFrame.new(size.X / 2 + 0.25, 0.3, 0)).Position
+	trimPart(switch, "Lever", Vector3.new(0.14, 0.14, (leverTop.Position - leverFrom).Magnitude), CFrame.lookAt((leverFrom + leverTop.Position) / 2, leverTop.Position), steel, Enum.Material.Metal)
+	trimPart(switch, "LeverGrip", Vector3.new(0.34, 0.34, 0.34), leverTop, Color3.fromHex("E63946"), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	trimPart(switch, "Hazard", Vector3.new(size.X, 0.4, 0.04), frame * CFrame.new(0, -size.Y / 2 + 0.35, size.Z / 2 + 0.02), Color3.fromHex("F2C230"))
+	for i = -1, 1 do
+		trimPart(switch, "HazardStripe", Vector3.new(0.18, 0.5, 0.05), frame * CFrame.new(i * 0.42, -size.Y / 2 + 0.35, size.Z / 2 + 0.03) * CFrame.Angles(0, 0, math.rad(35)), dark)
+	end
+	for _, x in { -1, 1 } do
+		for _, y in { -1, 1 } do
+			trimPart(switch, "Bolt", Vector3.new(0.14, 0.14, 0.14), frame * CFrame.new(x * (size.X / 2 - 0.15), y * (size.Y / 2 - 0.15), size.Z / 2), steel, Enum.Material.Metal, Enum.PartType.Ball)
+		end
+	end
+	trimPart(switch, "Cable", Vector3.new(0.16, 0.6, 0.16), frame * CFrame.new(-size.X / 2 + 0.3, -size.Y / 2 - 0.0, -size.Z / 2 + 0.2), dark)
 	return switch
 end
 

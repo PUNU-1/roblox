@@ -100,6 +100,28 @@ local function fenceCorners(exhibit: ExhibitService.Exhibit): (Vector3, { Vector
 	return center, corners
 end
 
+-- Деталь-украшение, приваренная к месту (без столкновений): болты, ручки, полоски (этап 5, блок F2).
+local function trimPart(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): Part
+	local part = Instance.new("Part")
+	part.Name = name
+	if shape then
+		part.Shape = shape
+	end
+	part.Size = size
+	part.CFrame = cframe
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
 local function buildFence(grid: Grid)
 	local center, corners = fenceCorners(grid.exhibit)
 	local model = Instance.new("Model")
@@ -115,6 +137,14 @@ local function buildFence(grid: Grid)
 		post.Anchored = true
 		post.CanCollide = false
 		post.Parent = model
+		-- Этап 5, блок F2: тяжёлое основание, колпак сверху, тёмные линзы излучателей на высоте лучей
+		local base = trimPart(model, "PostBase", Vector3.new(0.2, 0.8, 0.8), CFrame.new(corner + Vector3.new(0, 0.1, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromHex("1C1F26"), Enum.Material.Metal, Enum.PartType.Cylinder)
+		base.CanQuery = false
+		trimPart(model, "PostCap", Vector3.new(0.55, 0.25, 0.55), CFrame.new(corner + Vector3.new(0, Laser.PostHeight + 0.12, 0)), Color3.fromHex("1C1F26"), Enum.Material.Metal)
+		trimPart(model, "PostTop", Vector3.new(0.22, 0.22, 0.22), CFrame.new(corner + Vector3.new(0, Laser.PostHeight + 0.32, 0)), Laser.BeamColor, Enum.Material.Neon, Enum.PartType.Ball)
+		for _, height in Laser.BeamHeights do
+			trimPart(model, "Lens", Vector3.new(0.18, 0.52, 0.52), CFrame.new(corner + Vector3.new(0, height, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromHex("3A0F12"), Enum.Material.Glass, Enum.PartType.Cylinder)
+		end
 		attachments[index] = {}
 		for level, height in Laser.BeamHeights do
 			local attachment = Instance.new("Attachment")
@@ -359,6 +389,26 @@ local function buildAlarmPanel(exhibit: ExhibitService.Exhibit): BasePart
 	lamp.CFrame = panel.CFrame * CFrame.new(0, Alarm.PanelSize.Y * 0.2, -Alarm.PanelSize.Z / 2)
 	lamp.Parent = panel
 	alarmLamp = lamp
+
+	-- Этап 5, блок F2: рамка, кнопочная панель, болты по углам, сирена сверху и труба с проводами в стену
+	local size = Alarm.PanelSize
+	local dark = Color3.fromHex("1C1F26")
+	local steel = Color3.fromHex("9AA6BC")
+	trimPart(panel, "Bezel", Vector3.new(size.X + 0.2, size.Y + 0.2, size.Z * 0.6), panel.CFrame * CFrame.new(0, 0, size.Z * 0.3), dark, Enum.Material.Metal)
+	trimPart(panel, "Keypad", Vector3.new(size.X * 0.55, size.Y * 0.2, 0.06), panel.CFrame * CFrame.new(0, -size.Y * 0.05, -size.Z / 2 - 0.03), dark, Enum.Material.Metal)
+	for row = 0, 1 do
+		for col = -1, 1 do
+			trimPart(panel, "Key", Vector3.new(0.14, 0.1, 0.05), panel.CFrame * CFrame.new(col * 0.22, -size.Y * 0.02 - row * 0.16, -size.Z / 2 - 0.07), steel, Enum.Material.Metal)
+		end
+	end
+	for _, x in { -1, 1 } do
+		for _, y in { -1, 1 } do
+			trimPart(panel, "Bolt", Vector3.new(0.12, 0.12, 0.12), panel.CFrame * CFrame.new(x * (size.X / 2 - 0.12), y * (size.Y / 2 - 0.12), -size.Z / 2), steel, Enum.Material.Metal, Enum.PartType.Ball)
+		end
+	end
+	trimPart(panel, "SirenBase", Vector3.new(size.X * 0.7, 0.2, size.Z), panel.CFrame * CFrame.new(0, size.Y / 2 + 0.1, 0), dark, Enum.Material.Metal)
+	trimPart(panel, "Siren", Vector3.new(0.5, size.X * 0.55, size.X * 0.55), panel.CFrame * CFrame.new(0, size.Y / 2 + 0.45, 0) * CFrame.Angles(0, 0, math.pi / 2), Alarm.LampOnColor, Enum.Material.Glass, Enum.PartType.Cylinder).Transparency = 0.2
+	trimPart(panel, "Conduit", Vector3.new(0.14, 2.4, 0.14), panel.CFrame * CFrame.new(size.X / 2 - 0.15, size.Y / 2 + 1.2, size.Z / 2 - 0.05), steel, Enum.Material.Metal)
 	return panel
 end
 
