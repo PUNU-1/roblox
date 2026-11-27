@@ -22,6 +22,7 @@ local ModelLibrary = require(Server:WaitForChild("ModelLibrary"))
 local ScoreService = require(Server:WaitForChild("ScoreService"))
 local Audio = require(Server:WaitForChild("Audio"))
 local WingService = require(Server:WaitForChild("WingService"))
+local TouristLooks = require(Server:WaitForChild("TouristLooks"))
 
 local TouristConfig = Config.Tourists
 local Anim = GameState.TouristAnim
@@ -54,9 +55,6 @@ type Tourist = {
 	repaths: number, -- сколько раз пересчитан путь с тех пор, как встал
 }
 
-local SKIN = { "F5CDA8", "E0AC7E", "C68642", "8D5524", "FFDBAC" }
-local SHIRTS = { "E74C3C", "3498DB", "2ECC71", "F1C40F", "9B59B6", "E67E22", "1ABC9C", "FF6F91" }
-local PANTS = { "34495E", "2C3E50", "5D4037", "1F3A60", "4A4A4A" }
 
 local tourists: { [Model]: Tourist } = {}
 local fading: { [Model]: true } = {} -- тают: уже не обновляются, исчезнут сами (или в endDay)
@@ -294,6 +292,8 @@ local function fadeOut(tourist: Tourist)
 	for _, item in model:GetDescendants() do
 		if (item:IsA("BasePart") or item:IsA("Decal")) and item.Transparency < 1 then
 			TweenService:Create(item, info, { Transparency = 1 }):Play()
+		elseif item:IsA("TextLabel") then
+			TweenService:Create(item, info, { TextTransparency = 1 }):Play() -- надпись на футболке
 		end
 	end
 	task.delay(TouristConfig.FadeSeconds, function()
@@ -378,18 +378,9 @@ end
 
 ---------------------------------------------------------------- появление
 
+-- Внешний вид — TouristLooks (этап 5, блок F1): шляпы, волосы, очки, рюкзаки, фотоаппараты, разные цвета.
 local function createTourist(): Model?
-	local description = Instance.new("HumanoidDescription")
-	local skin = Color3.fromHex(pick(SKIN))
-	local shirt = Color3.fromHex(pick(SHIRTS))
-	local pants = Color3.fromHex(pick(PANTS))
-	description.HeadColor = skin
-	description.TorsoColor = shirt
-	description.LeftArmColor = skin
-	description.RightArmColor = skin
-	description.LeftLegColor = pants
-	description.RightLegColor = pants
-	return ModelLibrary.createRig(description)
+	return TouristLooks.create()
 end
 
 local function spawnTourist(): boolean
