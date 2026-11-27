@@ -136,6 +136,10 @@ local function box(name: string, size: Vector3, offset: CFrame, color: Color3, m
 	return { name = name, size = size, offset = offset, color = color, material = material }
 end
 
+local function wedge(name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?): ModelLibrary.StubPart
+	return { name = name, size = size, offset = offset, color = color, material = material, wedge = true }
+end
+
 -- Палочка от a до b (не строго вертикальная): ручки, дужки, трещины.
 local function rod(name: string, a: Vector3, b: Vector3, thickness: number, color: Color3, material: Enum.Material?): ModelLibrary.StubPart
 	return { name = name, size = Vector3.new(thickness, thickness, (b - a).Magnitude), offset = CFrame.lookAt((a + b) / 2, b), color = color, material = material }
@@ -176,214 +180,278 @@ end
 -- Стеклянный колпак-цилиндр с золотой крышкой (для мелких экспонатов).
 local function glassCover(height: number, diameter: number, bottom: number): { ModelLibrary.StubPart }
 	return {
-		with(vcyl("Glass", height, diameter, Vector3.new(0, bottom + height / 2, 0), GLASS, Enum.Material.Glass), { transparency = 0.85, collide = false }),
-		vcyl("Cap", 0.1, diameter + 0.06, Vector3.new(0, bottom + height + 0.05, 0), GOLD, Metal),
+		with(vcyl("Glass", height, diameter, Vector3.new(0, bottom + height / 2, 0), GLASS, Enum.Material.Glass), { transparency = 0.6, collide = false }),
+		vcyl("GlassRing", 0.06, diameter + 0.06, Vector3.new(0, bottom + 0.03, 0), GOLD, Metal),
+		vcyl("Cap", 0.1, diameter + 0.08, Vector3.new(0, bottom + height + 0.05, 0), GOLD, Metal),
 		ball("CapKnob", 0.16, Vector3.new(0, bottom + height + 0.15, 0), GOLD_BRIGHT, Metal),
 	}
 end
 
 -- Заглушки экспонатов из деталей (друг может заменить моделью с тем же именем: exhibit_<вид>_01).
--- Этап 5, блок F2: больше деталей, металл, мрамор, стекло, неон; низ по центру и занятое место прежние —
--- экспонат по-прежнему встаёт на верх постамента. Цвета — из коммита друга 1073908.
+-- R1: детализация всех 18 экспонатов (20–60 деталей, скругления, фаски, SurfaceGui таблички, читаемость в ч/б).
 local STUBS: { [string]: { ModelLibrary.StubPart } } = {
 	GoldVase = join({
-		{ name = "Foot", size = Vector3.new(1.1, 0.3, 1.1), offset = CFrame.new(0, 0.15, 0), color = GOLD, material = Metal, reflectance = 0.35 },
-		vcyl("FootRing", 0.08, 1.25, Vector3.new(0, 0.32, 0), GOLD_BRIGHT, Metal),
-		{ name = "Body", size = Vector3.new(1.55, 1.55, 1.55), offset = CFrame.new(0, 1.05, 0), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Ball, reflectance = 0.35 },
-		{ name = "Band", size = Vector3.new(0.24, 1.62, 1.62), offset = CFrame.new(0, 1.05, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("2CE6D8"), material = Neon, shape = Enum.PartType.Cylinder },
-		vcyl("Shoulder", 0.12, 1.2, Vector3.new(0, 1.62, 0), GOLD, Metal),
-		{ name = "Neck", size = Vector3.new(0.65, 0.75, 0.65), offset = CFrame.new(0, 1.95, 0), color = GOLD, material = Metal, reflectance = 0.35 },
-		{ name = "Rim", size = Vector3.new(0.16, 0.95, 0.95), offset = CFrame.new(0, 2.34, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Cylinder, reflectance = 0.35 },
-		vcyl("Lip", 0.1, 1.08, Vector3.new(0, 2.45, 0), GOLD, Metal),
-		vcyl("Mouth", 0.02, 0.7, Vector3.new(0, 2.5, 0), PAINT_DARK),
-		{ name = "HandleL", size = Vector3.new(0.16, 0.85, 0.2), offset = CFrame.new(-0.88, 1.4, 0) * CFrame.Angles(0, 0, rad(18)), color = GOLD, material = Metal },
-		{ name = "HandleR", size = Vector3.new(0.16, 0.85, 0.2), offset = CFrame.new(0.88, 1.4, 0) * CFrame.Angles(0, 0, rad(-18)), color = GOLD, material = Metal },
-		ball("CurlL", 0.24, Vector3.new(-1, 1.84, 0), GOLD_BRIGHT, Metal),
-		ball("CurlR", 0.24, Vector3.new(1, 1.84, 0), GOLD_BRIGHT, Metal),
-	}, around(6, 0.84, 1.05, math.pi / 6, function(p)
+		{ name = "Plinth", size = Vector3.new(1.36, 0.16, 1.36), offset = CFrame.new(0, 0.08, 0), color = NAVY, material = Marble },
+		{ name = "Foot", size = Vector3.new(1.1, 0.24, 1.1), offset = CFrame.new(0, 0.26, 0), color = GOLD, material = Metal, reflectance = 0.35 },
+		vcyl("FootRing", 0.08, 1.25, Vector3.new(0, 0.4, 0), GOLD_BRIGHT, Metal),
+		{ name = "Body", size = Vector3.new(1.55, 1.55, 1.55), offset = CFrame.new(0, 1.1, 0), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Ball, reflectance = 0.35 },
+		{ name = "Band", size = Vector3.new(0.24, 1.62, 1.62), offset = CFrame.new(0, 1.1, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("2CE6D8"), material = Neon, shape = Enum.PartType.Cylinder },
+		vcyl("BandRimTop", 0.05, 1.6, Vector3.new(0, 1.24, 0), GOLD, Metal),
+		vcyl("BandRimBot", 0.05, 1.6, Vector3.new(0, 0.96, 0), GOLD, Metal),
+		vcyl("Shoulder", 0.14, 1.2, Vector3.new(0, 1.66, 0), GOLD, Metal),
+		{ name = "Neck", size = Vector3.new(0.65, 0.72, 0.65), offset = CFrame.new(0, 1.98, 0), color = GOLD, material = Metal, reflectance = 0.35 },
+		vcyl("NeckRing", 0.08, 0.78, Vector3.new(0, 2.04, 0), GOLD_BRIGHT, Metal),
+		{ name = "Rim", size = Vector3.new(0.16, 0.98, 0.98), offset = CFrame.new(0, 2.36, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Cylinder, reflectance = 0.35 },
+		vcyl("Lip", 0.1, 1.1, Vector3.new(0, 2.47, 0), GOLD, Metal),
+		vcyl("Mouth", 0.02, 0.72, Vector3.new(0, 2.52, 0), PAINT_DARK),
+		{ name = "HandleL", size = Vector3.new(0.16, 0.82, 0.2), offset = CFrame.new(-0.88, 1.44, 0) * CFrame.Angles(0, 0, rad(18)), color = GOLD, material = Metal },
+		{ name = "HandleR", size = Vector3.new(0.16, 0.82, 0.2), offset = CFrame.new(0.88, 1.44, 0) * CFrame.Angles(0, 0, rad(-18)), color = GOLD, material = Metal },
+		rod("HandleTopL", Vector3.new(-0.98, 1.84, 0), Vector3.new(-0.34, 2.04, 0), 0.14, GOLD_BRIGHT, Metal),
+		rod("HandleTopR", Vector3.new(0.98, 1.84, 0), Vector3.new(0.34, 2.04, 0), 0.14, GOLD_BRIGHT, Metal),
+		ball("CurlL", 0.24, Vector3.new(-1, 1.86, 0), GOLD_BRIGHT, Metal),
+		ball("CurlR", 0.24, Vector3.new(1, 1.86, 0), GOLD_BRIGHT, Metal),
+	}, around(6, 0.84, 1.1, math.pi / 6, function(p)
 		return ball("Gem", 0.18, p, RUBY, Neon)
+	end), around(6, 0.74, 0.72, 0, function(p, outward)
+		return box("Flute", Vector3.new(0.08, 0.36, 0.08), CFrame.lookAt(p, p + outward), GOLD, Metal)
 	end)),
 
 	AncientClock = join({
-		{ name = "Base", size = Vector3.new(1.6, 0.25, 1.2), offset = CFrame.new(0, 0.125, 0), color = GOLD, material = Metal },
-		{ name = "Body", size = Vector3.new(1.4, 2.1, 1), offset = CFrame.new(0, 1.25, 0), color = WOOD, material = Enum.Material.Wood },
-		vcyl("ColumnL", 1.9, 0.16, Vector3.new(-0.62, 1.25, -0.5), GOLD_BRIGHT, Metal),
-		vcyl("ColumnR", 1.9, 0.16, Vector3.new(0.62, 1.25, -0.5), GOLD_BRIGHT, Metal),
-		{ name = "Face", size = Vector3.new(0.12, 1.05, 1.05), offset = CFrame.new(0, 1.6, -0.52) * CFrame.Angles(0, rad(90), 0), color = MARBLE, shape = Enum.PartType.Cylinder },
-		{ name = "FaceRim", size = Vector3.new(0.08, 1.18, 1.18), offset = CFrame.new(0, 1.6, -0.5) * CFrame.Angles(0, rad(90), 0), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Cylinder },
-		{ name = "HandH", size = Vector3.new(0.08, 0.36, 0.05), offset = CFrame.new(0, 1.74, -0.6), color = NAVY, material = Metal },
-		{ name = "HandM", size = Vector3.new(0.32, 0.07, 0.05), offset = CFrame.new(0.14, 1.6, -0.6), color = NAVY, material = Metal },
-		disc("Pin", 0.06, 0.1, Vector3.new(0, 1.6, -0.62), GOLD_BRIGHT, Metal),
+		{ name = "Base", size = Vector3.new(1.66, 0.24, 1.24), offset = CFrame.new(0, 0.2, 0), color = GOLD, material = Metal },
+		ball("FootFL", 0.22, Vector3.new(-0.7, 0.09, -0.5), GOLD_BRIGHT, Metal),
+		ball("FootFR", 0.22, Vector3.new(0.7, 0.09, -0.5), GOLD_BRIGHT, Metal),
+		ball("FootBL", 0.22, Vector3.new(-0.7, 0.09, 0.5), GOLD_BRIGHT, Metal),
+		ball("FootBR", 0.22, Vector3.new(0.7, 0.09, 0.5), GOLD_BRIGHT, Metal),
+		box("Plaque", Vector3.new(0.72, 0.18, 0.04), CFrame.new(0, 0.2, -0.63), GOLD_BRIGHT, Metal),
+		{ name = "Body", size = Vector3.new(1.4, 2.06, 1), offset = CFrame.new(0, 1.32, 0), color = WOOD, material = Enum.Material.Wood },
+		vcyl("ColumnL", 1.86, 0.16, Vector3.new(-0.62, 1.32, -0.5), GOLD_BRIGHT, Metal),
+		vcyl("ColumnR", 1.86, 0.16, Vector3.new(0.62, 1.32, -0.5), GOLD_BRIGHT, Metal),
+		vcyl("CapL", 0.1, 0.24, Vector3.new(-0.62, 2.24, -0.5), GOLD, Metal),
+		vcyl("CapR", 0.1, 0.24, Vector3.new(0.62, 2.24, -0.5), GOLD, Metal),
+		{ name = "Face", size = Vector3.new(0.12, 1.04, 1.04), offset = CFrame.new(0, 1.66, -0.52) * CFrame.Angles(0, rad(90), 0), color = MARBLE, shape = Enum.PartType.Cylinder },
+		{ name = "FaceRim", size = Vector3.new(0.08, 1.18, 1.18), offset = CFrame.new(0, 1.66, -0.5) * CFrame.Angles(0, rad(90), 0), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Cylinder },
+		{ name = "HandH", size = Vector3.new(0.08, 0.34, 0.05), offset = CFrame.new(0, 1.8, -0.6), color = NAVY, material = Metal },
+		{ name = "HandM", size = Vector3.new(0.32, 0.06, 0.05), offset = CFrame.new(0.14, 1.66, -0.6), color = NAVY, material = Metal },
+		{ name = "HandS", size = Vector3.new(0.28, 0.025, 0.03), offset = CFrame.new(-0.1, 1.58, -0.61) * CFrame.Angles(0, 0, rad(35)), color = RUBY, material = Metal },
+		disc("Pin", 0.06, 0.1, Vector3.new(0, 1.66, -0.62), GOLD_BRIGHT, Metal),
 		-- Окошко с маятником внизу
-		box("PendulumRod", Vector3.new(0.05, 0.26, 0.04), CFrame.new(0, 0.86, -0.53), GOLD, Metal),
-		{ name = "Pendulum", size = Vector3.new(0.35, 0.35, 0.12), offset = CFrame.new(0, 0.65, -0.52), color = GOLD_BRIGHT, material = Neon, shape = Enum.PartType.Ball },
-		with(box("PendulumGlass", Vector3.new(0.8, 0.66, 0.03), CFrame.new(0, 0.64, -0.62), GLASS, Enum.Material.Glass), { transparency = 0.6 }),
-		box("WindowTop", Vector3.new(0.9, 0.06, 0.06), CFrame.new(0, 0.98, -0.62), GOLD, Metal),
-		box("WindowBottom", Vector3.new(0.9, 0.06, 0.06), CFrame.new(0, 0.3, -0.62), GOLD, Metal),
-		box("WindowSide", Vector3.new(0.06, 0.7, 0.06), CFrame.new(-0.45, 0.64, -0.62), GOLD, Metal),
-		box("WindowSide", Vector3.new(0.06, 0.7, 0.06), CFrame.new(0.45, 0.64, -0.62), GOLD, Metal),
-		{ name = "Crown", size = Vector3.new(1.65, 0.3, 1.2), offset = CFrame.new(0, 2.42, 0), color = GOLD, material = Metal },
-		vcyl("FinialBase", 0.1, 0.4, Vector3.new(0, 2.62, 0), GOLD, Metal),
-		ball("Finial", 0.3, Vector3.new(0, 2.78, 0), GOLD_BRIGHT, Metal),
-	}, clockTicks(Vector3.new(0, 1.6, -0.6), 0.42)),
+		box("PendulumRod", Vector3.new(0.05, 0.34, 0.04), CFrame.new(0, 0.88, -0.53), GOLD, Metal),
+		{ name = "Pendulum", size = Vector3.new(0.35, 0.35, 0.12), offset = CFrame.new(0, 0.68, -0.52), color = GOLD_BRIGHT, material = Neon, shape = Enum.PartType.Ball },
+		with(box("PendulumGlass", Vector3.new(0.8, 0.66, 0.03), CFrame.new(0, 0.68, -0.62), GLASS, Enum.Material.Glass), { transparency = 0.58, collide = false }),
+		box("WindowTop", Vector3.new(0.9, 0.06, 0.06), CFrame.new(0, 1.02, -0.62), GOLD, Metal),
+		box("WindowBottom", Vector3.new(0.9, 0.06, 0.06), CFrame.new(0, 0.34, -0.62), GOLD, Metal),
+		box("WindowSide", Vector3.new(0.06, 0.7, 0.06), CFrame.new(-0.45, 0.68, -0.62), GOLD, Metal),
+		box("WindowSide", Vector3.new(0.06, 0.7, 0.06), CFrame.new(0.45, 0.68, -0.62), GOLD, Metal),
+		{ name = "Crown", size = Vector3.new(1.66, 0.22, 1.22), offset = CFrame.new(0, 2.45, 0), color = GOLD, material = Metal },
+		wedge("PedimentL", Vector3.new(1.22, 0.34, 0.83), CFrame.new(-0.415, 2.72, 0) * CFrame.Angles(0, rad(90), 0), WOOD, Enum.Material.Wood),
+		wedge("PedimentR", Vector3.new(1.22, 0.34, 0.83), CFrame.new(0.415, 2.72, 0) * CFrame.Angles(0, rad(-90), 0), WOOD, Enum.Material.Wood),
+		vcyl("FinialBase", 0.1, 0.36, Vector3.new(0, 2.9, 0), GOLD, Metal),
+		ball("Finial", 0.28, Vector3.new(0, 3.04, 0), GOLD_BRIGHT, Metal),
+		ball("UrnL", 0.2, Vector3.new(-0.68, 2.66, -0.45), GOLD_BRIGHT, Metal),
+		ball("UrnR", 0.2, Vector3.new(0.68, 2.66, -0.45), GOLD_BRIGHT, Metal),
+	}, clockTicks(Vector3.new(0, 1.66, -0.6), 0.42)),
 
 	Necklace = join({
-		{ name = "Cushion", size = Vector3.new(1.4, 0.28, 1.4), offset = CFrame.new(0, 0.14, 0), color = Color3.fromHex("4C2678"), material = Enum.Material.Fabric },
-		{ name = "Trim", size = Vector3.new(1.48, 0.08, 1.48), offset = CFrame.new(0, 0.05, 0), color = GOLD, material = Metal },
-		{ name = "PearlL", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(-0.44, 0.42, 0), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Ball },
-		{ name = "PearlR", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(0.44, 0.42, 0), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Ball },
-		{ name = "GemL", size = Vector3.new(0.34, 0.34, 0.34), offset = CFrame.new(-0.32, 0.44, -0.32), color = SAPPHIRE, material = Neon, shape = Enum.PartType.Ball },
-		{ name = "GemR", size = Vector3.new(0.34, 0.34, 0.34), offset = CFrame.new(0.32, 0.44, -0.32), color = EMERALD, material = Neon, shape = Enum.PartType.Ball },
-		{ name = "Clasp", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(0, 0.42, 0.44), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Ball },
-		{ name = "Ruby", size = Vector3.new(0.5, 0.5, 0.5), offset = CFrame.new(0, 0.48, -0.44), color = RUBY, material = Neon, shape = Enum.PartType.Ball },
-		disc("Setting", 0.06, 0.58, Vector3.new(0, 0.48, -0.42), GOLD, Metal),
-		ball("Drop", 0.2, Vector3.new(0, 0.37, -0.66), RUBY, Neon),
-	}, around(16, 0.46, 0.34, 0, function(p)
-		return ball("Bead", 0.13, p, Color3.fromHex("FFF7EC"))
-	end), around(4, 0.78, 0.29, math.pi / 4, function(p)
-		return ball("Tuft", 0.1, p, GOLD, Metal)
+		{ name = "Stand", size = Vector3.new(1.52, 0.14, 1.52), offset = CFrame.new(0, 0.07, 0), color = GOLD, material = Metal },
+		{ name = "Cushion", size = Vector3.new(1.4, 0.24, 1.4), offset = CFrame.new(0, 0.26, 0), color = Color3.fromHex("4C2678"), material = Enum.Material.Fabric },
+		{ name = "Trim", size = Vector3.new(1.48, 0.06, 1.48), offset = CFrame.new(0, 0.17, 0), color = GOLD_BRIGHT, material = Metal },
+		wedge("BustSlope", Vector3.new(0.84, 0.34, 0.72), CFrame.new(0, 0.55, 0.04), Color3.fromHex("3B1A60"), Enum.Material.Fabric),
+		{ name = "PearlL", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(-0.44, 0.52, 0.02), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Ball },
+		{ name = "PearlR", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(0.44, 0.52, 0.02), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Ball },
+		{ name = "GemL", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(-0.32, 0.46, -0.3), color = SAPPHIRE, material = Neon, shape = Enum.PartType.Ball },
+		{ name = "GemR", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(0.32, 0.46, -0.3), color = EMERALD, material = Neon, shape = Enum.PartType.Ball },
+		{ name = "Clasp", size = Vector3.new(0.3, 0.3, 0.3), offset = CFrame.new(0, 0.62, 0.4), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Ball },
+		{ name = "Ruby", size = Vector3.new(0.46, 0.46, 0.46), offset = CFrame.new(0, 0.46, -0.44), color = RUBY, material = Neon, shape = Enum.PartType.Ball },
+		disc("Setting", 0.08, 0.56, Vector3.new(0, 0.46, -0.42), GOLD, Metal),
+		ball("Drop", 0.2, Vector3.new(0, 0.36, -0.66), RUBY, Neon),
+		ball("DropTip", 0.12, Vector3.new(0, 0.34, -0.76), GOLD_BRIGHT, Metal),
+	}, around(16, 0.46, 0.46, 0, function(p)
+		local slopeY = p.Y + p.Z * 0.22
+		return ball("Bead", 0.13, Vector3.new(p.X, slopeY, p.Z), Color3.fromHex("FFF7EC"))
+	end), around(4, 0.78, 0.36, math.pi / 4, function(p)
+		return ball("Tuft", 0.12, p, GOLD_BRIGHT, Metal)
 	end)),
 
 	Crown = join({
 		{ name = "Velvet", size = Vector3.new(1.38, 0.85, 1.38), offset = CFrame.new(0, 0.52, 0), color = VELVET, material = Enum.Material.Fabric, sphere = true },
 		box("Ermine", Vector3.new(1.74, 0.16, 1.74), CFrame.new(0, 0.08, 0), Color3.fromHex("FFF9F0"), Enum.Material.Fabric),
-		{ name = "Band", size = Vector3.new(1.65, 0.5, 1.65), offset = CFrame.new(0, 0.25, 0), color = GOLD_BRIGHT, material = Metal, reflectance = 0.35 },
-		{ name = "SpikeFL", size = Vector3.new(0.3, 0.65, 0.3), offset = CFrame.new(-0.65, 0.82, -0.65), color = GOLD, material = Metal },
-		{ name = "SpikeFR", size = Vector3.new(0.3, 0.65, 0.3), offset = CFrame.new(0.65, 0.82, -0.65), color = GOLD, material = Metal },
-		{ name = "SpikeBL", size = Vector3.new(0.3, 0.65, 0.3), offset = CFrame.new(-0.65, 0.82, 0.65), color = GOLD, material = Metal },
-		{ name = "SpikeBR", size = Vector3.new(0.3, 0.65, 0.3), offset = CFrame.new(0.65, 0.82, 0.65), color = GOLD, material = Metal },
+		{ name = "Band", size = Vector3.new(1.65, 0.46, 1.65), offset = CFrame.new(0, 0.28, 0), color = GOLD_BRIGHT, material = Metal, reflectance = 0.35 },
+		box("BandRimTop", Vector3.new(1.7, 0.07, 1.7), CFrame.new(0, 0.53, 0), GOLD, Metal),
+		box("BandRimBot", Vector3.new(1.7, 0.07, 1.7), CFrame.new(0, 0.17, 0), GOLD, Metal),
+		{ name = "SpikeFL", size = Vector3.new(0.28, 0.62, 0.28), offset = CFrame.new(-0.65, 0.84, -0.65), color = GOLD, material = Metal },
+		{ name = "SpikeFR", size = Vector3.new(0.28, 0.62, 0.28), offset = CFrame.new(0.65, 0.84, -0.65), color = GOLD, material = Metal },
+		{ name = "SpikeBL", size = Vector3.new(0.28, 0.62, 0.28), offset = CFrame.new(-0.65, 0.84, 0.65), color = GOLD, material = Metal },
+		{ name = "SpikeBR", size = Vector3.new(0.28, 0.62, 0.28), offset = CFrame.new(0.65, 0.84, 0.65), color = GOLD, material = Metal },
 		-- Дужки от зубцов к державе наверху, на ней крестик
-		rod("Arch", Vector3.new(-0.6, 1.12, -0.6), Vector3.new(0, 1.2, 0), 0.1, GOLD_BRIGHT, Metal),
-		rod("Arch", Vector3.new(0.6, 1.12, -0.6), Vector3.new(0, 1.2, 0), 0.1, GOLD_BRIGHT, Metal),
-		rod("Arch", Vector3.new(-0.6, 1.12, 0.6), Vector3.new(0, 1.2, 0), 0.1, GOLD_BRIGHT, Metal),
-		rod("Arch", Vector3.new(0.6, 1.12, 0.6), Vector3.new(0, 1.2, 0), 0.1, GOLD_BRIGHT, Metal),
-		{ name = "Orb", size = Vector3.new(0.34, 0.34, 0.34), offset = CFrame.new(0, 1.32, 0), color = GOLD_BRIGHT, material = Neon, shape = Enum.PartType.Ball },
-		box("Cross", Vector3.new(0.07, 0.3, 0.07), CFrame.new(0, 1.6, 0), GOLD, Metal),
-		box("Cross", Vector3.new(0.22, 0.07, 0.07), CFrame.new(0, 1.64, 0), GOLD, Metal),
-		{ name = "Ruby", size = Vector3.new(0.42, 0.42, 0.42), offset = CFrame.new(0, 0.28, -0.86), color = RUBY, material = Neon, shape = Enum.PartType.Ball },
-		{ name = "SapphireL", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(-0.85, 0.28, 0), color = SAPPHIRE, material = Neon, shape = Enum.PartType.Ball },
-		{ name = "EmeraldR", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(0.85, 0.28, 0), color = EMERALD, material = Neon, shape = Enum.PartType.Ball },
-		ball("AmethystB", 0.32, Vector3.new(0, 0.28, 0.85), AMETHYST, Neon),
+		rod("Arch", Vector3.new(-0.6, 1.12, -0.6), Vector3.new(0, 1.24, 0), 0.1, GOLD_BRIGHT, Metal),
+		rod("Arch", Vector3.new(0.6, 1.12, -0.6), Vector3.new(0, 1.24, 0), 0.1, GOLD_BRIGHT, Metal),
+		rod("Arch", Vector3.new(-0.6, 1.12, 0.6), Vector3.new(0, 1.24, 0), 0.1, GOLD_BRIGHT, Metal),
+		rod("Arch", Vector3.new(0.6, 1.12, 0.6), Vector3.new(0, 1.24, 0), 0.1, GOLD_BRIGHT, Metal),
+		{ name = "Orb", size = Vector3.new(0.34, 0.34, 0.34), offset = CFrame.new(0, 1.36, 0), color = GOLD_BRIGHT, material = Neon, shape = Enum.PartType.Ball },
+		box("Cross", Vector3.new(0.07, 0.32, 0.07), CFrame.new(0, 1.64, 0), GOLD, Metal),
+		box("Cross", Vector3.new(0.24, 0.07, 0.07), CFrame.new(0, 1.68, 0), GOLD, Metal),
+		{ name = "Ruby", size = Vector3.new(0.42, 0.42, 0.42), offset = CFrame.new(0, 0.34, -0.86), color = RUBY, material = Neon, shape = Enum.PartType.Ball },
+		{ name = "SapphireL", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(-0.85, 0.34, 0), color = SAPPHIRE, material = Neon, shape = Enum.PartType.Ball },
+		{ name = "EmeraldR", size = Vector3.new(0.32, 0.32, 0.32), offset = CFrame.new(0.85, 0.34, 0), color = EMERALD, material = Neon, shape = Enum.PartType.Ball },
+		ball("AmethystB", 0.32, Vector3.new(0, 0.34, 0.85), AMETHYST, Neon),
 	}, around(4, 0.92, 1.18, math.pi / 4, function(p)
 		return ball("Pearl", 0.2, p, Color3.fromHex("FFF7EC"))
 	end), around(4, 0.82, 0.74, 0, function(p)
 		return box("SpikeMid", Vector3.new(0.2, 0.45, 0.2), CFrame.new(p), GOLD, Metal)
+	end), around(4, 0.88, 0.08, 0, function(p, outward)
+		return box("ErmineSpot", Vector3.new(0.14, 0.08, 0.04), CFrame.lookAt(p, p + outward), PAINT_DARK)
+	end), around(4, 0.36, 1.24, math.pi / 4, function(p)
+		return ball("ArchPearl", 0.14, p, Color3.fromHex("FFF7EC"))
 	end)),
 
 	Scepter = join({
-		{ name = "Base", size = Vector3.new(0.7, 0.2, 0.7), offset = CFrame.new(0, 0.1, 0), color = GOLD, material = Metal },
-		vcyl("Tier", 0.12, 0.5, Vector3.new(0, 0.26, 0), GOLD_BRIGHT, Metal),
-		{ name = "Shaft", size = Vector3.new(2.3, 0.28, 0.28), offset = CFrame.new(0, 1.25, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Cylinder, reflectance = 0.35 },
-		ball("Knob", 0.36, Vector3.new(0, 0.44, 0), GOLD_BRIGHT, Metal),
-		vcyl("Grip", 0.08, 0.36, Vector3.new(0, 0.9, 0), GOLD, Metal),
-		vcyl("Grip", 0.08, 0.36, Vector3.new(0, 1.2, 0), GOLD, Metal),
-		vcyl("Grip", 0.08, 0.36, Vector3.new(0, 1.5, 0), GOLD, Metal),
-		{ name = "Collar", size = Vector3.new(0.2, 0.65, 0.65), offset = CFrame.new(0, 2.25, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Metal, shape = Enum.PartType.Cylinder },
-		{ name = "Orb", size = Vector3.new(0.75, 0.75, 0.75), offset = CFrame.new(0, 2.68, 0), color = AMETHYST, material = Neon, shape = Enum.PartType.Ball },
-		{ name = "Finial", size = Vector3.new(0.24, 0.24, 0.24), offset = CFrame.new(0, 3.12, 0), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Ball },
-		box("Cross", Vector3.new(0.06, 0.26, 0.06), CFrame.new(0, 3.32, 0), GOLD, Metal),
-		box("Cross", Vector3.new(0.18, 0.06, 0.06), CFrame.new(0, 3.35, 0), GOLD, Metal),
-	}, around(4, 0.34, 2.25, math.pi / 4, function(p)
-		return ball("Gem", 0.13, p, RUBY, Neon)
+		{ name = "Base", size = Vector3.new(0.9, 0.18, 0.9), offset = CFrame.new(0, 0.09, 0), color = VELVET, material = Enum.Material.Fabric },
+		vcyl("BaseTrim", 0.08, 0.96, Vector3.new(0, 0.04, 0), GOLD, Metal),
+		vcyl("Tier", 0.14, 0.54, Vector3.new(0, 0.25, 0), GOLD_BRIGHT, Metal),
+		ball("Knob", 0.36, Vector3.new(0, 0.46, 0), GOLD_BRIGHT, Metal),
+		ball("PommelGem", 0.16, Vector3.new(0, 0.46, -0.17), RUBY, Neon),
+		{ name = "Shaft", size = Vector3.new(2.25, 0.28, 0.28), offset = CFrame.new(0, 1.28, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Cylinder, reflectance = 0.35 },
+		vcyl("Grip", 0.08, 0.36, Vector3.new(0, 0.85, 0), GOLD, Metal),
+		vcyl("Grip", 0.08, 0.36, Vector3.new(0, 1.15, 0), GOLD, Metal),
+		vcyl("Grip", 0.08, 0.36, Vector3.new(0, 1.45, 0), GOLD, Metal),
+		vcyl("Grip", 0.08, 0.36, Vector3.new(0, 1.75, 0), GOLD, Metal),
+		{ name = "Collar", size = Vector3.new(0.22, 0.68, 0.68), offset = CFrame.new(0, 2.25, 0) * CFrame.Angles(0, 0, rad(90)), color = GOLD, material = Metal, shape = Enum.PartType.Cylinder },
+		vcyl("CollarRim", 0.06, 0.74, Vector3.new(0, 2.36, 0), GOLD_BRIGHT, Metal),
+		{ name = "Orb", size = Vector3.new(0.76, 0.76, 0.76), offset = CFrame.new(0, 2.68, 0), color = AMETHYST, material = Neon, shape = Enum.PartType.Ball },
+		vcyl("TopRing", 0.08, 0.42, Vector3.new(0, 3.06, 0), GOLD, Metal),
+		{ name = "Finial", size = Vector3.new(0.24, 0.24, 0.24), offset = CFrame.new(0, 3.16, 0), color = GOLD_BRIGHT, material = Metal, shape = Enum.PartType.Ball },
+		box("Cross", Vector3.new(0.06, 0.26, 0.06), CFrame.new(0, 3.36, 0), GOLD, Metal),
+		box("Cross", Vector3.new(0.18, 0.06, 0.06), CFrame.new(0, 3.39, 0), GOLD, Metal),
+	}, around(4, 0.35, 2.25, math.pi / 4, function(p)
+		return ball("Gem", 0.14, p, RUBY, Neon)
 	end), around(4, 0.3, 0, 0, function(p)
-		-- Лапки, которые держат державу
 		return rod("Prong", Vector3.new(p.X, 2.33, p.Z), Vector3.new(p.X * 1.15, 2.92, p.Z * 1.15), 0.06, GOLD, Metal)
 	end)),
 
-	Diamond = {
-		vcyl("Plate", 0.12, 1.6, Vector3.new(0, 0.06, 0), VELVET, Enum.Material.Fabric),
-		{ name = "Stand", size = Vector3.new(0.9, 0.35, 0.9), offset = CFrame.new(0, 0.175, 0), color = GOLD, material = Metal, reflectance = 0.35 },
-		rod("Prong", Vector3.new(-0.3, 0.35, -0.3), Vector3.new(-0.38, 0.9, -0.38), 0.07, GOLD_BRIGHT, Metal),
-		rod("Prong", Vector3.new(0.3, 0.35, -0.3), Vector3.new(0.38, 0.9, -0.38), 0.07, GOLD_BRIGHT, Metal),
-		rod("Prong", Vector3.new(-0.3, 0.35, 0.3), Vector3.new(-0.38, 0.9, 0.38), 0.07, GOLD_BRIGHT, Metal),
-		rod("Prong", Vector3.new(0.3, 0.35, 0.3), Vector3.new(0.38, 0.9, 0.38), 0.07, GOLD_BRIGHT, Metal),
-		{ name = "Core", size = Vector3.new(0.65, 0.65, 0.65), offset = CFrame.new(0, 1.2, 0) * CFrame.Angles(rad(45), 0, rad(45)), color = Color3.fromHex("8CF6FF"), material = Neon },
-		{ name = "Crystal", size = Vector3.new(1.15, 1.15, 1.15), offset = CFrame.new(0, 1.2, 0) * CFrame.Angles(rad(45), 0, rad(45)), color = Color3.fromHex("6BF0FF"), material = Enum.Material.Glass, transparency = 0.2, reflectance = 0.4 },
+	Diamond = join({
+		vcyl("Plate", 0.12, 1.7, Vector3.new(0, 0.06, 0), VELVET, Enum.Material.Fabric),
+		vcyl("PlateTrim", 0.06, 1.76, Vector3.new(0, 0.03, 0), GOLD, Metal),
+		{ name = "Stand", size = Vector3.new(0.95, 0.32, 0.95), offset = CFrame.new(0, 0.22, 0), color = GOLD, material = Metal, reflectance = 0.35 },
+		{ name = "StandTop", size = Vector3.new(0.95, 0.32, 0.95), offset = CFrame.new(0, 0.22, 0) * CFrame.Angles(0, rad(45), 0), color = GOLD_BRIGHT, material = Metal, reflectance = 0.35 },
+		rod("Prong", Vector3.new(-0.32, 0.38, -0.32), Vector3.new(-0.4, 0.94, -0.4), 0.07, GOLD_BRIGHT, Metal),
+		rod("Prong", Vector3.new(0.32, 0.38, -0.32), Vector3.new(0.4, 0.94, -0.4), 0.07, GOLD_BRIGHT, Metal),
+		rod("Prong", Vector3.new(-0.32, 0.38, 0.32), Vector3.new(-0.4, 0.94, 0.4), 0.07, GOLD_BRIGHT, Metal),
+		rod("Prong", Vector3.new(0.32, 0.38, 0.32), Vector3.new(0.4, 0.94, 0.4), 0.07, GOLD_BRIGHT, Metal),
+		{ name = "Core", size = Vector3.new(0.65, 0.65, 0.65), offset = CFrame.new(0, 1.24, 0) * CFrame.Angles(rad(45), 0, rad(45)), color = Color3.fromHex("8CF6FF"), material = Neon },
+		{ name = "Crystal", size = Vector3.new(1.15, 1.15, 1.15), offset = CFrame.new(0, 1.24, 0) * CFrame.Angles(rad(45), 0, rad(45)), color = Color3.fromHex("6BF0FF"), material = Enum.Material.Glass, transparency = 0.28, reflectance = 0.42 },
+		{ name = "Table", size = Vector3.new(0.08, 0.85, 0.85), offset = CFrame.new(0, 1.72, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("B8FAFF"), material = Enum.Material.Glass, transparency = 0.35, shape = Enum.PartType.Cylinder, collide = false },
 		-- Искорки и стеклянный колпак
-		box("Sparkle", Vector3.new(0.04, 0.4, 0.04), CFrame.new(0.55, 1.75, -0.35), Color3.fromHex("FFFFFF"), Neon),
-		box("Sparkle", Vector3.new(0.4, 0.04, 0.04), CFrame.new(0.55, 1.75, -0.35), Color3.fromHex("FFFFFF"), Neon),
-		box("Sparkle", Vector3.new(0.03, 0.26, 0.03), CFrame.new(-0.5, 0.95, -0.45), Color3.fromHex("FFFFFF"), Neon),
-		box("Sparkle", Vector3.new(0.26, 0.03, 0.03), CFrame.new(-0.5, 0.95, -0.45), Color3.fromHex("FFFFFF"), Neon),
-		{ name = "Dome", size = Vector3.new(1.9, 2.4, 1.9), offset = CFrame.new(0, 1.32, 0), color = GLASS, material = Enum.Material.Glass, transparency = 0.85, sphere = true, collide = false },
+		box("Sparkle", Vector3.new(0.04, 0.4, 0.04), CFrame.new(0.55, 1.78, -0.35), Color3.fromHex("FFFFFF"), Neon),
+		box("Sparkle", Vector3.new(0.4, 0.04, 0.04), CFrame.new(0.55, 1.78, -0.35), Color3.fromHex("FFFFFF"), Neon),
+		box("Sparkle", Vector3.new(0.03, 0.26, 0.03), CFrame.new(-0.5, 0.98, -0.45), Color3.fromHex("FFFFFF"), Neon),
+		box("Sparkle", Vector3.new(0.26, 0.03, 0.03), CFrame.new(-0.5, 0.98, -0.45), Color3.fromHex("FFFFFF"), Neon),
+		{ name = "Dome", size = Vector3.new(1.9, 2.4, 1.9), offset = CFrame.new(0, 1.32, 0), color = GLASS, material = Enum.Material.Glass, transparency = 0.62, sphere = true, collide = false },
 		vcyl("DomeRing", 0.1, 1.95, Vector3.new(0, 0.16, 0), GOLD_BRIGHT, Metal),
 		ball("DomeKnob", 0.18, Vector3.new(0, 2.55, 0), GOLD_BRIGHT, Metal),
-	},
+	}, around(4, 0.44, 0.92, math.pi / 4, function(p)
+		return ball("ClawTip", 0.12, p, GOLD_BRIGHT, Metal)
+	end)),
 
 	Amphora = join({
-		{ name = "Foot", size = Vector3.new(0.85, 0.3, 0.85), offset = CFrame.new(0, 0.15, 0), color = Color3.fromHex("B85A2A") },
-		vcyl("FootRing", 0.08, 0.95, Vector3.new(0, 0.32, 0), PAINT_DARK),
-		{ name = "Body", size = Vector3.new(1.5, 1.8, 1.5), offset = CFrame.new(0, 1.2, 0), color = Color3.fromHex("E0783E"), sphere = true },
-		vcyl("PaintBand", 0.5, 1.52, Vector3.new(0, 1.15, 0), PAINT_DARK),
-		vcyl("Band", 0.1, 1.36, Vector3.new(0, 1.62, 0), GOLD, Metal),
-		vcyl("Neck", 0.7, 0.55, Vector3.new(0, 2.3, 0), Color3.fromHex("E0783E")),
-		vcyl("NeckBand", 0.08, 0.58, Vector3.new(0, 2.2, 0), PAINT_DARK),
-		vcyl("Lip", 0.14, 0.75, Vector3.new(0, 2.66, 0), Color3.fromHex("B85A2A")),
-		vcyl("Mouth", 0.02, 0.5, Vector3.new(0, 2.73, 0), PAINT_DARK),
-		{ name = "HandleL", size = Vector3.new(0.14, 0.75, 0.16), offset = CFrame.new(-0.78, 1.65, 0) * CFrame.Angles(0, 0, rad(15)), color = GOLD, material = Metal },
-		{ name = "HandleR", size = Vector3.new(0.14, 0.75, 0.16), offset = CFrame.new(0.78, 1.65, 0) * CFrame.Angles(0, 0, rad(-15)), color = GOLD, material = Metal },
-		rod("HandleTop", Vector3.new(-0.88, 2, 0), Vector3.new(-0.26, 2.45, 0), 0.14, GOLD, Metal),
-		rod("HandleTop", Vector3.new(0.88, 2, 0), Vector3.new(0.26, 2.45, 0), 0.14, GOLD, Metal),
-	}, around(4, 0.765, 1.15, math.pi / 4, function(p, outward)
+		{ name = "Plinth", size = Vector3.new(1.15, 0.14, 1.15), offset = CFrame.new(0, 0.07, 0), color = PAINT_DARK, material = Marble },
+		{ name = "Foot", size = Vector3.new(0.85, 0.26, 0.85), offset = CFrame.new(0, 0.25, 0), color = Color3.fromHex("B85A2A") },
+		vcyl("FootRing", 0.08, 0.96, Vector3.new(0, 0.38, 0), PAINT_DARK),
+		{ name = "Body", size = Vector3.new(1.5, 1.8, 1.5), offset = CFrame.new(0, 1.24, 0), color = Color3.fromHex("E0783E"), sphere = true },
+		vcyl("PaintBand", 0.5, 1.52, Vector3.new(0, 1.18, 0), PAINT_DARK),
+		vcyl("Band", 0.1, 1.36, Vector3.new(0, 1.66, 0), GOLD, Metal),
+		vcyl("LowerBand", 0.08, 1.32, Vector3.new(0, 0.78, 0), PAINT_DARK),
+		vcyl("Neck", 0.7, 0.55, Vector3.new(0, 2.34, 0), Color3.fromHex("E0783E")),
+		vcyl("NeckBand", 0.08, 0.6, Vector3.new(0, 2.24, 0), PAINT_DARK),
+		vcyl("Lip", 0.14, 0.78, Vector3.new(0, 2.7, 0), Color3.fromHex("B85A2A")),
+		vcyl("LipTrim", 0.05, 0.82, Vector3.new(0, 2.76, 0), GOLD, Metal),
+		vcyl("Mouth", 0.02, 0.5, Vector3.new(0, 2.78, 0), PAINT_DARK),
+		{ name = "HandleL", size = Vector3.new(0.14, 0.75, 0.16), offset = CFrame.new(-0.78, 1.68, 0) * CFrame.Angles(0, 0, rad(15)), color = GOLD, material = Metal },
+		{ name = "HandleR", size = Vector3.new(0.14, 0.75, 0.16), offset = CFrame.new(0.78, 1.68, 0) * CFrame.Angles(0, 0, rad(-15)), color = GOLD, material = Metal },
+		rod("HandleTop", Vector3.new(-0.88, 2.04, 0), Vector3.new(-0.26, 2.48, 0), 0.14, GOLD, Metal),
+		rod("HandleTop", Vector3.new(0.88, 2.04, 0), Vector3.new(0.26, 2.48, 0), 0.14, GOLD, Metal),
+		ball("ScrollL", 0.2, Vector3.new(-0.88, 2.04, 0), GOLD_BRIGHT, Metal),
+		ball("ScrollR", 0.2, Vector3.new(0.88, 2.04, 0), GOLD_BRIGHT, Metal),
+	}, around(6, 0.765, 1.18, math.pi / 6, function(p, outward)
 		-- Фигурки на чёрном поясе, как на греческих вазах
-		return box("Figure", Vector3.new(0.18, 0.36, 0.05), CFrame.lookAt(p, p + outward), Color3.fromHex("E0783E"))
+		return box("Figure", Vector3.new(0.16, 0.36, 0.05), CFrame.lookAt(p, p + outward), Color3.fromHex("E0783E"))
 	end)),
 
 	Bust = join({
-		{ name = "Plinth", size = Vector3.new(1.3, 0.2, 1.1), offset = CFrame.new(0, 0.1, 0), color = GOLD, material = Metal },
+		{ name = "Plinth", size = Vector3.new(1.36, 0.2, 1.16), offset = CFrame.new(0, 0.1, 0), color = GOLD, material = Metal },
 		{ name = "Socle", size = Vector3.new(1.2, 0.45, 1), offset = CFrame.new(0, 0.35, 0), color = MARBLE, material = Marble },
-		box("SoclePlate", Vector3.new(0.62, 0.18, 0.03), CFrame.new(0, 0.35, -0.515), GOLD, Metal),
-		{ name = "Shoulders", size = Vector3.new(1.8, 0.7, 0.8), offset = CFrame.new(0, 0.9, 0), color = MARBLE, material = Marble },
-		ball("ShoulderL", 0.7, Vector3.new(-0.75, 0.98, 0), MARBLE, Marble),
-		ball("ShoulderR", 0.7, Vector3.new(0.75, 0.98, 0), MARBLE, Marble),
-		box("Drape", Vector3.new(1.9, 0.35, 0.86), CFrame.new(0, 1.08, 0) * CFrame.Angles(0, 0, rad(-18)), MARBLE_SHADE, Marble),
-		vcyl("Neck", 0.45, 0.48, Vector3.new(0, 1.35, 0), MARBLE, Marble),
-		{ name = "Head", size = Vector3.new(1.1, 1.2, 1.1), offset = CFrame.new(0, 1.8, 0), color = MARBLE, material = Marble, shape = Enum.PartType.Ball },
-		{ name = "Hair", size = Vector3.new(1.15, 0.9, 1.15), offset = CFrame.new(0, 2.03, 0.08), color = MARBLE_SHADE, material = Marble, sphere = true },
-		box("Nose", Vector3.new(0.14, 0.24, 0.14), CFrame.new(0, 1.76, -0.57), MARBLE, Marble),
-		box("Brow", Vector3.new(0.48, 0.06, 0.06), CFrame.new(0, 1.94, -0.52), MARBLE_SHADE, Marble),
-		box("EarL", Vector3.new(0.08, 0.24, 0.16), CFrame.new(-0.56, 1.8, 0.02), MARBLE, Marble),
-		box("EarR", Vector3.new(0.08, 0.24, 0.16), CFrame.new(0.56, 1.8, 0.02), MARBLE, Marble),
-		vcyl("Laurel", 0.08, 1.17, Vector3.new(0, 2, 0), GOLD, Metal),
-	}, around(8, 0.6, 2.02, 0, function(p, outward)
+		box("SocleTop", Vector3.new(1.28, 0.08, 1.08), CFrame.new(0, 0.59, 0), GOLD, Metal),
+		box("Plaque", Vector3.new(0.68, 0.2, 0.03), CFrame.new(0, 0.35, -0.515), GOLD_BRIGHT, Metal),
+		{ name = "Shoulders", size = Vector3.new(1.8, 0.7, 0.8), offset = CFrame.new(0, 0.92, 0), color = MARBLE, material = Marble },
+		ball("ShoulderL", 0.7, Vector3.new(-0.75, 1.0, 0), MARBLE, Marble),
+		ball("ShoulderR", 0.7, Vector3.new(0.75, 1.0, 0), MARBLE, Marble),
+		box("Drape", Vector3.new(1.9, 0.35, 0.86), CFrame.new(0, 1.1, 0) * CFrame.Angles(0, 0, rad(-18)), MARBLE_SHADE, Marble),
+		disc("Fibula", 0.08, 0.24, Vector3.new(-0.62, 1.26, -0.44), GOLD_BRIGHT, Metal),
+		vcyl("Neck", 0.45, 0.48, Vector3.new(0, 1.37, 0), MARBLE, Marble),
+		{ name = "Head", size = Vector3.new(1.1, 1.2, 1.1), offset = CFrame.new(0, 1.82, 0), color = MARBLE, material = Marble, shape = Enum.PartType.Ball },
+		{ name = "Hair", size = Vector3.new(1.15, 0.9, 1.15), offset = CFrame.new(0, 2.05, 0.08), color = MARBLE_SHADE, material = Marble, sphere = true },
+		ball("CurlBack", 0.42, Vector3.new(0, 1.72, 0.45), MARBLE_SHADE, Marble),
+		box("Nose", Vector3.new(0.14, 0.24, 0.14), CFrame.new(0, 1.78, -0.57), MARBLE, Marble),
+		box("Brow", Vector3.new(0.48, 0.06, 0.06), CFrame.new(0, 1.96, -0.52), MARBLE_SHADE, Marble),
+		box("Chin", Vector3.new(0.32, 0.14, 0.12), CFrame.new(0, 1.48, -0.44), MARBLE, Marble),
+		box("EarL", Vector3.new(0.08, 0.24, 0.16), CFrame.new(-0.56, 1.82, 0.02), MARBLE, Marble),
+		box("EarR", Vector3.new(0.08, 0.24, 0.16), CFrame.new(0.56, 1.82, 0.02), MARBLE, Marble),
+		vcyl("Laurel", 0.08, 1.17, Vector3.new(0, 2.02, 0), GOLD, Metal),
+		disc("LaurelJewel", 0.06, 0.18, Vector3.new(0, 2.06, -0.6), RUBY, Neon),
+	}, around(10, 0.6, 2.04, 0, function(p, outward)
 		return box("Leaf", Vector3.new(0.14, 0.06, 0.22), CFrame.lookAt(p, p + outward) * CFrame.Angles(rad(20), 0, 0), GOLD_BRIGHT, Metal)
 	end)),
 
 	Statue = {
-		{ name = "Plinth", size = Vector3.new(1.15, 0.2, 1.15), offset = CFrame.new(0, 0.1, 0), color = GOLD, material = Metal },
-		{ name = "Base", size = Vector3.new(1, 0.35, 1), offset = CFrame.new(0, 0.35, 0), color = MARBLE, material = Marble },
-		box("LegL", Vector3.new(0.26, 0.95, 0.32), CFrame.new(-0.17, 0.99, 0), MARBLE, Marble),
-		box("LegR", Vector3.new(0.26, 0.95, 0.32), CFrame.new(0.17, 0.99, 0.05) * CFrame.Angles(rad(-5), 0, 0), MARBLE, Marble),
-		box("Robe", Vector3.new(0.8, 0.55, 0.48), CFrame.new(0, 1.5, 0), MARBLE_SHADE, Marble),
-		box("Torso", Vector3.new(0.7, 0.72, 0.42), CFrame.new(0, 2.1, 0), MARBLE, Marble),
-		box("Drape", Vector3.new(0.85, 0.2, 0.46), CFrame.new(0, 2.15, 0) * CFrame.Angles(0, 0, rad(30)), MARBLE_SHADE, Marble),
-		box("ArmL", Vector3.new(0.2, 0.8, 0.22), CFrame.new(-0.46, 2, 0) * CFrame.Angles(0, 0, rad(-8)), MARBLE, Marble),
-		rod("ArmR", Vector3.new(0.42, 2.38, 0), Vector3.new(0.62, 3, -0.05), 0.2, MARBLE, Marble),
-		vcyl("Torch", 0.35, 0.12, Vector3.new(0.63, 3.12, -0.05), GOLD, Metal),
-		{ name = "Flame", size = Vector3.new(0.22, 0.32, 0.22), offset = CFrame.new(0.63, 3.4, -0.05), color = Color3.fromHex("FFB347"), material = Neon, sphere = true },
-		vcyl("Neck", 0.14, 0.2, Vector3.new(0, 2.52, 0), MARBLE, Marble),
-		ball("Head", 0.48, Vector3.new(0, 2.8, 0), MARBLE, Marble),
-		{ name = "Hair", size = Vector3.new(0.5, 0.38, 0.5), offset = CFrame.new(0, 2.93, 0.04), color = MARBLE_SHADE, material = Marble, sphere = true },
+		{ name = "Plinth", size = Vector3.new(1.22, 0.18, 1.22), offset = CFrame.new(0, 0.09, 0), color = GOLD, material = Metal },
+		{ name = "Base", size = Vector3.new(1.04, 0.34, 1.04), offset = CFrame.new(0, 0.35, 0), color = MARBLE, material = Marble },
+		box("BaseTrim", Vector3.new(1.1, 0.06, 1.1), CFrame.new(0, 0.54, 0), GOLD, Metal),
+		box("BasePlate", Vector3.new(0.6, 0.18, 0.03), CFrame.new(0, 0.35, -0.53), GOLD_BRIGHT, Metal),
+		box("FootL", Vector3.new(0.24, 0.12, 0.38), CFrame.new(-0.18, 0.63, -0.05), MARBLE_SHADE, Marble),
+		box("FootR", Vector3.new(0.24, 0.12, 0.38), CFrame.new(0.18, 0.63, 0.02), MARBLE_SHADE, Marble),
+		box("LegL", Vector3.new(0.26, 0.9, 0.32), CFrame.new(-0.17, 1.04, 0), MARBLE, Marble),
+		box("LegR", Vector3.new(0.26, 0.9, 0.32), CFrame.new(0.17, 1.04, 0.05) * CFrame.Angles(rad(-5), 0, 0), MARBLE, Marble),
+		box("Robe", Vector3.new(0.82, 0.55, 0.48), CFrame.new(0, 1.54, 0), MARBLE_SHADE, Marble),
+		box("Belt", Vector3.new(0.84, 0.1, 0.5), CFrame.new(0, 1.82, 0), GOLD, Metal),
+		box("Torso", Vector3.new(0.7, 0.72, 0.42), CFrame.new(0, 2.12, 0), MARBLE, Marble),
+		box("Drape", Vector3.new(0.85, 0.2, 0.46), CFrame.new(0, 2.18, 0) * CFrame.Angles(0, 0, rad(30)), MARBLE_SHADE, Marble),
+		disc("Brooch", 0.06, 0.18, Vector3.new(-0.24, 2.34, -0.24), GOLD_BRIGHT, Metal),
+		box("ArmL", Vector3.new(0.2, 0.78, 0.22), CFrame.new(-0.46, 2.02, 0) * CFrame.Angles(0, 0, rad(-8)), MARBLE, Marble),
+		vcyl("Scroll", 0.42, 0.12, Vector3.new(-0.5, 1.62, -0.08), Color3.fromHex("E9D9B0"), Enum.Material.Fabric),
+		rod("ArmR", Vector3.new(0.42, 2.4, 0), Vector3.new(0.62, 3.02, -0.05), 0.2, MARBLE, Marble),
+		vcyl("Torch", 0.36, 0.12, Vector3.new(0.63, 3.14, -0.05), GOLD, Metal),
+		vcyl("TorchCup", 0.1, 0.26, Vector3.new(0.63, 3.32, -0.05), GOLD_BRIGHT, Metal),
+		{ name = "Flame", size = Vector3.new(0.22, 0.32, 0.22), offset = CFrame.new(0.63, 3.48, -0.05), color = Color3.fromHex("FFB347"), material = Neon, sphere = true },
+		ball("FlameTip", 0.12, Vector3.new(0.63, 3.66, -0.05), Color3.fromHex("FFE066"), Neon),
+		vcyl("Neck", 0.14, 0.2, Vector3.new(0, 2.54, 0), MARBLE, Marble),
+		ball("Head", 0.48, Vector3.new(0, 2.82, 0), MARBLE, Marble),
+		{ name = "Hair", size = Vector3.new(0.5, 0.38, 0.5), offset = CFrame.new(0, 2.95, 0.04), color = MARBLE_SHADE, material = Marble, sphere = true },
+		vcyl("CrownRing", 0.06, 0.52, Vector3.new(0, 2.98, 0), GOLD_BRIGHT, Metal),
 	},
 
 	-- Динозавры (блок 2)
 	TRexSkull = join({
-		{ name = "Jaw", size = Vector3.new(1.6, 0.35, 2.6), offset = CFrame.new(0, 0.3, -0.45) * CFrame.Angles(rad(-5), 0, 0), color = BONE_DARK },
-		{ name = "Cranium", size = Vector3.new(2, 1.3, 1.5), offset = CFrame.new(0, 1.1, 0.55), color = BONE },
-		{ name = "Brow", size = Vector3.new(2.1, 0.35, 0.8), offset = CFrame.new(0, 1.85, 0.35), color = BONE },
-		{ name = "HornL", size = Vector3.new(0.25, 0.35, 0.3), offset = CFrame.new(-0.75, 2.12, 0.35), color = BONE_DARK, wedge = true },
-		{ name = "HornR", size = Vector3.new(0.25, 0.35, 0.3), offset = CFrame.new(0.75, 2.12, 0.35), color = BONE_DARK, wedge = true },
-		{ name = "Snout", size = Vector3.new(1.4, 0.9, 1.6), offset = CFrame.new(0, 0.95, -0.9), color = BONE },
-		{ name = "SnoutTip", size = Vector3.new(1.15, 0.7, 0.6), offset = CFrame.new(0, 0.88, -1.9), color = BONE },
-		{ name = "Ridge", size = Vector3.new(0.3, 0.18, 1.8), offset = CFrame.new(0, 1.44, -1.05), color = BONE_DARK },
-		{ name = "Nostrils", size = Vector3.new(0.7, 0.12, 0.25), offset = CFrame.new(0, 1.24, -1.95), color = SOCKET },
-		{ name = "EyeL", size = Vector3.new(0.12, 0.5, 0.5), offset = CFrame.new(-1.01, 1.25, 0.35), color = SOCKET },
-		{ name = "EyeR", size = Vector3.new(0.12, 0.5, 0.5), offset = CFrame.new(1.01, 1.25, 0.35), color = SOCKET },
-		{ name = "CheekL", size = Vector3.new(0.12, 0.35, 0.8), offset = CFrame.new(-0.71, 0.9, -0.7), color = SOCKET },
-		{ name = "CheekR", size = Vector3.new(0.12, 0.35, 0.8), offset = CFrame.new(0.71, 0.9, -0.7), color = SOCKET },
-		{ name = "FrillL", size = Vector3.new(0.3, 0.6, 0.5), offset = CFrame.new(-0.95, 1.15, 1.15) * CFrame.Angles(0, 0, rad(12)), color = BONE_DARK },
-		{ name = "FrillR", size = Vector3.new(0.3, 0.6, 0.5), offset = CFrame.new(0.95, 1.15, 1.15) * CFrame.Angles(0, 0, rad(-12)), color = BONE_DARK },
-		{ name = "Neck", size = Vector3.new(0.8, 0.8, 0.6), offset = CFrame.new(0, 0.95, 1.55), color = BONE_DARK },
-	}, teeth(0.4, -2.05, -0.55, 4)),
+		{ name = "Stand", size = Vector3.new(1.48, 0.14, 1.9), offset = CFrame.new(0, 0.07, 0.15), color = STAND, material = Metal },
+		box("StandTrim", Vector3.new(1.54, 0.05, 1.96), CFrame.new(0, 0.15, 0.15), GOLD, Metal),
+		vcyl("MountPost", 0.55, 0.12, Vector3.new(0, 0.42, 0.55), Color3.fromHex("4A5160"), Metal),
+		{ name = "Jaw", size = Vector3.new(1.56, 0.32, 2.5), offset = CFrame.new(0, 0.38, -0.45) * CFrame.Angles(rad(-6), 0, 0), color = BONE_DARK },
+		wedge("JawChin", Vector3.new(1.1, 0.24, 0.55), CFrame.new(0, 0.34, -1.85) * CFrame.Angles(math.pi, 0, 0), BONE_DARK),
+		{ name = "Cranium", size = Vector3.new(2, 1.28, 1.48), offset = CFrame.new(0, 1.16, 0.55), color = BONE },
+		{ name = "Brow", size = Vector3.new(2.1, 0.32, 0.8), offset = CFrame.new(0, 1.9, 0.35), color = BONE },
+		{ name = "HornL", size = Vector3.new(0.26, 0.36, 0.32), offset = CFrame.new(-0.75, 2.16, 0.35), color = BONE_DARK, wedge = true },
+		{ name = "HornR", size = Vector3.new(0.26, 0.36, 0.32), offset = CFrame.new(0.75, 2.16, 0.35), color = BONE_DARK, wedge = true },
+		{ name = "Snout", size = Vector3.new(1.4, 0.88, 1.56), offset = CFrame.new(0, 1.02, -0.9), color = BONE },
+		wedge("SnoutSlope", Vector3.new(1.36, 0.34, 1.3), CFrame.new(0, 1.62, -0.82), BONE),
+		{ name = "SnoutTip", size = Vector3.new(1.15, 0.7, 0.6), offset = CFrame.new(0, 0.94, -1.9), color = BONE },
+		{ name = "Ridge", size = Vector3.new(0.3, 0.16, 1.8), offset = CFrame.new(0, 1.52, -1.05), color = BONE_DARK },
+		{ name = "Nostrils", size = Vector3.new(0.7, 0.12, 0.25), offset = CFrame.new(0, 1.3, -1.95), color = SOCKET },
+		{ name = "EyeL", size = Vector3.new(0.12, 0.5, 0.5), offset = CFrame.new(-1.01, 1.32, 0.35), color = SOCKET },
+		{ name = "EyeR", size = Vector3.new(0.12, 0.5, 0.5), offset = CFrame.new(1.01, 1.32, 0.35), color = SOCKET },
+		{ name = "CheekL", size = Vector3.new(0.12, 0.35, 0.8), offset = CFrame.new(-0.71, 0.98, -0.7), color = SOCKET },
+		{ name = "CheekR", size = Vector3.new(0.12, 0.35, 0.8), offset = CFrame.new(0.71, 0.98, -0.7), color = SOCKET },
+		{ name = "FrillL", size = Vector3.new(0.3, 0.6, 0.5), offset = CFrame.new(-0.95, 1.22, 1.15) * CFrame.Angles(0, 0, rad(12)), color = BONE_DARK },
+		{ name = "FrillR", size = Vector3.new(0.3, 0.6, 0.5), offset = CFrame.new(0.95, 1.22, 1.15) * CFrame.Angles(0, 0, rad(-12)), color = BONE_DARK },
+		{ name = "Neck", size = Vector3.new(0.84, 0.84, 0.6), offset = CFrame.new(0, 1.02, 1.55), color = BONE_DARK },
+	}, teeth(0.5, -2.05, -0.55, 5), teeth(0.52, -1.85, -0.65, 3)),
 
 	DinoEgg = {
 		{ name = "Nest", size = Vector3.new(0.5, 1.9, 1.9), offset = CFrame.new(0, 0.25, 0) * CFrame.Angles(0, 0, rad(90)), color = Color3.fromHex("7A5A34"), material = Enum.Material.Grass, shape = Enum.PartType.Cylinder },
@@ -544,6 +612,41 @@ local GLOW: { [string]: { part: string, color: Color3 } } = {
 	AstronautHelmet = { part = "Lamp", color = Color3.fromHex("CFE8FF") },
 	RocketModel = { part = "Exhaust", color = Color3.fromHex("FF9A4A") },
 }
+
+local PLAQUE_TEXT: { [string]: string } = {
+	AncientClock = "1790",
+	Bust = "CAESAR",
+	RaptorClaw = "RAPTOR",
+	DinoTooth = "T-REX",
+	Meteorite = "METEOR",
+	MoonRock = "APOLLO 11",
+	Lion = "GUARDIAN",
+}
+
+local function applyLabels(model: PVInstance, kind: string)
+	local text = PLAQUE_TEXT[kind]
+	if not text then
+		return
+	end
+	local plaque = model:FindFirstChild("Plaque", true)
+	if not (plaque and plaque:IsA("BasePart")) then
+		return
+	end
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 160
+	gui.LightInfluence = 0.6
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Text = text
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = SOCKET
+	label.Parent = gui
+	gui.Parent = plaque
+end
 
 local function addGlow(model: PVInstance, kind: string, price: number)
 	if price < ExhibitConfig.GlowMinPrice then
@@ -872,6 +975,7 @@ local function placeExhibit(slot: Slot)
 	local folder = exhibitsFolder or Workspace
 	local stub = STUBS[slot.kind] or STUBS.GoldVase
 	local model = ModelLibrary.place(modelName(slot.kind), slotTop(slot), stub, folder)
+	applyLabels(model, slot.kind)
 	addGlow(model, slot.kind, slot.price)
 	local exhibit = newExhibit(slot.kind, slot.title, model, slotTop(slot), slot.appeal, false, slot.hall)
 	slot.exhibit = exhibit
@@ -945,7 +1049,9 @@ function ExhibitService.preview(kind: string): PVInstance
 		copy:PivotTo(CFrame.identity)
 		return copy
 	end
-	return ModelLibrary.build(modelName(kind), STUBS[kind] or STUBS.GoldVase)
+	local built = ModelLibrary.build(modelName(kind), STUBS[kind] or STUBS.GoldVase)
+	applyLabels(built, kind)
+	return built
 end
 
 -- Все экспонаты музея для окна магазина: Мона Лиза, потом постаменты по порядку.
