@@ -211,6 +211,10 @@ local spread = 0 -- прицел расходится от отдачи
 local swayX, swayY = 0, 0
 local lastLook: Vector3? = nil
 local bobPhase = 0
+local bobSpeed = 0
+local crouchBlend = 0
+local leanBlend = 0
+local healBlend = 0
 local holsterWarnUntil = 0
 
 local function ammoOf(weapon: string): number
@@ -875,8 +879,9 @@ local function placeView(dt: number, camera: Camera)
 	local kind = shownKind
 	local cf = camera.CFrame
 	local time = now()
+	local clampedDt = math.min(dt, 0.1)
 
-	-- Покачивание: от поворота камеры оружие чуть отстаёт, при ходьбе — шаг
+	-- Покачивание: от поворота камеры оружие чуть отстаёт, при ходьбе и беге — шаг от реальной скорости
 	local look = cf.LookVector
 	if lastLook then
 		local delta = cf:VectorToObjectSpace(lastLook)
@@ -884,38 +889,55 @@ local function placeView(dt: number, camera: Camera)
 		swayY = math.clamp(swayY + delta.Y * 0.6, -0.15, 0.15)
 	end
 	lastLook = look
-	local decay = math.exp(-dt * 10)
+	local decay = math.exp(-clampedDt * 10)
 	swayX *= decay
 	swayY *= decay
 	local character = localPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	local speed = if root and root:IsA("BasePart") then Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z).Magnitude else 0
-	bobPhase += dt * (4 + speed * 0.45)
-	local walk = math.clamp(speed / Config.Players.WalkSpeed, 0, 1)
-	local bob = CFrame.new(math.sin(bobPhase) * 0.035 * walk, -math.abs(math.cos(bobPhase)) * 0.03 * walk, 0)
+	local rawSpeed = if root and root:IsA("BasePart") then Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z).Magnitude else 0
+	if rawSpeed < 0.2 then
+		rawSpeed = 0
+	end
+	bobSpeed += (rawSpeed - bobSpeed) * (1 - math.exp(-clampedDt * Config.Animations.BlendSpeed))
+	bobPhase = (bobPhase + bobSpeed * clampedDt * Config.Animations.WeaponBobStride) % (math.pi * 2)
+	local walkRatio = math.clamp(bobSpeed / Config.Players.WalkSpeed, 0, 1)
+	local sprintRange = math.max(1, Config.Classes.Patrol.SprintSpeed - Config.Players.WalkSpeed)
+	local sprintRatio = math.clamp((bobSpeed - Config.Players.WalkSpeed) / sprintRange, 0, 1)
+	local bobAmp = walkRatio + sprintRatio * Config.Animations.WeaponSprintBobBoost
+	local idleBreath = (1 - walkRatio) * 0.004 * math.sin(time * Config.Animations.BreathSpeed)
+	local bob = CFrame.new(
+		math.sin(bobPhase) * 0.035 * bobAmp,
+		-math.abs(math.cos(bobPhase)) * 0.03 * bobAmp + idleBreath,
+		0
+	) * CFrame.Angles(-0.025 * sprintRatio * math.abs(math.cos(bobPhase)), 0, -0.04 * sprintRatio * math.sin(bobPhase))
 	local sway = CFrame.new(swayX, swayY, 0) * CFrame.Angles(swayY * 0.6, swayX * 0.6, swayX * 0.8)
 
 	-- Отдача: назад и вверх, быстро возвращается
-	recoilKick *= math.exp(-dt * 12)
-	spread *= math.exp(-dt * 6)
+	recoilKick *= math.exp(-clampedDt * 12)
+	spread *= math.exp(-clampedDt * 6)
 	local kick = CFrame.new(0, 0.03 * recoilKick, 0.22 * recoilKick) * CFrame.Angles(0.16 * recoilKick, 0, 0)
 
 	-- Достать: поднимается снизу
 	local equipT = smooth((time - equipStarted) / Weapons.EquipSeconds)
 	local raise = CFrame.new(0, -0.9 * (1 - equipT), 0.2 * (1 - equipT)) * CFrame.Angles(-0.7 * (1 - equipT), 0, 0)
 
-	-- Присел — оружие чуть ниже; наклон — чуть повёрнуто
-	local lean = number(PlayerAttr.Lean)
-	local stance = CFrame.Angles(0, 0, lean * 0.08)
-
+	-- Присел — оружие плавно опускается ниже; наклон — чуть повёрнуто
 	local downedNow = downed()
 	local reviving = number(PlayerAttr.ReviveTarget) ~= 0
+	local crouchTarget = if localPlayer:GetAttribute(PlayerAttr.Crouch) == true and not downedNow and not reviving then 1 else 0
+	local leanTarget = if not downedNow and not reviving then number(PlayerAttr.Lean) else 0
+	local stanceAlpha = 1 - math.exp(-clampedDt * Config.Stance.BlendSpeed)
+	crouchBlend += (crouchTarget - crouchBlend) * stanceAlpha
+	leanBlend += (leanTarget - leanBlend) * stanceAlpha
+	local crouchDrop = CFrame.new(0, -Config.Animations.WeaponCrouchDrop * crouchBlend, 0)
+	local stance = CFrame.Angles(0, 0, leanBlend * 0.08 - crouchBlend * 0.04)
+
 	local up = cf.UpVector
 
 	if downedNow then
 		-- Лежит без сил: руки внизу экрана по очереди тянутся вперёд и подтягивают тело
 		local s = math.sin(bobPhase * 0.8)
-		local move = math.clamp(speed / Config.Health.CrawlSpeed, 0, 1)
+		local move = math.clamp(bobSpeed / Config.Health.CrawlSpeed, 0, 1)
 		setArmVisible(leftArm, true)
 		setArmVisible(rightArm, true)
 		local leftHand = cf * CFrame.new(-0.55, -0.9 + 0.1 * s * move, -1.25 - 0.3 * s * move)
@@ -953,16 +975,18 @@ local function placeView(dt: number, camera: Camera)
 		motion.slide = motion.slide * slide
 		motion.pump = motion.pump * pump
 	end
-	-- Аптечка: подносит к груди и нажимает, в конце — зелёный «+»
+	-- Аптечка: подносит к груди и нажимает, в конце — зелёный «+» (возвращается плавно)
 	local healUntil = number(PlayerAttr.HealUntil)
+	local healActive = kind == "Medkit" and healUntil > time
+	healBlend += ((if healActive then 1 else 0) - healBlend) * (1 - math.exp(-clampedDt * Config.Animations.BlendSpeed))
 	local healMotion = CFrame.identity
-	if kind == "Medkit" and healUntil > time then
-		local p = 1 - (healUntil - time) / Weapons.Medkit.UseSeconds
-		local k = smooth(p / 0.3)
+	if kind == "Medkit" and healBlend > 0.002 then
+		local p = if healActive then 1 - (healUntil - time) / Weapons.Medkit.UseSeconds else 1
+		local k = smooth(p / 0.3) * healBlend
 		healMotion = CFrame.new(0, 0.15 * k - 0.05 * math.abs(math.sin(p * 18)) * k, 0.45 * k) * CFrame.Angles(-0.35 * k, 0, 0)
 	end
 	-- Шокер на перезарядке: экран красный
-	local base = cf * HOLD[kind] * stance * sway * bob * raise * kick * motion.root * healMotion
+	local base = cf * crouchDrop * HOLD[kind] * stance * sway * bob * raise * kick * motion.root * healMotion
 	local built = current.built
 	built.root.CFrame = base
 	for index, part in built.parts do
@@ -1073,4 +1097,8 @@ localPlayer.CharacterAdded:Connect(function()
 	shownKind = ""
 	clearView()
 	triggerHeld = false
+	bobSpeed = 0
+	crouchBlend = 0
+	leanBlend = 0
+	healBlend = 0
 end)
