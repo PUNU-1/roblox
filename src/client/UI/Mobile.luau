@@ -255,6 +255,7 @@ export type RoundButton = {
 	setActive: (active: boolean) -> (), -- false — бледная, нажатия ничего не делают
 	setProgress: (fraction: number?) -> (), -- полоска удержания внизу круга (nil — нет)
 	setDot: (on: boolean) -> (),
+	setColor: (color: Color3) -> (), -- обводка круга (выбранное оружие в колесе — золото)
 	destroy: () -> (),
 }
 
@@ -457,6 +458,12 @@ function Mobile.roundButton(props: RoundProps): RoundButton
 		end,
 		setDot = function(on: boolean)
 			dot.Visible = on
+		end,
+		setColor = function(newColor: Color3)
+			color = newColor
+			if active then
+				stroke.Color = newColor
+			end
 		end,
 		destroy = function()
 			for _, conn in conns do

@@ -23,6 +23,7 @@ local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
 local TouchButtons = require(script.Parent:WaitForChild("UI"):WaitForChild("TouchButtons"))
 local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelButton"))
 local Mobile = require(script.Parent:WaitForChild("UI"):WaitForChild("Mobile"))
+local MobileMenu = require(script.Parent:WaitForChild("UI"):WaitForChild("MobileMenu"))
 local Fx = require(script.Parent:WaitForChild("Fx"))
 local ActionProps = require(script.Parent:WaitForChild("ActionProps"))
 
@@ -539,8 +540,9 @@ end
 local toast = Theme.label({
 	Name = "Toast",
 	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -146),
-	Size = UDim2.new(0, 420, 0, 28),
+	-- телефон: под прицелом, не шире Config.Mobile.PanelWidth экрана (внизу — джойстик и кнопки)
+	Position = if touchOnly then UDim2.new(0.5, 0, 0.5, 64) else UDim2.new(0.5, 0, 1, -146),
+	Size = if touchOnly then UDim2.new(Config.Mobile.PanelWidth, 0, 0, 28) else UDim2.new(0, 420, 0, 28),
 	Font = Theme.BodyFont,
 	TextColor3 = Colors.Gold,
 	MaxTextSize = 20,
@@ -641,6 +643,8 @@ local function slotWeapon(index: number): string?
 	return if number(PlayerAttr.Medkits) > 0 then "Medkit" else nil
 end
 
+local refreshTouch: (() -> ())? = nil
+
 local function refreshHud()
 	local shift = onShift()
 	local any = false
@@ -676,8 +680,9 @@ local function refreshHud()
 			end
 		end
 	end
-	hotbar.Visible = shift and any and not viewing() and not spectating()
-	local showAmmo = shift and FIREARMS[current] == true and not viewing() and not downed() and not spectating()
+	-- Телефон (этап 8, блок Q): мест 1–4 и патронов внизу нет — их заменяет кнопка оружия с колесом справа
+	hotbar.Visible = shift and any and not viewing() and not spectating() and not touchOnly
+	local showAmmo = shift and FIREARMS[current] == true and not viewing() and not downed() and not spectating() and not touchOnly
 	ammoPanel.Visible = showAmmo
 	if showAmmo then
 		local info = (Weapons :: any)[current]
@@ -688,6 +693,10 @@ local function refreshHud()
 	end
 	if toast.Visible and os.clock() > holsterWarnUntil then
 		toast.Visible = false
+	end
+	local touchRefresh = refreshTouch
+	if touchRefresh then
+		touchRefresh()
 	end
 end
 
@@ -816,19 +825,197 @@ end
 local bound = false
 local fireBound = false
 
--- Кнопки на телефоне (этап 5, блок D): пиксельные, справа внизу, вместо круглых кнопок ContextActionService.
--- Нажатие вызывает те же функции, что и клавиши (как будто пришло Begin / End).
+-- Кнопки на телефоне (этап 8, блок Q, раскладка «одна умная кнопка»): справа кнопка оружия (открывает колесо) и
+-- маленькая R (видна, когда в руках огнестрел и магазин не полный; пустой магазин перезаряжается сам), огонь — умная
+-- кнопка (SmartButton.client), присед и наклоны — в «Меню». Нажатие вызывает те же функции, что и клавиши.
 local touch: { [string]: TouchButtons.TouchButton } = {}
+local stanceInMenu = false -- присед и наклоны сейчас доступны (на смене, не лежит, не смотрит камеры)
+local wheelOpen = false
 if touchOnly then
 	local function begin(handler: (string, Enum.UserInputState, InputObject?) -> any, action: string): () -> ()
 		return function()
 			handler(action, Enum.UserInputState.Begin, nil)
 		end
 	end
-	touch.Reload = TouchButtons.new({ place = "Reload", icon = "Reload", label = "RELOAD", onActivated = begin(onReloadAction, RELOAD_ACTION) })
-	touch.Crouch = TouchButtons.new({ place = "Crouch", icon = "Crouch", label = "CROUCH", onActivated = begin(onCrouchAction, CROUCH_ACTION) })
-	touch.LeanLeft = TouchButtons.new({ place = "LeanLeft", icon = "ArrowLeft", label = "LEAN", onActivated = begin(onLeanAction, LEAN_LEFT_ACTION) })
-	touch.LeanRight = TouchButtons.new({ place = "LeanRight", icon = "ArrowRight", label = "LEAN", onActivated = begin(onLeanAction, LEAN_RIGHT_ACTION) })
+	local setWheelOpen: (open: boolean) -> ()
+	touch.Reload = TouchButtons.new({ place = "Reload", icon = "Reload", label = "", onActivated = begin(onReloadAction, RELOAD_ACTION) })
+	touch.Wheel = TouchButtons.new({
+		place = "Wheel",
+		icon = "Pistol",
+		label = "",
+		onActivated = function()
+			setWheelOpen(not wheelOpen)
+		end,
+	})
+
+	local function stanceVisible(): boolean
+		return stanceInMenu
+	end
+	MobileMenu.add({
+		id = "Crouch",
+		icon = "Crouch",
+		label = "CROUCH",
+		order = 5,
+		visible = stanceVisible,
+		text = function(): string
+			return if wantCrouch then "STAND UP" else "CROUCH"
+		end,
+		onActivated = begin(onCrouchAction, CROUCH_ACTION),
+	})
+	MobileMenu.add({
+		id = "LeanLeft",
+		icon = "ArrowLeft",
+		label = "LEAN LEFT",
+		order = 6,
+		visible = stanceVisible,
+		text = function(): string
+			return if leanLeftHeld then "LEAN OFF" else "LEAN LEFT"
+		end,
+		onActivated = begin(onLeanAction, LEAN_LEFT_ACTION),
+	})
+	MobileMenu.add({
+		id = "LeanRight",
+		icon = "ArrowRight",
+		label = "LEAN RIGHT",
+		order = 7,
+		visible = stanceVisible,
+		text = function(): string
+			return if leanRightHeld then "LEAN OFF" else "LEAN RIGHT"
+		end,
+		onActivated = begin(onLeanAction, LEAN_RIGHT_ACTION),
+	})
+
+	-- Колесо оружия: места 1–4 (только те, что есть) и «убрать», по дуге вокруг кнопки оружия вверх-влево.
+	-- Нажал — выбрал, колесо закрылось само. Нажал мимо — закрылось.
+	local _, mobileRoot = Mobile.gui()
+	local dismiss = Theme.new("TextButton", {
+		Name = "WheelDismiss",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Colors.Dark,
+		BackgroundTransparency = 0.7,
+		AutoButtonColor = false,
+		Text = "",
+		Visible = false,
+		ZIndex = 1,
+		Parent = mobileRoot,
+	})
+	dismiss.Activated:Connect(function()
+		setWheelOpen(false)
+	end)
+	type WheelItem = { round: Mobile.RoundButton, slot: number }
+	local wheelItems: { WheelItem } = {}
+	for slot = 0, 4 do
+		local round = Mobile.roundButton({
+			name = "Wheel" .. slot,
+			icon = if slot == 0 then "Close" else SLOT_ICONS[slot],
+			label = if slot == 0 then "OFF" else "",
+			onActivated = function()
+				setWheelOpen(false)
+				if slot == 0 then
+					if equipped() ~= "" and not viewing() then
+						equipRemote:FireServer(0)
+					end
+				else
+					onSlot(slot)
+				end
+			end,
+		})
+		round.root.Visible = false
+		round.root.ZIndex = 3
+		table.insert(wheelItems, { round = round, slot = slot })
+	end
+
+	local function slotLabel(weapon: string): string
+		if FIREARMS[weapon] then
+			return ("%d|%d"):format(predictedAmmo(weapon), reserveOf(weapon))
+		elseif weapon == "Taser" then
+			local left = math.max(taserReadyLocal, number(PlayerAttr.TaserReadyAt)) - now()
+			return if left > 0 then ("%dS"):format(math.ceil(left)) else "READY"
+		elseif weapon == "Medkit" then
+			return ("X%d"):format(number(PlayerAttr.Medkits))
+		end
+		return ""
+	end
+
+	local function layoutWheel()
+		local center = Mobile.slot("Wheel").center
+		local s = Mobile.scale()
+		local settings = Config.Mobile
+		local size = math.floor(settings.WheelItemSize * s)
+		local current = equipped()
+		local order = 0
+		for _, item in wheelItems do
+			local weapon = if item.slot == 0 then nil else slotWeapon(item.slot)
+			local show = wheelOpen and (if item.slot == 0 then current ~= "" else weapon ~= nil)
+			item.round.setVisible(show)
+			if show then
+				local angle = math.rad(settings.WheelStartAngle + order * settings.WheelStepAngle)
+				order += 1
+				local x = center.X + math.cos(angle) * settings.WheelRadius * s
+				local y = center.Y - math.sin(angle) * settings.WheelRadius * s
+				item.round.root.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
+				item.round.root.Size = UDim2.fromOffset(size, size)
+				if weapon then
+					item.round.setIcon(weapon)
+					item.round.setLabel(slotLabel(weapon))
+					item.round.setColor(if weapon == current then Colors.Gold else Colors.Gray)
+				end
+			end
+		end
+	end
+
+	setWheelOpen = function(open: boolean)
+		wheelOpen = open
+		dismiss.Visible = open
+		if open then
+			MobileMenu.close()
+		end
+		layoutWheel()
+	end
+
+	-- Автоперезарядка: магазин пуст — через Config.Mobile.AutoReloadDelay сек сама
+	local emptySince = 0
+	refreshTouch = function()
+		local shift = onShift()
+		local current = equipped()
+		local free = shift and not viewing() and not spectating() and not downed()
+		local any = false
+		for index = 1, 4 do
+			if slotWeapon(index) then
+				any = true
+				break
+			end
+		end
+		local wheel = touch.Wheel
+		wheel.setVisible(free and any)
+		if free and any then
+			local shownWeapon = if current ~= "" then current else (slotWeapon(1) or slotWeapon(2) or slotWeapon(3) or slotWeapon(4) or "Pistol")
+			wheel.setIcon(shownWeapon)
+			wheel.setLabel(if current == "" then "" elseif reloading() then "..." else slotLabel(current))
+			wheel.setColor(if current ~= "" then Colors.Gold else Colors.Gray)
+		end
+		if wheelOpen and not (free and any) then
+			setWheelOpen(false)
+		elseif wheelOpen then
+			layoutWheel()
+		end
+
+		local firearm = FIREARMS[current] == true and shownKind == current
+		local info = if firearm then (Weapons :: any)[current] else nil
+		local ammo = if firearm then predictedAmmo(current) else 0
+		local canReload = info ~= nil and not reloading() and ammo < info.MagSize and reserveOf(current) > 0
+		touch.Reload.setVisible(free and canReload)
+		if free and firearm and ammo <= 0 and canReload then
+			if emptySince == 0 then
+				emptySince = os.clock()
+			elseif os.clock() - emptySince >= Config.Mobile.AutoReloadDelay then
+				emptySince = 0
+				requestReload()
+			end
+		else
+			emptySince = 0
+		end
+	end
 
 	-- Огонь — умная кнопка (этап 8, блок Q, SmartButton.client): FIRE в налёт, TASER ночью, HEAL с аптечкой.
 	-- Вне налёта огнестрел не стреляет — кнопка бледная (подсказка рядом всё равно важнее).
@@ -859,15 +1046,6 @@ if touchOnly then
 		end
 		return nil
 	end)
-end
-
-local function showTouch(names: { string }, visible: boolean)
-	for _, name in names do
-		local button = touch[name]
-		if button then
-			button.setVisible(visible)
-		end
-	end
 end
 
 -- Клавиши оружия работают только на смене (в лобби 1 / 2 — выбор роли)
@@ -905,9 +1083,7 @@ local function setBound(shift: boolean, holding: boolean)
 			triggerHeld = false
 		end
 	end
-	local show = shift and not viewing() and not downed()
-	showTouch({ "Crouch", "LeanLeft", "LeanRight" }, show)
-	showTouch({ "Reload" }, show and FIREARMS[equipped()] == true)
+	stanceInMenu = shift and not viewing() and not downed()
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)

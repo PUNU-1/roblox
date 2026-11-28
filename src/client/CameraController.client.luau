@@ -874,16 +874,18 @@ local function onPhoneAction(_name: string, state: Enum.UserInputState)
 	return Enum.ContextActionResult.Sink
 end
 
--- Кнопка телефона на экране (этап 5, блок D): пиксельная, справа внизу (там же, где кнопка умения у других классов).
--- Только на телефоне: на компьютере — клавиша Tab. Открыт экран камер — на кнопке CLOSE.
-local phoneButton = TouchButtons.new({
-	place = "Ability",
-	icon = "Phone",
-	label = "PHONE",
-	onActivated = function()
-		requestCameras:FireServer(not viewing)
-	end,
-})
+-- Кнопка телефона на экране (этап 5, блок D; этап 8, блок Q): круглая, справа над R (место Ability — там же, где кнопка
+-- умения у других классов). Только на телефоне: на компьютере — клавиша Tab. Открыт экран камер — на кнопке CLOSE.
+local phoneButton: TouchButtons.TouchButton? = if touchOnly
+	then TouchButtons.new({
+		place = "Ability",
+		icon = "Phone",
+		label = "PHONE",
+		onActivated = function()
+			requestCameras:FireServer(not viewing)
+		end,
+	})
+	else nil
 
 local function refreshPhoneBinding()
 	-- Пульт закрывается той же кнопкой, поэтому она нужна и тому, кто смотрит с пульта
@@ -895,8 +897,10 @@ local function refreshPhoneBinding()
 		ContextActionService:UnbindAction(PHONE_ACTION)
 		phoneBound = false
 	end
-	phoneButton.setVisible(shouldBind and touchOnly)
-	phoneButton.setLabel(if viewing then "CLOSE" else "PHONE")
+	if phoneButton then
+		phoneButton.setVisible(shouldBind)
+		phoneButton.setLabel(if viewing then "CLOSE" else "PHONE")
+	end
 end
 
 local function onStateChanged()

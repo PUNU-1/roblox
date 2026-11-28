@@ -24,6 +24,7 @@ local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local ClassCards = require(UI:WaitForChild("ClassCards"))
 local TouchButtons = require(UI:WaitForChild("TouchButtons"))
+local Mobile = require(UI:WaitForChild("Mobile"))
 local DogAnimator = require(script.Parent:WaitForChild("DogAnimator"))
 
 local PlayerAttr = GameState.PlayerAttr
@@ -87,7 +88,10 @@ end
 
 local gui = Theme.screenGui("Abilities", 2)
 
-local SIZE = if touchOnly then 70 else 88
+-- Телефон (этап 8, блок Q): умение с клавишей — круглая кнопка справа (место Ability, TouchButtons), телефон оператора —
+-- там же (CameraController). Этот квадрат с картинкой на телефоне виден только у классов без кнопки (кинолог,
+-- штурмовик): в том же месте Ability, подпись — слева от него (под ним — маленькая R).
+local SIZE = if touchOnly then Config.Mobile.AbilitySize else 88
 local widget = Theme.new("Frame", {
 	Name = "Ability",
 	AnchorPoint = if touchOnly then Vector2.new(1, 0) else Vector2.new(1, 1),
@@ -174,9 +178,10 @@ local usedLabel = Theme.label({ Size = UDim2.fromScale(1, 0.4), Position = UDim2
 Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = usedLabel })
 
 local nameLabel = Theme.label({
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, SIZE + 3),
-	Size = UDim2.new(1, 0, 0, 22),
+	AnchorPoint = if touchOnly then Vector2.new(1, 0.5) else Vector2.new(0.5, 0),
+	Position = if touchOnly then UDim2.new(0.5, -SIZE / 2 - 6, 0, SIZE / 2) else UDim2.new(0.5, 0, 0, SIZE + 3),
+	Size = if touchOnly then UDim2.fromOffset(150, 22) else UDim2.new(1, 0, 0, 22),
+	TextXAlignment = if touchOnly then Enum.TextXAlignment.Right else Enum.TextXAlignment.Center,
 	RichText = true,
 	MaxTextSize = 16,
 	Parent = widget,
@@ -255,8 +260,22 @@ end
 
 local readyFlashFor = 0 -- когда перезарядка кончилась — кнопка вспыхивает
 
+if touchOnly then
+	local widgetScale = Theme.new("UIScale", { Parent = widget })
+	widget.AnchorPoint = Vector2.new(0.5, 0)
+	Mobile.bind(function()
+		local slot = Mobile.slot("Ability")
+		widgetScale.Scale = Mobile.scale()
+		widget.Position = UDim2.fromOffset(math.floor(slot.center.X), math.floor(slot.center.Y - slot.size / 2))
+	end)
+end
+
 local function refreshWidget(dt: number)
 	local show = onShift() and not viewing()
+	if touchOnly then
+		local touchInfo = myInfo()
+		show = show and touchInfo.Keys == nil and touchInfo.Ability ~= "Phone" and localPlayer:GetAttribute(PlayerAttr.Spectating) ~= true
+	end
 	widget.Visible = show
 	if not show then
 		return
@@ -375,7 +394,7 @@ local function refreshTouchButton()
 		return
 	end
 	-- Открыт экран камер (пульт) — на этом месте кнопка CLOSE телефона (CameraController)
-	button.setVisible(boundRole ~= nil and localPlayer:GetAttribute(PlayerAttr.ViewingCameras) ~= true)
+	button.setVisible(boundRole ~= nil and localPlayer:GetAttribute(PlayerAttr.ViewingCameras) ~= true and localPlayer:GetAttribute(PlayerAttr.Spectating) ~= true)
 	local info = myInfo()
 	local title = if info.Ability == "Dash" then "DASH" else "SENSOR"
 	local t = now()
