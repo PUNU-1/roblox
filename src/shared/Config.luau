@@ -357,15 +357,19 @@ local Config = {
 		ButtonGap = 6, -- отступ слева от кнопки SHOP
 	},
 
-	Results = { -- экран итога ночи и витрина MVP (этап 6, блок I3)
+	Results = { -- экран итога ночи и витрина MVP (этап 6, блок I3; этап 7, задание K2)
 		MvpWidth = 260, -- ширина ViewportFrame
 		MvpHeight = 300, -- высота ViewportFrame
 		MvpSpinSpeed = 0.65, -- медленное вращение витрины (рад/сек)
 		MvpFieldOfView = 34, -- угол обзора камеры витрины
+		MvpCameraMargin = 1.28, -- запас камеры витрины для прыжка и поднятых рук
 		MvpPedestalHeight = 1.6, -- высота пьедестала (стады)
 		MvpCrownGap = 0.45, -- зазор над головой и шапкой до короны (стады)
 		MvpCrownFloatAmplitude = 0.1, -- мягкое покачивание короны (стады)
 		MvpCrownFloatSpeed = 2.2, -- скорость покачивания короны
+		MvpCelebratePeriod = 2.0, -- длительность цикла радости MVP (сек)
+		MvpJumpHeight = 0.52, -- высота подпрыгивания MVP (стады)
+		MvpSadSwaySpeed = 1.6, -- скорость покачивания головы и рук на GAME OVER
 	},
 
 	Settings = { -- меню настроек (этап 6, блок J1): громкость, чувствительность, графика, обучение
@@ -463,6 +467,21 @@ local Config = {
 		Camera = { -- этап 5, блок A: в хабе вид от третьего лица (в музее — от первого)
 			MinZoom = 6, -- ближе камера к игроку не подходит
 			MaxZoom = 20, -- дальше не отъезжает
+		},
+		Emotes = { -- эмоции в хабе (этап 7, задание K2)
+			MaxMove = 0.05, -- персонаж считается стоящим, если MoveDirection меньше этого
+			PanelWidth = 176,
+			PanelTouchWidth = 148,
+			ButtonHeight = 36,
+			ButtonTouchHeight = 32,
+			Gap = 6,
+			List = {
+				{ label = "WAVE", emote = "wave" },
+				{ label = "DANCE", emote = "dance" },
+				{ label = "CHEER", emote = "cheer" },
+				{ label = "POINT", emote = "point" },
+				{ label = "LAUGH", emote = "laugh" },
+			},
 		},
 	},
 

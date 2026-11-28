@@ -877,6 +877,29 @@ Icons.Settings = {
 	palette = { K = OUTLINE, h = "E8ECF4", g = "A9B4C6", d = "6E788C" },
 }
 
+-- Этап 7, задание K2: эмоции в хабе (улыбающийся смайлик)
+Icons.Emotes = {
+	rows = {
+		"................",
+		"....KKKKKKKK....",
+		"..KKhYYYYYYdKK..",
+		".KhYYYYYYYYYYdK.",
+		".KYKYYYYYYYYKYK.",
+		"KYYKYYYYYYYYKYYK",
+		"KYYKYYYYYYYYKYYK",
+		"KYYYYYYYYYYYYYYK",
+		"KYrrYYYYYYYYrrYK",
+		"KYYKYYYYYYYYKYYK",
+		".KYKwwwwwwwwKYK.",
+		".KYYKwwwwwwKYYK.",
+		"..KKdKKKKKKdKK..",
+		"....KKKKKKKK....",
+		"................",
+		"................",
+	},
+	palette = { K = OUTLINE, Y = GOLD, h = GOLD_LIGHT, d = GOLD_DARK, r = "E0575B", w = WHITE },
+}
+
 PixelIcon.Icons = Icons
 
 local function resolve(icon: Icon | string): Icon
