@@ -15,6 +15,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
+local Mobile = require(script.Parent:WaitForChild("UI"):WaitForChild("Mobile"))
 local Fx = require(script.Parent:WaitForChild("Fx"))
 
 local PlayerAttr = GameState.PlayerAttr
@@ -73,6 +74,17 @@ local function bar(name: string, y: number, color: Color3): (Frame, Frame, TextL
 	return back, fill, label
 end
 
+-- Телефон (этап 8, блок Q): здоровье внизу по центру — между джойстиком (слева) и умной кнопкой (справа)
+if touchOnly then
+	healthPanel.AnchorPoint = Vector2.new(0.5, 1)
+	Mobile.bind(function()
+		local left, right = Mobile.bottomGap()
+		local width = math.clamp(right - left - 16, 120, 220)
+		healthPanel.Size = UDim2.fromOffset(width, 56)
+		healthPanel.Position = UDim2.new(0, math.floor((left + right) / 2), 1, -Config.Mobile.Margin)
+	end)
+end
+
 local armorBack, armorFill, armorLabel = bar("Armor", 0, Color3.fromHex("4A90E2"))
 local _healthBack, healthFill, healthLabel = bar("HealthBar", 0.54, Colors.Green)
 Theme.pixelize(armorLabel, healthLabel) -- пиксельный шрифт, как весь интерфейс (этап 5, блок D)
@@ -110,8 +122,9 @@ downColor.Parent = Lighting
 local downPanel = Theme.new("Frame", {
 	Name = "Downed",
 	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.62),
-	Size = UDim2.new(0.5, 0, 0, 120),
+	-- телефон: выше и шире (внизу джойстик, справа умная кнопка)
+	Position = if touchOnly then UDim2.fromScale(0.5, 0.42) else UDim2.fromScale(0.5, 0.62),
+	Size = UDim2.new(if touchOnly then 0.6 else 0.5, 0, 0, 120),
 	BackgroundTransparency = 1,
 	Visible = false,
 	Parent = gui,

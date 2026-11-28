@@ -18,10 +18,11 @@ local keyboard = not Theme.touchOnly()
 local VOTE_ACTION = "VoteKeys"
 
 local gui = Theme.screenGui("Vote", 5)
+-- Телефон (этап 8, блок Q): сверху по центру под верхней полосой (справа — кнопки умения и оружия)
 local panel = Theme.new("Frame", {
 	Name = "VotePanel",
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -12, 0, 136), -- под деньгами и кнопкой SHOP (этап 4, блок 1b; пиксельная SHOP выше — блок D)
+	AnchorPoint = if keyboard then Vector2.new(1, 0) else Vector2.new(0.5, 0),
+	Position = if keyboard then UDim2.new(1, -12, 0, 136) else UDim2.new(0.5, 0, 0, 62), -- под деньгами и кнопкой SHOP (этап 4, блок 1b; пиксельная SHOP выше — блок D)
 	Size = UDim2.new(0, 300, 0, 120),
 	BackgroundTransparency = 1,
 	Visible = false,

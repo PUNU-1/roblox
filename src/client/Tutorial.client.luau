@@ -54,14 +54,15 @@ local touchOnly = Theme.touchOnly()
 local gui = Theme.screenGui("Tutorial", 2) -- над HUD, под окном магазина и голосованием
 
 local PLATE_CELL = 3
-local PLATE_HEIGHT = 58
+-- Телефон (этап 8, блок Q): плашка не шире Config.Mobile.PanelWidth экрана и в три строки (текст не уходит за край)
+local PLATE_HEIGHT = if touchOnly then 72 else 58
 local ICON_CELL = 2 -- иконка шага 32 × 32
 
 local plate = Theme.new("Frame", {
 	Name = "StepPlate",
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.5, 0, 0, 64), -- под верхней строкой HUD (таймер)
-	Size = UDim2.new(0.92, 0, 0, PLATE_HEIGHT),
+	Size = UDim2.new(if touchOnly then Config.Mobile.PanelWidth else 0.92, 0, 0, PLATE_HEIGHT),
 	BackgroundTransparency = 1,
 	Visible = false,
 	Parent = gui,

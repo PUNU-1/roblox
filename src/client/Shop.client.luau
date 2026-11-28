@@ -84,8 +84,9 @@ end
 local toast = Theme.label({
 	Name = "Toast",
 	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -72),
-	Size = UDim2.new(0.6, 0, 0, 34),
+	-- телефон (этап 8, блок Q): над прицелом — внизу джойстик, здоровье и умная кнопка
+	Position = if touchOnly then UDim2.new(0.5, 0, 0.5, -24) else UDim2.new(0.5, 0, 1, -72),
+	Size = UDim2.new(if touchOnly then Config.Mobile.PanelWidth else 0.6, 0, 0, 34),
 	Font = Theme.BodyFont,
 	TextColor3 = Colors.Marble,
 	MaxTextSize = 22,

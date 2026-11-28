@@ -142,10 +142,10 @@ end
 
 -- Лента фраз слева сверху (на телефоне — ниже плашки шага обучения и уже, до 3 строк)
 local FEED_LINE = if keyboard then 30 else 24
-local FEED_MAX = if keyboard then 4 else 3
+local FEED_MAX = if keyboard then 4 else 2
 local feed = Theme.new("Frame", {
 	Name = "Feed",
-	Position = if keyboard then UDim2.new(0, 16, 0, 70) else UDim2.fromOffset(Config.Mobile.Margin, 128),
+	Position = if keyboard then UDim2.new(0, 16, 0, 70) else UDim2.fromOffset(Config.Mobile.Margin, 144),
 	Size = if keyboard then UDim2.new(0, 360, 0, 160) else UDim2.new(0, 300, 0, FEED_MAX * (FEED_LINE + 4)),
 	BackgroundTransparency = 1,
 	Parent = gui,

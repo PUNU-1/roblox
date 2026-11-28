@@ -123,16 +123,25 @@ updateSettingsButton()
 
 ---------------------------------------------------------------- верхняя строка и деньги
 
+-- Телефон (этап 8, блок Q): сверху по центру компактно — день или ночь, время и деньги одной строкой (TOUCH_TOP);
+-- уже, чем на компьютере: слева в верхней полосе — кнопки Roblox и «Меню». Длинные надписи лобби — в две строки.
+local TOUCH_TOP = Theme.touchOnly()
 local topBar = Theme.new("Frame", {
 	Name = "TopBar",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 12),
-	Size = UDim2.new(0.5, 0, 0, 46),
+	Position = UDim2.new(0.5, 0, 0, if TOUCH_TOP then 6 else 12),
+	Size = if TOUCH_TOP then UDim2.new(0.46, 0, 0, 40) else UDim2.new(0.5, 0, 0, 46),
 	BackgroundTransparency = 1, -- без рамки и фона: пиксельный шрифт с чёрной обводкой (этап 5, блок D)
 	Parent = gui,
 })
-local topLabel = Theme.label({ Size = UDim2.fromScale(1, 1), MaxTextSize = 20, Parent = topBar })
-Theme.padding(6).Parent = topBar
+local topLabel = Theme.label({ Size = UDim2.fromScale(1, 1), MaxTextSize = 20, TextWrapped = TOUCH_TOP, Parent = topBar })
+Theme.padding(if TOUCH_TOP then 2 else 6).Parent = topBar
+if TOUCH_TOP then
+	local constraint = topLabel:FindFirstChildOfClass("UITextSizeConstraint")
+	if constraint then
+		constraint.MinTextSize = 10 -- пиксельный шрифт широкий: длинной строке лобби можно чуть мельче, зато влезает
+	end
+end
 
 local moneyFrame = Theme.new("Frame", {
 	Name = "Money",
@@ -144,6 +153,7 @@ local moneyFrame = Theme.new("Frame", {
 })
 local moneyLabel = Theme.label({ Size = UDim2.fromScale(1, 1), TextColor3 = Colors.Gold, Text = "$0", TextXAlignment = Enum.TextXAlignment.Right, MaxTextSize = 24, Parent = moneyFrame })
 Theme.padding(6).Parent = moneyFrame
+moneyFrame.Visible = not TOUCH_TOP -- телефон: деньги — в строке сверху по центру
 Theme.pixelize(topLabel, moneyLabel)
 
 ---------------------------------------------------------------- крупная надпись
@@ -151,10 +161,11 @@ Theme.pixelize(topLabel, moneyLabel)
 local banner = Theme.label({
 	Name = "Banner",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 140), -- под плашкой шага обучения (Tutorial.client)
-	Size = UDim2.new(0.8, 0, 0, 70),
+	-- под плашкой шага обучения (Tutorial.client); телефон — уже (Config.Mobile.PanelWidth) и ниже, под кнопкой SKIP
+	Position = UDim2.new(0.5, 0, 0, if TOUCH_TOP then 176 else 140),
+	Size = if TOUCH_TOP then UDim2.new(Config.Mobile.PanelWidth, 0, 0, 40) else UDim2.new(0.8, 0, 0, 70),
 	TextColor3 = Colors.Red,
-	MaxTextSize = 56,
+	MaxTextSize = if TOUCH_TOP then 30 else 56,
 	Visible = false,
 	Parent = gui,
 })
@@ -805,6 +816,19 @@ local function topBarText(phase: string): string
 	return ""
 end
 
+-- Телефон: «DAY 1  0:45  $120» / «NIGHT 2  02:15  $80»; в остальное время — те же надписи, что на компьютере
+local function touchTopText(phase: string): string
+	local money = "$" .. tostring(localPlayer:GetAttribute(PlayerAttr.Money) or 0)
+	if localPlayer:GetAttribute(PlayerAttr.InRound) == true then
+		if phase == Phase.Day then
+			return ("DAY %d  %s  %s"):format(tonumber(GameState.get(Attr.NightNumber)) or 1, Theme.formatTime(GameState.secondsLeft()), money)
+		elseif phase == Phase.Night then
+			return ("NIGHT %d  %s  %s"):format(tonumber(GameState.get(Attr.NightNumber)) or 1, Theme.nightClock(GameState.nightProgress()), money)
+		end
+	end
+	return topBarText(phase)
+end
+
 local accumulator = 0
 RunService.Heartbeat:Connect(function(dt)
 	accumulator += dt
@@ -815,7 +839,7 @@ RunService.Heartbeat:Connect(function(dt)
 
 	local phase = GameState.phase()
 	topBar.Visible = phase ~= Phase.Results
-	topLabel.Text = Theme.pixelText(topBarText(phase))
+	topLabel.Text = Theme.pixelText(if TOUCH_TOP then touchTopText(phase) else topBarText(phase))
 	moneyLabel.Text = "$" .. tostring(localPlayer:GetAttribute(PlayerAttr.Money) or 0)
 
 	-- Класс из хаба уже выбран: пока команда прилетает, карточек нет
