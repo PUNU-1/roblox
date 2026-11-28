@@ -1199,7 +1199,8 @@ end
 
 -- Портрет на холсте заглушки Моны Лизы (R1: многослойный стилизованный портрет до загрузки картинки владельцем).
 local function paintPortrait(canvas: BasePart)
-	local gui = surfaceGui(canvas, Enum.NormalId.Front, 50, 1)
+	-- Свет влияет наполовину: ночью портрет не тонет в темноте (K1)
+	local gui = surfaceGui(canvas, Enum.NormalId.Front, 50, Config.Lighting.PortraitLightInfluence)
 	local root = guiFrame(gui, UDim2.new(), UDim2.fromScale(1, 1), Color3.new(1, 1, 1), 1)
 	root.ClipsDescendants = true
 	local gradient = Instance.new("UIGradient")
@@ -1255,8 +1256,9 @@ local function buildMonaLisaStub(): { ModelLibrary.StubPart }
 	local lightWarm = hex("FFE7B8")
 	local list: { ModelLibrary.StubPart } = {
 		stubBox("Frame", Vector3.new(4.4, 6, 0.4), CFrame.new(0, 3, -0.2), COLORS.Gold, Enum.Material.Metal),
-		stubBox("Canvas", Vector3.new(3.6, 5.2, 0.1), CFrame.new(0, 3, -0.45), COLORS.Canvas),
-		stubBox("Liner", Vector3.new(3.76, 5.36, 0.06), CFrame.new(0, 3, -0.46), COLORS.VelvetDark, Enum.Material.Fabric, false),
+		-- Тёмная подложка — ЗА холстом (K1: раньше стояла перед ним и закрывала портрет)
+		stubBox("Liner", Vector3.new(3.76, 5.36, 0.04), CFrame.new(0, 3, -0.42), COLORS.VelvetDark, Enum.Material.Fabric, false),
+		stubBox("Canvas", Vector3.new(3.6, 5.2, 0.06), CFrame.new(0, 3, -0.47), COLORS.Canvas),
 		stubBox("Molding", Vector3.new(0.4, 6, 0.16), CFrame.new(-2, 3, -0.47), COLORS.Gold, Enum.Material.Metal),
 		stubBox("Molding", Vector3.new(0.4, 6, 0.16), CFrame.new(2, 3, -0.47), COLORS.Gold, Enum.Material.Metal),
 		stubBox("Molding", Vector3.new(3.6, 0.4, 0.16), CFrame.new(0, 5.8, -0.47), COLORS.Gold, Enum.Material.Metal),
@@ -1265,7 +1267,8 @@ local function buildMonaLisaStub(): { ModelLibrary.StubPart }
 		stubBox("Bead", Vector3.new(0.09, 5.32, 0.12), CFrame.new(1.84, 3, -0.52), FRAME_INNER, Enum.Material.Metal, false),
 		stubBox("Bead", Vector3.new(3.64, 0.09, 0.12), CFrame.new(0, 5.64, -0.52), FRAME_INNER, Enum.Material.Metal, false),
 		stubBox("Bead", Vector3.new(3.64, 0.09, 0.12), CFrame.new(0, 0.36, -0.52), FRAME_INNER, Enum.Material.Metal, false),
-		{ name = "Glass", size = Vector3.new(3.6, 5.2, 0.04), offset = CFrame.new(0, 3, -0.54), color = hex("E6F4FF"), material = Enum.Material.Glass, transparency = 0.68, reflectance = 0.06, collide = false },
+		-- Стекло — не материал Glass: за ним Roblox не рисует прозрачное, и портрет (SurfaceGui) пропадал бы (K1)
+		{ name = "Glass", size = Vector3.new(3.6, 5.2, 0.02), offset = CFrame.new(0, 3, -0.55), color = hex("E6F4FF"), material = Enum.Material.SmoothPlastic, transparency = 0.9, reflectance = 0.04, collide = false },
 		-- Скульптурный гребень сверху и латунная табличка внизу рамы
 		stubBox("Crest", Vector3.new(1.6, 0.32, 0.18), CFrame.new(0, 6.12, -0.32), COLORS.Gold, Enum.Material.Metal, false),
 		stubWedge("CrestWingL", Vector3.new(0.18, 0.32, 0.6), CFrame.new(-1.1, 6.12, -0.32) * CFrame.Angles(0, math.rad(90), 0), FRAME_INNER, Enum.Material.Metal, false),

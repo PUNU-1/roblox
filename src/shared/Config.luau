@@ -1426,6 +1426,7 @@ local Config = {
 			Brightness = 1.2,
 			Color = Color3.fromRGB(255, 225, 170),
 		},
+		PortraitLightInfluence = 0.5, -- портрет Моны Лизы (SurfaceGui): 1 — как обычная деталь, 0 — светится сам (этап 8, K1)
 		PictureLamp = { -- латунная лампа над рамой Моны Лизы (этап 5, блок F2): SurfaceLight вниз на холст
 			Range = 9,
 			Brightness = 2,
