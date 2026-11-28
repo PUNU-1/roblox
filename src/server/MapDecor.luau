@@ -1112,9 +1112,6 @@ function MapDecor.barrierStub(halfSpan: number): Stub
 	return list
 end
 
--- Столбики с канатом перед статуей (шире, чем у Моны Лизы: под постамент 3.4).
-local ROPE_STUB: Stub = MapDecor.barrierStub(2.3)
-
 -- Что лежит в витринах у стен центра (по кругу) и что написано на табличке.
 local CASE_ITEMS = {
 	{ kind = "Coins", label = "ROMAN COINS\n2nd century" },
@@ -1201,15 +1198,27 @@ local function banner(kit: Kit, r: Rect, side: string, along: number, info: { te
 	kit.decor("BannerFringe", Vector3.new(4, 0.35, 0.12), look * CFrame.new(0, -4.15, 0), GOLD, Enum.Material.Fabric)
 end
 
--- Края центра 120 × 120 (этап 5, блок E): вдоль стен витрины с мелкими вещами и статуи (укрытия, MapObstacle,
--- их не крадут), скамейки, кадки с деревьями, напольные светильники, канаты, баннеры выставок и большие картины.
--- Свободно остаётся: 4 двери (±12 от середины стены), табличка CAMERA SPOT на южной (x = −14) и восточной
--- (z = 30) стенах, лестницы на балкон и площадки под ними (z от −50 до −18 у западной и восточной стен).
--- Всё стоит не дальше 6 стадов от стены: до кольца перегородок остаётся проход ~20 стадов.
+-- Центр 120 × 120 по сетке (этап 8, блок N, решения 98–99): как в настоящем музее, всё симметрично.
+--  • Дорожки крестом от 4 дверей к Моне Лизе (ковры — MapBuilder). Вдоль каждой дорожки — по ряду с каждой
+--    стороны: в 11 стадах от её середины, на 22, 33 и 44 стадах от центра (шаг 11), лицом к дорожке.
+--    У южной дорожки первая пара — постаменты центра (MapBuilder.buildPedestals), у остальных — витрины.
+--    Между рядами дорожки свободно 16 стадов, между предметами ряда — не меньше 6.
+--  • У стен — шаг 8, зеркально по сторонам от двери: лампа, кадка с деревом, банкетка под картиной, витрина,
+--    лампа. На западной и восточной стенах — только южная половина (на северной — лестницы на балкон),
+--    место 30 там пустое: на восточной стене табличка CAMERA SPOT 2. На южной стене x = −14 — CAMERA SPOT 1.
+--  • В углах — кадки с деревьями. Все предметы у стен — не дальше 4 стадов от стены.
+-- Проверка пересечений в Studio — scripts/studio/overlap_check.luau.
+local GRID = {
+	rowOffset = 11, -- ряды экспонатов: на столько от середины дорожки
+	rowSpots = { 22, 33, 44 }, -- и на столько от центра
+	wallNS = { 18, 26, 34, 42, 50 }, -- южная и северная стены: лампа, дерево, банкетка, витрина, лампа
+	wallWE = { 14, 22, 38, 46, 52 }, -- западная и восточная (южная половина): лампа, дерево, банкетка, витрина, лампа
+	corner = 56, -- деревья в углах
+}
+
 function MapDecor.centerEdges(kit: Kit, r: Rect)
 	local caseIndex, statueIndex = 0, 0
-	local function displayCase(side: string, along: number)
-		local position, facing = edgePoint(r, side, along, 2.5)
+	local function displayCase(position: Vector3, facing: Vector3)
 		local case = kit.place(Models.DisplayCase, CFrame.lookAt(position, position + facing), kit.displayCase)
 		case:SetAttribute("MapObstacle", true)
 		caseIndex += 1
@@ -1218,25 +1227,19 @@ function MapDecor.centerEdges(kit: Kit, r: Rect)
 		fillCase(kit, base, item.kind)
 		frontPlaque(kit, base, 1.6, -1.06, item.label)
 	end
-	local function statue(side: string, along: number)
-		local position, facing = edgePoint(r, side, along, 2.7)
+	local function statue(position: Vector3, facing: Vector3)
 		local model = kit.place(Models.Statue, CFrame.lookAt(position, position + facing), STATUE_STUB)
 		model:SetAttribute("MapObstacle", true)
 		statueIndex += 1
 		frontPlaque(kit, model:GetPivot(), 1.2, -1.56, STATUE_LABELS[(statueIndex - 1) % #STATUE_LABELS + 1])
-		local ropeAt = edgePoint(r, side, along, 5.9)
-		kit.place(Models.Barrier, CFrame.lookAt(ropeAt, ropeAt + facing), ROPE_STUB)
 	end
-	local function bench(side: string, along: number)
-		local position, facing = edgePoint(r, side, along, 1.6)
+	local function bench(position: Vector3, facing: Vector3)
 		kit.place(Models.Bench, CFrame.lookAt(position, position + facing), kit.bench)
 	end
-	local function tree(side: string, along: number)
-		local position, facing = edgePoint(r, side, along, 2)
+	local function tree(position: Vector3, facing: Vector3)
 		kit.place(Models.PlanterTree, CFrame.lookAt(position, position + facing), PLANTER_TREE_STUB)
 	end
-	local function lamp(side: string, along: number)
-		local position, facing = edgePoint(r, side, along, 1.2)
+	local function lamp(position: Vector3, facing: Vector3)
 		local model = kit.place(Models.FloorLamp, CFrame.lookAt(position, position + facing), FLOOR_LAMP_STUB)
 		local bulb = model:FindFirstChild("Bulb", true)
 		if bulb and bulb:IsA("BasePart") then -- днём горит, ночью гаснет, как люстры (MapBuilder.setDayLights)
@@ -1250,41 +1253,59 @@ function MapDecor.centerEdges(kit: Kit, r: Rect)
 			light.Parent = bulb
 		end
 	end
-	local function bigPainting(side: string, along: number)
-		local point, facing = edgePoint(r, side, along, 0, 17)
-		kit.painting(point - facing * 0.5, facing, 12, 7)
+
+	-- Ряды вдоль дорожек: dir — от центра к двери, across — поперёк дорожки
+	local avenues = {
+		{ dir = Vector3.new(0, 0, 1), across = Vector3.new(1, 0, 0), first = "Pedestal" }, -- юг: первая пара — постаменты
+		{ dir = Vector3.new(0, 0, -1), across = Vector3.new(1, 0, 0), first = "Case" },
+		{ dir = Vector3.new(1, 0, 0), across = Vector3.new(0, 0, 1), first = "Case" },
+		{ dir = Vector3.new(-1, 0, 0), across = Vector3.new(0, 0, 1), first = "Case" },
+	}
+	for _, avenue in avenues do
+		for index, along in GRID.rowSpots do
+			for _, side in { -1, 1 } do
+				local position = avenue.dir * along + avenue.across * side * GRID.rowOffset
+				local facing = -avenue.across * side -- лицом к дорожке
+				if index == 1 and avenue.first == "Pedestal" then
+					continue -- постамент ставит MapBuilder.buildPedestals
+				elseif index == 2 then
+					statue(position, facing)
+				else
+					displayCase(position, facing)
+				end
+			end
+		end
 	end
 
-	-- Южная стена (z = maxZ): дверь посередине, CAMERA SPOT 1 на x = −14
-	for _, s in { -1, 1 } do
-		lamp("S", s * 49)
-		displayCase("S", s * 40)
-		statue("S", s * 31)
-		displayCase("S", s * 22)
-		bigPainting("S", s * 45)
+	-- У стен: южная и северная — целиком, западная и восточная — южная половина
+	local function wallRow(side: string, spots: { number }, signs: { number })
+		for _, sign in signs do
+			for index, along in spots do
+				local a = sign * along
+				if index == 1 or index == 5 then
+					lamp(edgePoint(r, side, a, 1.2))
+				elseif index == 2 then
+					tree(edgePoint(r, side, a, 2))
+				elseif index == 3 then
+					bench(edgePoint(r, side, a, 3))
+				else
+					displayCase(edgePoint(r, side, a, 2.5))
+				end
+			end
+		end
 	end
-	tree("S", 16)
-	-- Западная и восточная стены: дверь посередине, у северного края — лестница на балкон
-	for _, side in { "W", "E" } do
-		tree(side, -15)
-		displayCase(side, 21)
-		displayCase(side, 46)
-		lamp(side, 51.5)
-		bigPainting(side, 46)
+	wallRow("S", GRID.wallNS, { -1, 1 })
+	wallRow("N", GRID.wallNS, { -1, 1 })
+	wallRow("W", GRID.wallWE, { 1 })
+	wallRow("E", GRID.wallWE, { 1 })
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			local position = Vector3.new(sx * GRID.corner, 0, sz * GRID.corner)
+			tree(position, Vector3.new(-sx, 0, -sz))
+		end
 	end
-	statue("W", 30)
-	bench("W", 38)
-	statue("E", 39) -- на восточной стене z 26..34 свободно: табличка CAMERA SPOT 2
-	-- Северная стена — под балконом (высота 11): витрины, статуи, скамейки, лампы
-	for _, s in { -1, 1 } do
-		bench("N", s * 20)
-		displayCase("N", s * 30)
-		lamp("N", s * 35)
-		displayCase("N", s * 40)
-		statue("N", s * 48)
-	end
-	-- Баннеры выставок высоко на стенах
-	local spots = { { "S", -30 }, { "S", 30 }, { "W", 16 }, { "W", -36 }, { "E", 16 }, { "E", -36 } }
+	-- Баннеры выставок высоко на стенах — между картинами той же сетки
+	local spots = { { "S", -26 }, { "S", 26 }, { "W", 22 }, { "W", -36 }, { "E", 22 }, { "E", -36 } }
 	for index, spot in spots do
 		banner(kit, r, spot[1], spot[2], BANNERS[index])
 	end

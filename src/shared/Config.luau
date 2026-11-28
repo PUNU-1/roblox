@@ -329,8 +329,8 @@ local Config = {
 		PopupSeconds = 2.5, -- надпись «Bought: Golden Vase»
 		PreviewSpin = 0.45, -- 3D-картинки товаров крутятся (радиан в секунду)
 		-- Касса SHOP у Моны Лизы (MapBuilder): где стоит и куда смотрит (по полу центра)
-		CounterPosition = Vector3.new(14, 0, 18), -- внутри кольца перегородок, справа-спереди от картины
-		CounterFacing = Vector3.new(4, 0, 34), -- смотрит на эту точку (к ковровой дорожке и южному входу)
+		CounterPosition = Vector3.new(12, 0, 9), -- справа от картины, зеркально банкетке слева (этап 8, блок N)
+		CounterFacing = Vector3.new(12, 0, 20), -- смотрит на юг, к южному входу
 		CounterPromptDistance = 9,
 		CounterHoldSeconds = 0.25,
 	},

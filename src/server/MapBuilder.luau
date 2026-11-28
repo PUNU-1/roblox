@@ -1341,14 +1341,15 @@ end
 
 ---------------------------------------------------------------- перегородки с картинами в центре
 
--- Перегородки (этап 5, блок B): кольцо из 8 стен выше головы на полпути от дверей центра к Моне Лизе.
--- 4 стоят поперёк прямого пути от каждой двери, 4 — по диагоналям; между ними проходы ~14 стадов (не уже 8 —
--- воры, туристы и грабители проходят по PathfindingService). За перегородкой вора не видно ни охране, ни камерам.
+-- Перегородки (этап 8, блок N, решение 99): 8 стен выше головы по сетке, параллельно северной и южной стенам —
+-- по две в каждой четверти центра, между дорожками крестом. Дорожки от дверей к Моне Лизе они не перекрывают;
+-- проходы вокруг — не уже 10 стадов (воры, туристы и грабители ходят по PathfindingService).
+-- За перегородкой вора не видно ни охране, ни камерам.
 local PARTITION = {
 	length = 12, -- не длиннее 12: грабители считают её укрытием (RobberService)
 	height = 9,
-	axisRing = CENTER.maxZ / 2 + 2, -- на полпути от двери к картине
-	diagonalRing = CENTER.maxZ / 2 + 4,
+	x = 34, -- центр перегородки по x (в каждой четверти ±x)
+	rows = { 24, 38 }, -- ряды по z (±z): между рядами экспонатов у дорожек и предметами у стен
 }
 
 -- Перегородка (R1): ступенчатый плинтус, деревянные панели снизу с латунным пояском и табличкой GALLERY,
@@ -1395,11 +1396,17 @@ local PARTITION_STUB: { ModelLibrary.StubPart } = buildPartitionStub()
 
 local function buildPartitions()
 	local own = not ModelLibrary.has(MapSchema.Models.Partition)
-	for i = 0, 7 do
-		local angle = i * math.pi / 4
-		local ring = if i % 2 == 0 then PARTITION.axisRing else PARTITION.diagonalRing
-		local position = Vector3.new(math.sin(angle) * ring, 0, math.cos(angle) * ring)
-		local cframe = CFrame.lookAt(position, Vector3.zero) -- вдоль кольца, лицом к картине
+	local spots: { Vector3 } = {}
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			for _, row in PARTITION.rows do
+				table.insert(spots, Vector3.new(sx * PARTITION.x, 0, sz * row))
+			end
+		end
+	end
+	for _, position in spots do
+		-- Вдоль оси X, лицом к середине центра (к дорожке запад — восток)
+		local cframe = CFrame.lookAt(position, position - Vector3.new(0, 0, math.sign(position.Z)))
 		local partition = placeModel(MapSchema.Models.Partition, cframe, PARTITION_STUB)
 		partition.Name = "Partition"
 		partition:SetAttribute("MapObstacle", true) -- на схеме оператора; грабители прячутся за ней
@@ -1554,40 +1561,52 @@ local function buildCenter(map: Folder, exhibits: Folder, markers: Folder)
 	local barrier = MapDecor.barrierStub(1.8)
 	placeModel(MapSchema.Models.Barrier, CFrame.new(-5, 0, 7.5), barrier)
 	placeModel(MapSchema.Models.Barrier, CFrame.new(5, 0, 7.5), barrier)
-	for _, x in { -11, 11 } do -- по бокам от ковровой дорожки, лицом к картине
-		placeModel(MapSchema.Models.Bench, CFrame.new(x, 0, 24), BENCH_STUB)
-	end
-	placeModel(MapSchema.Models.Bench, CFrame.new(0, 0, -16), BENCH_STUB)
-	-- Ковровая дорожка от южной двери к Моне Лизе (прерывается у перегородки на её пути)
-	for _, piece in { { 10, PARTITION.axisRing - 1.6 }, { PARTITION.axisRing + 1.6, CENTER.maxZ } } do
-		local length = piece[2] - piece[1]
-		local z = (piece[1] + piece[2]) / 2
-		decorPart("Carpet", Vector3.new(4, 0.05, length), CFrame.new(0, 0.03, z), COLORS.Red, Enum.Material.Fabric)
-		for _, x in { -2.1, 2.1 } do
-			decorPart("CarpetEdge", Vector3.new(0.3, 0.06, length), CFrame.new(x, 0.035, z), COLORS.Gold, Enum.Material.Fabric)
+	-- Слева от картины — банкетка лицом к ней (справа, зеркально, — касса SHOP, Config.Shop.CounterPosition)
+	local benchAt = Vector3.new(-12, 0, 9)
+	placeModel(MapSchema.Models.Bench, CFrame.lookAt(benchAt, benchAt - Vector3.new(0, 0, 1)), BENCH_STUB)
+	-- Ковровые дорожки крестом от 4 дверей к Моне Лизе (этап 8, блок N): юг — к ограждению, север — к обороту
+	-- стены с картиной, запад и восток — к колоннам по бокам стены
+	local carpets = {
+		{ axis = "Z", from = 8.6, to = CENTER.maxZ },
+		{ axis = "Z", from = CENTER.minZ, to = -2.2 },
+		{ axis = "X", from = 16.4, to = CENTER.maxX },
+		{ axis = "X", from = CENTER.minX, to = -16.4 },
+	}
+	for _, piece in carpets do
+		local length = piece.to - piece.from
+		local mid = (piece.from + piece.to) / 2
+		local alongZ = piece.axis == "Z"
+		local function strip(name: string, width: number, offset: number, height: number, y: number)
+			local size = if alongZ then Vector3.new(width, height, length) else Vector3.new(length, height, width)
+			local position = if alongZ then Vector3.new(offset, y, mid) else Vector3.new(mid, y, offset)
+			decorPart(name, size, CFrame.new(position), if name == "Carpet" then COLORS.Red else COLORS.Gold, Enum.Material.Fabric)
+		end
+		strip("Carpet", 4, 0, 0.05, 0.03)
+		for _, offset in { -2.1, 2.1 } do
+			strip("CarpetEdge", 0.3, offset, 0.06, 0.035)
 		end
 	end
 	buildPartitions()
 
-	-- Картины, люстры, растения
+	-- Картины на стенах — по той же сетке, что предметы у стен (MapDecor.centerEdges): на высоте глаз над
+	-- банкетками, большие — высоко над витринами; на севере — под балконом и над ним
 	local c = CENTER
-	for _, x in { -40, -20, 20, 40 } do
-		paintingOn(c, "S", x, 7, 7, 5)
-		paintingOn(c, "N", x, 5.5, 6, 3.5) -- под балконом
-		paintingOn(c, "N", x, 18.5, 8, 5) -- над балконом
+	for _, s in { -1, 1 } do
+		paintingOn(c, "S", s * 34, 6.5, 7, 5)
+		paintingOn(c, "S", s * 42, 17, 12, 7)
+		paintingOn(c, "N", s * 34, 5.5, 6, 3.5) -- под балконом
+		paintingOn(c, "N", s * 26, 18.5, 8, 5) -- над балконом
+		paintingOn(c, "N", s * 42, 18.5, 8, 5)
 	end
 	paintingOn(c, "S", 0, 18, 12, 7)
 	for _, side in { "W", "E" } do
-		paintingOn(c, side, 22, 7, 7, 5)
-		paintingOn(c, side, 44, 7, 7, 5)
+		paintingOn(c, side, 38, 6.5, 7, 5)
+		paintingOn(c, side, 46, 17, 12, 7)
 		paintingOn(c, side, 0, 18, 10, 6)
 	end
-	for _, spot in { { -36, 20 }, { 36, 20 }, { 0, 40 }, { -30, -28 }, { 30, -28 } } do
+	-- Люстры симметрично: по одной над каждой парой перегородок и над северной и южной дорожками
+	for _, spot in { { -34, 31 }, { 34, 31 }, { -34, -31 }, { 34, -31 }, { 0, 40 }, { 0, -40 } } do
 		chandelier(spot[1], spot[2], CENTER_H, 7)
-	end
-	local inset = CENTER.maxX - 4
-	for _, spot in { { -inset, inset }, { inset, inset }, { -inset, 16 }, { inset, 16 } } do
-		plant(spot[1], spot[2])
 	end
 	-- Края центра (этап 5, блок E): витрины, статуи, скамейки, кадки, лампы, баннеры, большие картины
 	MapDecor.centerEdges(makeKit(), CENTER)
@@ -2005,9 +2024,10 @@ end
 -- Постаменты: 2 в центре рядом с Моной Лизой и по 4 в каждом зале. Атрибуты Hall и Slot — для покупки экспонатов.
 local function buildPedestals(folder: Folder)
 	local spots: { { hall: string, cframe: CFrame, stub: string } } = {}
-	for _, x in { -21, 21 } do
-		local position = Vector3.new(x, 0, 8)
-		table.insert(spots, { hall = GameState.Hall.Main, cframe = CFrame.lookAt(position, position + Vector3.new(0, 0, 1)), stub = "Main" })
+	-- Два постамента центра — первая пара в рядах вдоль южной дорожки, лицом к ней (этап 8, блок N)
+	for _, x in { -11, 11 } do
+		local position = Vector3.new(x, 0, 22)
+		table.insert(spots, { hall = GameState.Hall.Main, cframe = CFrame.lookAt(position, Vector3.new(0, 0, 22)), stub = "Main" })
 	end
 	for k = 0, 3 do
 		local hall = WING_HALLS[k]
