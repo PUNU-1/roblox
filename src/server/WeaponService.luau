@@ -2,8 +2,8 @@
 --  • Что у кого есть — атрибуты игрока (HasTaser, HasPistol, Primary, Medkits, патроны AmmoX / ReserveX):
 --    по ним клиент рисует слоты, патроны и руки с оружием. Покупает оружейная (ArmoryService).
 --  • С собой 4 места: 1 — основное (автомат или дробовик), 2 — пистолет, 3 — шокер, 4 — аптечка.
---  • Огнестрел в кобуре, пока нет налёта (атрибут GameState Raid): достать нельзя, налёт кончился — убирается сам.
---    Шокер стреляет только ночью (днём в музее туристы).
+--  • Достать, убрать и перезарядить любое оружие можно и днём, и ночью (этап 8, решение 97).
+--    Огнестрел стреляет только во время налёта (атрибут GameState Raid), шокер — ночью всегда, днём не стреляет ничего.
 --  • Выстрел: клиент шлёт точку и направление. Сервер проверяет, что оружие в руках, темп, патроны, что точка
 --    у головы стрелка, а направление — туда, куда он смотрит, и сам пускает луч. Пули проходят сквозь охрану,
 --    туристов и обычных воров (по безоружным не стреляем) — попадают только в «цели» (грабители, RobberService).
@@ -208,20 +208,15 @@ local function weaponInSlot(player: Player, slot: number): string?
 	return nil
 end
 
-local function canHold(player: Player, weapon: string): boolean
-	if not RoleService.canAct(player) or not roundPhase() then
-		return false
-	end
-	if FIREARMS[weapon] then
-		return raidActive() -- огнестрел — только во время налёта
-	end
-	return true
+-- Достать можно любое оружие на смене, днём и ночью (этап 8, решение 97); стрелять — см. fire.
+local function canHold(player: Player, _weapon: string): boolean
+	return RoleService.canAct(player) and roundPhase()
 end
 
--- Убрать всё огнестрельное (налёт кончился) или вообще всё (лежит без сил).
-local function holster(player: Player, onlyFirearms: boolean)
+-- Убрать всё из рук (лежит без сил, конец ночи).
+local function holster(player: Player)
 	local equipped = player:GetAttribute(PlayerAttr.Equipped)
-	if typeof(equipped) == "string" and equipped ~= "" and (not onlyFirearms or FIREARMS[equipped]) then
+	if typeof(equipped) == "string" and equipped ~= "" then
 		setEquipped(player, "")
 	end
 end
@@ -475,7 +470,7 @@ function WeaponService.grantWeapon(player: Player, weapon: string)
 	elseif weapon == "Rifle" or weapon == "Shotgun" then
 		local old = player:GetAttribute(PlayerAttr.Primary)
 		if typeof(old) == "string" and old ~= "" and old ~= weapon then
-			holster(player, false)
+			holster(player)
 			setAmmo(player, old, 0, 0)
 		end
 		player:SetAttribute(PlayerAttr.Primary, weapon)
@@ -625,17 +620,9 @@ end
 
 function WeaponService.init()
 	setupRemotes()
-	-- Налёт кончился — огнестрел у всех в кобуру
-	GameState.folder():GetAttributeChangedSignal(GameState.Attr.Raid):Connect(function()
-		if not raidActive() then
-			for _, player in Players:GetPlayers() do
-				holster(player, true)
-			end
-		end
-	end)
 	-- Упал без сил — всё из рук
 	HealthService.Downed.Event:Connect(function(player: Player)
-		holster(player, false)
+		holster(player)
 	end)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
@@ -644,10 +631,10 @@ function WeaponService.init()
 	end
 end
 
--- Конец ночи: из рук всё убирается (днём можно снова достать шокер и аптечку).
+-- Конец ночи: из рук всё убирается (днём можно снова достать любое оружие).
 function WeaponService.endNight()
 	for _, player in Players:GetPlayers() do
-		holster(player, false)
+		holster(player)
 		pendingStance[player] = nil
 		if player:GetAttribute(PlayerAttr.Crouch) == true or (tonumber(player:GetAttribute(PlayerAttr.Lean)) or 0) ~= 0 then
 			player:SetAttribute(PlayerAttr.Crouch, false)

@@ -300,7 +300,7 @@ GameState.Attr = {
 	BestNights = "BestNights", -- number, рекорд сервера: сколько ночей продержались
 	TouristsToday = "TouristsToday", -- number, сколько туристов пришло за день
 	Blackout = "Blackout", -- boolean, Светорез вырубил свет и камеры (блок 3)
-	Raid = "Raid", -- boolean, идёт налёт: огнестрел можно достать (блок 4)
+	Raid = "Raid", -- boolean, идёт налёт: огнестрел стреляет (блок 4, этап 8 — решение 97)
 	PoliceAt = "PoliceAt", -- number, когда приедет полиция (0 — налёта нет); вверху POLICE: 60
 	PoliceArrived = "PoliceArrived", -- boolean, полиция приехала: грабители сдаются
 	-- блок 6: команда из хаба

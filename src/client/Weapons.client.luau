@@ -565,7 +565,7 @@ local function refreshHud()
 			end
 			local text
 			if FIREARMS[weapon] then
-				text = if raidActive() then ("%d|%d"):format(predictedAmmo(weapon), reserveOf(weapon)) else "RAID"
+				text = ("%d|%d"):format(predictedAmmo(weapon), reserveOf(weapon))
 			elseif weapon == "Taser" then
 				local left = math.max(taserReadyLocal, number(PlayerAttr.TaserReadyAt)) - now()
 				text = if left > 0 then ("%dS"):format(math.ceil(left)) else "READY"
@@ -611,10 +611,6 @@ local function onSlot(index: number)
 		else
 			showToast(("No %s — buy it in the armory"):format(string.lower(SLOT_TITLES[index])))
 		end
-		return
-	end
-	if FIREARMS[weapon] and not raidActive() and equipped() ~= weapon then
-		showToast("Firearms stay holstered — only during a raid!")
 		return
 	end
 	if downed() then
