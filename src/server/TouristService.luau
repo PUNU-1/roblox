@@ -35,16 +35,44 @@ export type Attraction = {
 	look: Vector3,
 }
 
+type Bench = {
+	model: PVInstance,
+	hall: string,
+	floorY: number,
+	seatTopY: number,
+	lookDir: Vector3,
+	seats: { BenchSeat },
+}
+
+type BenchSeat = {
+	bench: Bench,
+	seatWorld: Vector3,
+	approach: Vector3,
+	occupant: Model?,
+}
+
 type Tourist = {
 	model: Model,
 	humanoid: Humanoid,
 	root: BasePart,
-	state: string, -- Walk | Admire | Leave
+	isChild: boolean,
+	walkSpeed: number,
+	leaveSpeed: number,
+	state: string, -- Walk | Admire | GoBench | Sit | Orbit | Leave
 	waypoints: { PathWaypoint },
 	waypointIndex: number,
 	target: Vector3,
 	look: Vector3,
+	atExhibit: boolean,
+	pointAt: number,
 	admireUntil: number,
+	sitUntil: number,
+	justSat: boolean,
+	benchSeat: BenchSeat?,
+	orbitTarget: Model?,
+	orbitUntil: number,
+	orbitAngle: number,
+	orbitDir: number,
 	visitsLeft: number,
 	computing: boolean,
 	pathToken: number,
@@ -59,6 +87,7 @@ type Tourist = {
 local tourists: { [Model]: Tourist } = {}
 local fading: { [Model]: true } = {} -- тают: уже не обновляются, исчезнут сами (или в endDay)
 local floors: { BasePart } = {} -- полы залов (атрибут Hall), кроме служебных (Wander = false)
+local benches: { Bench } = {} -- скамейки prop_bench_01 в открываемых залах (максимум 2 места на каждой)
 local folder: Folder
 local attractionsProvider: (() -> { Attraction })? = nil
 local updateConnection: RBXScriptConnection? = nil
@@ -84,6 +113,45 @@ local function setAnim(tourist: Tourist, anim: string)
 		tourist.model:SetAttribute(GameState.NpcAttr.AnimStateAt, now())
 		tourist.model:SetAttribute(GameState.NpcAttr.AnimState, anim)
 	end
+end
+
+local function walkAnim(tourist: Tourist): string
+	return if tourist.isChild then Anim.Skip else Anim.Stroll
+end
+
+local function floorAt(position: Vector3): BasePart?
+	for _, floor in floors do
+		local rel = floor.CFrame:PointToObjectSpace(position)
+		if math.abs(rel.X) <= floor.Size.X / 2
+			and math.abs(rel.Z) <= floor.Size.Z / 2
+			and position.Y >= floor.Position.Y - 1
+			and position.Y <= floor.Position.Y + floor.Size.Y / 2 + 3
+		then
+			return floor
+		end
+	end
+	return nil
+end
+
+local function releaseBench(tourist: Tourist)
+	local seat = tourist.benchSeat
+	if seat then
+		if seat.occupant == tourist.model then
+			seat.occupant = nil
+		end
+		tourist.benchSeat = nil
+	end
+end
+
+local function unseat(tourist: Tourist)
+	local seat = tourist.benchSeat
+	if seat and tourist.state == "Sit" then
+		local standY = seat.bench.floorY + tourist.humanoid.HipHeight + tourist.root.Size.Y / 2
+		local standPos = Vector3.new(seat.approach.X, standY, seat.approach.Z)
+		tourist.root.CFrame = CFrame.lookAt(standPos, standPos + seat.bench.lookDir)
+	end
+	tourist.root.Anchored = false
+	releaseBench(tourist)
 end
 
 -- «+$10» (цена билета) всплывает над туристом и тает.
@@ -157,15 +225,15 @@ local function randomWanderSpot(): Attraction
 	return { stand = stand, look = stand + Vector3.new(math.cos(angle), 0, math.sin(angle)) * 5 }
 end
 
-local function nextAttraction(): Attraction
+local function nextAttraction(): (Attraction, boolean)
 	local list = if attractionsProvider then attractionsProvider() else {}
 	if #list > 0 and random:NextNumber() < 0.75 then
 		local spot = pick(list)
 		-- Встаём не в одну точку, чтобы туристы не толпились друг в друге
 		local offset = Vector3.new(random:NextNumber(-2.5, 2.5), 0, random:NextNumber(-1.5, 1.5))
-		return { stand = spot.stand + offset, look = spot.look }
+		return { stand = spot.stand + offset, look = spot.look }, true
 	end
-	return randomWanderSpot()
+	return randomWanderSpot(), false
 end
 
 local function goTo(tourist: Tourist, target: Vector3)
@@ -201,11 +269,76 @@ local function walkTo(tourist: Tourist, target: Vector3)
 end
 
 local function startVisit(tourist: Tourist)
-	local spot = nextAttraction()
+	local spot, atExhibit = nextAttraction()
 	tourist.state = "Walk"
 	tourist.look = spot.look
+	tourist.atExhibit = atExhibit
+	tourist.pointAt = 0
+	tourist.justSat = false
 	walkTo(tourist, spot.stand)
-	setAnim(tourist, Anim.Stroll)
+	setAnim(tourist, walkAnim(tourist))
+end
+
+local function trySitOnBench(tourist: Tourist): boolean
+	if closing or tourist.justSat or #benches == 0 or random:NextNumber() >= TouristConfig.BenchChance then
+		return false
+	end
+	local free: { BenchSeat } = {}
+	for _, bench in benches do
+		if GameState.isHallOpen(bench.hall) then
+			for _, seat in bench.seats do
+				if seat.occupant == nil then
+					table.insert(free, seat)
+				end
+			end
+		end
+	end
+	if #free == 0 then
+		return false
+	end
+	local seat = pick(free)
+	seat.occupant = tourist.model
+	tourist.benchSeat = seat
+	tourist.state = "GoBench"
+	tourist.atExhibit = false
+	tourist.pointAt = 0
+	tourist.look = seat.bench.lookDir
+	walkTo(tourist, seat.approach)
+	setAnim(tourist, walkAnim(tourist))
+	return true
+end
+
+local function tryOrbitAdult(tourist: Tourist): boolean
+	if not tourist.isChild or closing or random:NextNumber() >= TouristConfig.ChildOrbitChance then
+		return false
+	end
+	local position = tourist.root.Position
+	local candidates: { Tourist } = {}
+	for _, other in tourists do
+		if not other.isChild
+			and other.state ~= "Leave"
+			and flatDistance(position, other.root.Position) <= TouristConfig.ChildOrbitSearchRadius
+		then
+			table.insert(candidates, other)
+		end
+	end
+	if #candidates == 0 then
+		return false
+	end
+	local adult = pick(candidates)
+	local delta = position - adult.root.Position
+	tourist.state = "Orbit"
+	tourist.orbitTarget = adult.model
+	tourist.orbitUntil = now() + random:NextNumber(TouristConfig.ChildOrbitMin, TouristConfig.ChildOrbitMax)
+	tourist.orbitAngle = math.atan2(delta.Z, delta.X)
+	tourist.orbitDir = if random:NextNumber() < 0.5 then 1 else -1
+	tourist.computing = false
+	tourist.pathToken += 1
+	tourist.progressAt = now()
+	tourist.progressPosition = position
+	tourist.repaths = 0
+	setAnim(tourist, Anim.Skip)
+	return true
 end
 
 -- Середина двери входа и направление наружу (атрибуты MapBuilder). У старой карты без них — сама точка входа.
@@ -265,17 +398,35 @@ local function chooseExit(position: Vector3): BasePart?
 end
 
 local function startLeaving(tourist: Tourist)
+	unseat(tourist)
+	tourist.orbitTarget = nil
+	tourist.pointAt = 0
 	if closing then
-		tourist.humanoid.WalkSpeed = TouristConfig.LeaveWalkSpeed
+		tourist.humanoid.WalkSpeed = tourist.leaveSpeed
 	end
 	tourist.state = "Leave"
-	setAnim(tourist, Anim.Stroll)
+	setAnim(tourist, walkAnim(tourist))
 	tourist.exit = nil -- чтобы сам себя не считал в толпе у двери
 	local exit = chooseExit(tourist.root.Position)
 	tourist.exit = exit
 	if exit then
 		walkTo(tourist, exitPoint(exit))
 	end
+end
+
+local function advanceAfterStop(tourist: Tourist)
+	tourist.visitsLeft -= 1
+	if closing or tourist.visitsLeft <= 0 then
+		startLeaving(tourist)
+		return
+	end
+	if tryOrbitAdult(tourist) then
+		return
+	end
+	if trySitOnBench(tourist) then
+		return
+	end
+	startVisit(tourist)
 end
 
 ---------------------------------------------------------------- поведение
@@ -286,6 +437,8 @@ local function fadeOut(tourist: Tourist)
 	if not tourists[model] then
 		return
 	end
+	releaseBench(tourist)
+	tourist.orbitTarget = nil
 	tourists[model] = nil
 	fading[model] = true
 	local info = TweenInfo.new(TouristConfig.FadeSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
@@ -322,21 +475,81 @@ local function checkStuck(tourist: Tourist, position: Vector3): boolean
 	return false
 end
 
+local function updateOrbit(tourist: Tourist, position: Vector3)
+	local adultModel = tourist.orbitTarget
+	local adult = if adultModel then tourists[adultModel] else nil
+	if closing or now() >= tourist.orbitUntil or not adult or adult.state == "Leave" then
+		tourist.orbitTarget = nil
+		advanceAfterStop(tourist)
+		return
+	end
+	local adultPos = adult.root.Position
+	local dist = flatDistance(position, adultPos)
+	local radius = TouristConfig.ChildOrbitRadius
+	if dist > radius * 2.5 then
+		if checkStuck(tourist, position) then
+			tourist.orbitTarget = nil
+			startVisit(tourist)
+			return
+		end
+		local dir = Vector3.new(position.X - adultPos.X, 0, position.Z - adultPos.Z)
+		local unit = if dir.Magnitude > 0.1 then dir.Unit else Vector3.new(1, 0, 0)
+		tourist.humanoid:MoveTo(adultPos + unit * radius)
+		return
+	end
+	tourist.orbitAngle += tourist.orbitDir * TouristConfig.ChildOrbitAngularSpeed * TouristConfig.UpdateSeconds
+	local offset = Vector3.new(math.cos(tourist.orbitAngle) * radius, 0, math.sin(tourist.orbitAngle) * radius)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.RespectCanCollide = true
+	params.FilterDescendantsInstances = { folder }
+	local origin = Vector3.new(adultPos.X, position.Y, adultPos.Z)
+	local hit = Workspace:Raycast(origin, offset, params)
+	local targetPoint = origin + offset
+	if hit then
+		tourist.orbitDir = -tourist.orbitDir
+		local safeDist = math.max(1, hit.Distance - 1)
+		targetPoint = origin + offset.Unit * safeDist
+	end
+	if checkStuck(tourist, position) then
+		tourist.orbitTarget = nil
+		startVisit(tourist)
+		return
+	end
+	tourist.humanoid:MoveTo(targetPoint)
+end
+
 local function updateTourist(tourist: Tourist)
 	if tourist.computing then
 		return
 	end
 	local position = tourist.root.Position
+	if tourist.state == "Sit" then
+		if closing then
+			startLeaving(tourist)
+			return
+		end
+		if now() >= tourist.sitUntil then
+			unseat(tourist)
+			advanceAfterStop(tourist)
+		end
+		return
+	end
+
 	if tourist.state == "Admire" then
 		tourist.humanoid:MoveTo(position)
-		if now() >= tourist.admireUntil then
-			tourist.visitsLeft -= 1
-			if tourist.visitsLeft > 0 then
-				startVisit(tourist)
-			else
-				startLeaving(tourist)
-			end
+		if tourist.pointAt > 0 and now() >= tourist.pointAt then
+			tourist.pointAt = 0
+			setAnim(tourist, Anim.Point)
+			tourist.admireUntil = now() + random:NextNumber(TouristConfig.PointMin, TouristConfig.PointMax)
+		elseif now() >= tourist.admireUntil then
+			advanceAfterStop(tourist)
 		end
+		return
+	end
+
+	if tourist.state == "Orbit" then
+		updateOrbit(tourist, position)
 		return
 	end
 
@@ -353,6 +566,35 @@ local function updateTourist(tourist: Tourist)
 		if tourist.computing then
 			return -- путь пересчитывается
 		end
+	elseif tourist.state == "GoBench" then
+		local seat = tourist.benchSeat
+		local stuck = checkStuck(tourist, position) or now() - tourist.walkStarted > TouristConfig.WalkTimeout
+		if not seat or seat.occupant ~= tourist.model then
+			releaseBench(tourist)
+			startVisit(tourist)
+			return
+		end
+		if flatDistance(position, tourist.target) < TouristConfig.ReachDistance then
+			tourist.state = "Sit"
+			tourist.sitUntil = now() + random:NextNumber(TouristConfig.SitMin, TouristConfig.SitMax)
+			tourist.justSat = true
+			tourist.humanoid:MoveTo(position)
+			tourist.root.Anchored = true
+			local scale = tourist.model:GetScale()
+			local sitY = seat.bench.seatTopY + 0.55 * scale
+			local seatPos = Vector3.new(seat.seatWorld.X, sitY, seat.seatWorld.Z)
+			tourist.root.CFrame = CFrame.lookAt(seatPos, seatPos + seat.bench.lookDir)
+			setAnim(tourist, Anim.Sit)
+			return
+		end
+		if stuck then
+			releaseBench(tourist)
+			startVisit(tourist)
+			return
+		end
+		if tourist.computing then
+			return
+		end
 	else
 		-- Walk: дошёл — или застрял (тогда смотрит, где стоит)
 		local stuck = checkStuck(tourist, position) or now() - tourist.walkStarted > TouristConfig.WalkTimeout
@@ -360,7 +602,19 @@ local function updateTourist(tourist: Tourist)
 			tourist.state = "Admire"
 			tourist.admireUntil = now() + random:NextNumber(TouristConfig.AdmireMin, TouristConfig.AdmireMax)
 			tourist.root.CFrame = CFrame.lookAt(position, Vector3.new(tourist.look.X, position.Y, tourist.look.Z))
-			setAnim(tourist, if random:NextNumber() < TouristConfig.PhotoChance then Anim.Photo else Anim.Admire)
+			local atExhibit = tourist.atExhibit and not stuck
+			if atExhibit and random:NextNumber() < TouristConfig.PhotoChance then
+				tourist.pointAt = 0
+				setAnim(tourist, Anim.Photo)
+			else
+				setAnim(tourist, Anim.Admire)
+				if atExhibit and random:NextNumber() < TouristConfig.PointChance then
+					local delay = math.min(1.5, (tourist.admireUntil - now()) * 0.4)
+					tourist.pointAt = now() + delay
+				else
+					tourist.pointAt = 0
+				end
+			end
 			tourist.humanoid:MoveTo(position)
 			return
 		end
@@ -379,8 +633,8 @@ end
 ---------------------------------------------------------------- появление
 
 -- Внешний вид — TouristLooks (этап 5, блок F1): шляпы, волосы, очки, рюкзаки, фотоаппараты, разные цвета.
-local function createTourist(): Model?
-	return TouristLooks.create()
+local function createTourist(isChild: boolean): Model?
+	return TouristLooks.create(isChild)
 end
 
 local function spawnTourist(): boolean
@@ -388,7 +642,8 @@ local function spawnTourist(): boolean
 	if #entrances == 0 then
 		return false
 	end
-	local model = createTourist()
+	local isChild = (touristsToday + 1) % TouristConfig.ChildEvery == 0
+	local model = createTourist(isChild)
 	if not model then
 		return false
 	end
@@ -398,10 +653,13 @@ local function spawnTourist(): boolean
 		model:Destroy()
 		return false
 	end
+	local speedMul = if isChild then TouristConfig.ChildSpeedMultiplier else 1
+	local walkSpeed = TouristConfig.WalkSpeed * speedMul
+	local leaveSpeed = TouristConfig.LeaveWalkSpeed * speedMul
 	model.Name = "Tourist"
 	ModelLibrary.setCollisionGroup(model, ModelLibrary.Groups.Tourists)
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-	humanoid.WalkSpeed = TouristConfig.WalkSpeed
+	humanoid.WalkSpeed = walkSpeed
 	model:PivotTo(pick(entrances).CFrame) -- через любой из 4 входов
 	model.Parent = folder
 	pcall(function()
@@ -412,12 +670,24 @@ local function spawnTourist(): boolean
 		model = model,
 		humanoid = humanoid,
 		root = root,
+		isChild = isChild,
+		walkSpeed = walkSpeed,
+		leaveSpeed = leaveSpeed,
 		state = "Walk",
 		waypoints = {},
 		waypointIndex = 1,
 		target = root.Position,
 		look = root.Position,
+		atExhibit = false,
+		pointAt = 0,
 		admireUntil = 0,
+		sitUntil = 0,
+		justSat = false,
+		benchSeat = nil,
+		orbitTarget = nil,
+		orbitUntil = 0,
+		orbitAngle = 0,
+		orbitDir = 1,
 		visitsLeft = random:NextInteger(TouristConfig.VisitsMin, TouristConfig.VisitsMax),
 		computing = false,
 		pathToken = 0,
@@ -507,7 +777,7 @@ function TouristService.closeMuseum()
 		if tourist.state ~= "Leave" then
 			startLeaving(tourist)
 		else
-			tourist.humanoid.WalkSpeed = TouristConfig.LeaveWalkSpeed
+			tourist.humanoid.WalkSpeed = tourist.leaveSpeed
 		end
 	end
 end
@@ -538,6 +808,11 @@ function TouristService.endDay()
 		updateConnection:Disconnect()
 		updateConnection = nil
 	end
+	for _, bench in benches do
+		for _, seat in bench.seats do
+			seat.occupant = nil
+		end
+	end
 	for model in tourists do
 		model:Destroy()
 	end
@@ -546,6 +821,76 @@ function TouristService.endDay()
 		model:Destroy()
 	end
 	table.clear(fading)
+end
+
+local function collectBenches(map: Instance)
+	table.clear(benches)
+	local props = map:FindFirstChild(MapSchema.Props)
+	if not props then
+		return
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.RespectCanCollide = true
+	local offset = TouristConfig.BenchSeatOffset
+	local approachDist = TouristConfig.BenchApproachDistance
+	for _, child in props:GetChildren() do
+		if child.Name ~= MapSchema.Models.Bench or not child:IsA("PVInstance") then
+			continue
+		end
+		local pivot = child:GetPivot()
+		local floor = floorAt(pivot.Position)
+		local hall = if floor then floor:GetAttribute("Hall") else nil
+		if not (floor and typeof(hall) == "string") then
+			continue -- скамейки комнаты охраны (Lobby) и прочих зон вне музея не берём
+		end
+		local floorY = floor.Position.Y + floor.Size.Y / 2
+		local seatPart = child:FindFirstChild("Seat", true)
+		local seatTopY = if seatPart and seatPart:IsA("BasePart")
+			then seatPart.Position.Y + seatPart.Size.Y / 2
+			else floorY + TouristConfig.BenchSeatHeight
+
+		params.FilterDescendantsInstances = { child, folder }
+		local function isSideOpen(side: number): boolean
+			local probe = (pivot * CFrame.new(0, 0, side * approachDist)).Position
+			if not floorAt(Vector3.new(probe.X, floorY, probe.Z)) then
+				return false
+			end
+			local origin = Vector3.new(pivot.Position.X, floorY + 2, pivot.Position.Z)
+			local delta = Vector3.new(probe.X - origin.X, 0, probe.Z - origin.Z)
+			return Workspace:Raycast(origin, delta, params) == nil
+		end
+
+		local openSide: number? = if isSideOpen(-1) then -1 elseif isSideOpen(1) then 1 else nil
+		if not openSide then
+			continue
+		end
+		local rawDir = pivot.LookVector * (if openSide == -1 then 1 else -1)
+		local flatDir = Vector3.new(rawDir.X, 0, rawDir.Z)
+		local lookDir = if flatDir.Magnitude > 0.05 then flatDir.Unit else Vector3.new(0, 0, -1)
+
+		local seats: { BenchSeat } = {}
+		local bench: Bench = {
+			model = child,
+			hall = hall,
+			floorY = floorY,
+			seatTopY = seatTopY,
+			lookDir = lookDir,
+			seats = seats,
+		}
+		for i = 1, TouristConfig.BenchMaxOccupants do
+			local x = if TouristConfig.BenchMaxOccupants == 1 then 0 else ((i - 1) * 2 - 1) * offset
+			local seatWorld = (pivot * CFrame.new(x, 0, 0)).Position
+			local approachWorld = (pivot * CFrame.new(x, 0, openSide * approachDist)).Position
+			table.insert(seats, {
+				bench = bench,
+				seatWorld = seatWorld,
+				approach = Vector3.new(approachWorld.X, floorY + 2, approachWorld.Z),
+				occupant = nil,
+			})
+		end
+		table.insert(benches, bench)
+	end
 end
 
 function TouristService.init(map: Instance)
@@ -558,6 +903,7 @@ function TouristService.init(map: Instance)
 		created.Parent = Workspace
 		folder = created
 	end
+	table.clear(floors)
 	local geometry = map:FindFirstChild(MapSchema.Geometry)
 	if geometry then
 		for _, part in geometry:GetChildren() do
@@ -566,6 +912,7 @@ function TouristService.init(map: Instance)
 			end
 		end
 	end
+	collectBenches(map)
 	if not map:FindFirstChild(MapSchema.Entrances) then
 		warn("[TouristService] На карте нет входов для туристов")
 	end

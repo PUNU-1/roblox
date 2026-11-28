@@ -190,7 +190,7 @@ end
 ---------------------------------------------------------------- сборка
 
 -- Новый турист (ещё не в мире): случайное тело, одежда и вещи. nil — если Roblox не смог собрать персонажа.
-function TouristLooks.create(): Model?
+function TouristLooks.create(isChild: boolean?): Model?
 	local description = Instance.new("HumanoidDescription")
 	local skin = color(SKIN)
 	local shirt = color(SHIRTS)
@@ -202,7 +202,7 @@ function TouristLooks.create(): Model?
 	description.LeftLegColor = color(PANTS)
 	description.RightLegColor = description.LeftLegColor
 	-- Чуть разный рост и сложение: толпа не из клонов
-	description.HeightScale = random:NextNumber(0.9, 1.08)
+	description.HeightScale = if isChild then random:NextNumber(0.95, 1.04) else random:NextNumber(0.9, 1.08)
 	description.WidthScale = random:NextNumber(0.92, 1.08)
 	local model = ModelLibrary.createRig(description)
 	description:Destroy()
@@ -223,7 +223,7 @@ function TouristLooks.create(): Model?
 			bucketHat(model, h)
 		end
 	end
-	if chance(Looks.GlassesChance) then
+	if not isChild and chance(Looks.GlassesChance) then
 		sunglasses(model, h)
 	end
 	if chance(Looks.PrintChance) then
@@ -235,10 +235,13 @@ function TouristLooks.create(): Model?
 	if chance(Looks.CameraChance) then
 		camera(model)
 	end
-	if chance(Looks.WaistBagChance) then
+	if not isChild and chance(Looks.WaistBagChance) then
 		waistBag(model)
 	end
 	shoes(model)
+	if isChild then
+		model:ScaleTo(Config.Tourists.ChildScale)
+	end
 	return model
 end
 
