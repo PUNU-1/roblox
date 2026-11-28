@@ -1,6 +1,7 @@
 --!strict
--- Витрина MVP в итоге ночи (этап 6, блок I3): ViewportFrame 260×300 с копией лучшего охранника
--- на мраморно-золотом пьедестале, золотой короной над головой, медленным вращением и подписью.
+-- Витрина MVP в итоге ночи (этап 6, блок I3; этап 7, задание K2): ViewportFrame 260×300 с копией лучшего охранника
+-- на мраморно-золотом пьедестале, золотой короной над головой, медленным вращением, подписью и позой через
+-- Motor6D.Transform (радость с прыжками после пережитой ночи, грустное разведение руками на GAME OVER).
 -- При закрытии окна итога отключает RenderStepped и уничтожает клон персонажа без утечек.
 
 local Players = game:GetService("Players")
@@ -21,10 +22,134 @@ export type Showcase = {
 	frame: Frame,
 	width: number,
 	height: number,
-	show: (userId: number, displayName: string, arrests: number) -> (),
+	show: (userId: number, displayName: string, arrests: number, gameOver: boolean?) -> (),
 	hide: () -> (),
 	destroy: () -> (),
 }
+
+type Joint = Motor6D | AnimationConstraint
+type Pose = { [string]: CFrame }
+
+local JOINTS = {
+	"Root",
+	"Waist",
+	"Neck",
+	"LeftShoulder",
+	"RightShoulder",
+	"LeftElbow",
+	"RightElbow",
+	"LeftWrist",
+	"RightWrist",
+	"LeftHip",
+	"RightHip",
+	"LeftKnee",
+	"RightKnee",
+	"LeftAnkle",
+	"RightAnkle",
+}
+
+local function R(x: number, y: number?, z: number?): CFrame
+	return CFrame.Angles(x, y or 0, z or 0)
+end
+
+local function smooth(t: number): number
+	local c = math.clamp(t, 0, 1)
+	return c * c * (3 - 2 * c)
+end
+
+local function collectJoints(character: Model): { [string]: Joint }
+	local joints: { [string]: Joint } = {}
+	for _, desc in character:GetDescendants() do
+		if (desc:IsA("Motor6D") or desc:IsA("AnimationConstraint")) and table.find(JOINTS, desc.Name) then
+			joints[desc.Name] = desc
+		end
+	end
+	return joints
+end
+
+local function applyPose(joints: { [string]: Joint }, pose: Pose)
+	for name, joint in joints do
+		local transform = pose[name] or CFrame.identity
+		if joint:IsA("Motor6D") then
+			joint.Transform = transform
+		elseif joint:IsA("AnimationConstraint") then
+			joint.Transform = transform
+		end
+	end
+end
+
+-- Радость пережитой ночи: подпрыгивает и весело машет поднятыми руками (цикл ~2 сек).
+local function celebratePose(t: number): (Pose, number)
+	local period = math.max(0.5, Settings.MvpCelebratePeriod)
+	local p = (t % period) / period
+	local rootY = 0
+	local hipBend = 0
+	local kneeBend = 0
+	if p < 0.14 then
+		local k = smooth(p / 0.14)
+		rootY = -0.16 * k
+		hipBend = 0.24 * k
+		kneeBend = -0.45 * k
+	elseif p < 0.60 then
+		local air = math.sin((p - 0.14) / 0.46 * math.pi)
+		rootY = Settings.MvpJumpHeight * air
+		hipBend = 0.30 * air
+		kneeBend = -0.55 * air
+	elseif p < 0.78 then
+		local land = math.sin((p - 0.60) / 0.18 * math.pi)
+		rootY = -0.14 * land
+		hipBend = 0.20 * land
+		kneeBend = -0.38 * land
+	end
+
+	local wave = math.sin(p * math.pi * 4)
+	local waveCos = math.cos(p * math.pi * 4)
+	local sway = math.sin(p * math.pi * 2)
+
+	local pose: Pose = {
+		Root = CFrame.new(0, rootY, 0) * R(0, 0, 0.04 * sway),
+		Waist = R(0.06 * math.max(0, rootY), 0.12 * sway, 0.05 * waveCos),
+		Neck = R(0.14 + 0.06 * wave, 0.12 * sway, 0.06 * waveCos),
+		LeftShoulder = R(2.78 + 0.20 * wave, 0, -0.38 - 0.20 * waveCos),
+		RightShoulder = R(2.78 - 0.20 * wave, 0, 0.38 + 0.20 * waveCos),
+		LeftElbow = R(0.35 + 0.22 * wave),
+		RightElbow = R(0.35 - 0.22 * wave),
+		LeftWrist = R(0, 0, -0.15 * waveCos),
+		RightWrist = R(0, 0, 0.15 * waveCos),
+		LeftHip = R(hipBend + 0.06 * sway, 0, -0.06),
+		RightHip = R(hipBend - 0.06 * sway, 0, 0.06),
+		LeftKnee = R(kneeBend),
+		RightKnee = R(kneeBend),
+		LeftAnkle = R(-hipBend - kneeBend * 0.5),
+		RightAnkle = R(-hipBend - kneeBend * 0.5),
+	}
+	return pose, rootY
+end
+
+-- Грусть на GAME OVER: поникшая голова и разведённые в стороны руки.
+local function sadPose(t: number): (Pose, number)
+	local sway = math.sin(t * Settings.MvpSadSwaySpeed)
+	local shrug = 0.5 + 0.5 * math.sin(t * Settings.MvpSadSwaySpeed * 1.25)
+	local rootY = -0.08
+	local pose: Pose = {
+		Root = CFrame.new(0, rootY, 0),
+		Waist = R(-0.18 - 0.03 * shrug, 0, 0.04 * sway),
+		Neck = R(-0.36 - 0.05 * shrug, 0.22 * sway, 0.08 * sway),
+		LeftShoulder = R(0.55 + 0.16 * shrug, -0.25, -0.78 - 0.18 * shrug),
+		RightShoulder = R(0.55 + 0.16 * shrug, 0.25, 0.78 + 0.18 * shrug),
+		LeftElbow = R(0.88 + 0.12 * shrug),
+		RightElbow = R(0.88 + 0.12 * shrug),
+		LeftWrist = R(0, 0, 0.35),
+		RightWrist = R(0, 0, -0.35),
+		LeftHip = R(0.10, 0, -0.04),
+		RightHip = R(0.10, 0, 0.04),
+		LeftKnee = R(-0.18),
+		RightKnee = R(-0.18),
+		LeftAnkle = R(0.08),
+		RightAnkle = R(0.08),
+	}
+	return pose, rootY
+end
 
 local BOX_PAD = 8
 local HEADER_H = 22
@@ -238,6 +363,7 @@ local function cloneCharacterOnPedestal(source: Model, parent: Instance, pedesta
 	local toRemove: { Instance } = {}
 	for _, desc in cloned:GetDescendants() do
 		if desc:IsA("LuaSourceContainer")
+			or desc:IsA("Animator")
 			or desc:IsA("ForceField")
 			or desc:IsA("ProximityPrompt")
 			or desc:IsA("BillboardGui")
@@ -250,6 +376,8 @@ local function cloneCharacterOnPedestal(source: Model, parent: Instance, pedesta
 		then
 			table.insert(toRemove, desc)
 		elseif desc:IsA("Motor6D") then
+			desc.Transform = CFrame.identity
+		elseif desc:IsA("AnimationConstraint") then
 			desc.Transform = CFrame.identity
 		elseif desc:IsA("Humanoid") then
 			desc.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
@@ -296,9 +424,54 @@ local function cloneCharacterOnPedestal(source: Model, parent: Instance, pedesta
 	end
 
 	cloned:PivotTo(cloned:GetPivot() + Vector3.new(0, pedestalTopY - footBottomY, 0))
+
+	-- Фиксируем только корень, а части тела и аксессуары на суставах/сварках оставляем свободными для Motor6D.Transform.
+	local connected: { [BasePart]: boolean } = {}
+	if root and root:IsA("BasePart") then
+		connected[root] = true
+		local changed = true
+		while changed do
+			changed = false
+			for _, desc in cloned:GetDescendants() do
+				if desc:IsA("JointInstance") or desc:IsA("WeldConstraint") then
+					local p0 = desc.Part0
+					local p1 = desc.Part1
+					if p0 and p1 then
+						if connected[p0] and not connected[p1] then
+							connected[p1] = true
+							changed = true
+						elseif connected[p1] and not connected[p0] then
+							connected[p0] = true
+							changed = true
+						end
+					end
+				elseif desc:IsA("AnimationConstraint") then
+					local a0 = desc.Attachment0
+					local a1 = desc.Attachment1
+					local ap0 = if a0 then a0.Parent else nil
+					local ap1 = if a1 then a1.Parent else nil
+					if ap0 and ap1 and ap0:IsA("BasePart") and ap1:IsA("BasePart") then
+						if connected[ap0] and not connected[ap1] then
+							connected[ap1] = true
+							changed = true
+						elseif connected[ap1] and not connected[ap0] then
+							connected[ap0] = true
+							changed = true
+						end
+					end
+				end
+			end
+		end
+	end
 	for _, desc in cloned:GetDescendants() do
 		if desc:IsA("BasePart") then
-			desc.Anchored = true
+			if root and desc == root then
+				desc.Anchored = true
+			elseif root and connected[desc] then
+				desc.Anchored = false
+			else
+				desc.Anchored = true
+			end
 		end
 	end
 
@@ -417,10 +590,11 @@ function MvpShowcase.new(parent: Instance, zIndex: number?): Showcase
 		end
 	end
 
-	local function show(userId: number, displayName: string, arrests: number)
+	local function show(userId: number, displayName: string, arrests: number, gameOver: boolean?)
 		clearScene()
 		caption.Text = formatLabel(displayName, arrests)
 		frame.Visible = true
+		local isGameOver = gameOver == true
 
 		local scene = Instance.new("Model")
 		scene.Name = "MvpScene"
@@ -431,10 +605,13 @@ function MvpShowcase.new(parent: Instance, zIndex: number?): Showcase
 		local player = Players:GetPlayerByUserId(userId)
 		local sourceChar = if player then player.Character else nil
 		local crownBaseY = pedestalTopY + 0.8
+		local clonedChar: Model? = nil
 		if sourceChar then
-			local _, computedCrownY = cloneCharacterOnPedestal(sourceChar, scene, pedestalTopY)
+			local charModel, computedCrownY = cloneCharacterOnPedestal(sourceChar, scene, pedestalTopY)
+			clonedChar = charModel
 			crownBaseY = computedCrownY
 		end
+		local joints = if clonedChar then collectJoints(clonedChar) else {}
 
 		local crown = buildCrown(scene, crownBaseY)
 
@@ -445,7 +622,7 @@ function MvpShowcase.new(parent: Instance, zIndex: number?): Showcase
 		local aspect = vpW / vpH
 		local distV = (boxSize.Y / 2) / tanHalf
 		local distH = (math.max(boxSize.X, boxSize.Z) / 2) / (tanHalf * aspect)
-		local distance = math.max(distV, distH) * 1.15
+		local distance = math.max(distV, distH) * Settings.MvpCameraMargin
 
 		local angle = 0.35
 		local elapsed = 0
@@ -454,8 +631,15 @@ function MvpShowcase.new(parent: Instance, zIndex: number?): Showcase
 			local dir = (rot * Vector3.new(0, 0.16, -1)).Unit
 			camera.CFrame = CFrame.lookAt(center + dir * distance, center)
 			viewport.LightDirection = (rot * Vector3.new(-0.45, -0.75, 0.75)).Unit
+			local pose: Pose, rootY: number
+			if isGameOver then
+				pose, rootY = sadPose(elapsed)
+			else
+				pose, rootY = celebratePose(elapsed)
+			end
+			applyPose(joints, pose)
 			local bob = math.sin(elapsed * Settings.MvpCrownFloatSpeed) * Settings.MvpCrownFloatAmplitude
-			crown:PivotTo(CFrame.new(0, crownBaseY + bob, 0))
+			crown:PivotTo(CFrame.new(0, crownBaseY + bob + rootY, 0))
 		end
 
 		updatePose()
@@ -463,8 +647,9 @@ function MvpShowcase.new(parent: Instance, zIndex: number?): Showcase
 			if not frame.Visible then
 				return
 			end
-			angle += dt * Settings.MvpSpinSpeed
-			elapsed += dt
+			local stepDt = math.min(dt, 0.1)
+			angle += stepDt * Settings.MvpSpinSpeed
+			elapsed += stepDt
 			updatePose()
 		end)
 	end
@@ -474,7 +659,13 @@ function MvpShowcase.new(parent: Instance, zIndex: number?): Showcase
 		clearScene()
 	end
 
+	local destroyConn: RBXScriptConnection? = frame.Destroying:Connect(clearScene)
+
 	local function destroy()
+		if destroyConn then
+			destroyConn:Disconnect()
+			destroyConn = nil
+		end
 		hide()
 		frame:Destroy()
 	end

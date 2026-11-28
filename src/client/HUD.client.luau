@@ -690,7 +690,7 @@ local function showResults(results: { [string]: any })
 	if resultsMvpVisible then
 		local bestPlayer = Players:GetPlayerByUserId(best)
 		local displayName = bestName or (if bestPlayer then bestPlayer.DisplayName else "Guard")
-		mvpShowcase.show(best, displayName, bestCatches)
+		mvpShowcase.show(best, displayName, bestCatches, resultsGameOver)
 	else
 		mvpShowcase.hide()
 	end
