@@ -228,6 +228,23 @@ if Mobile.enabled then
 	end)
 end
 
+---------------------------------------------------------------- действие оружия для умной кнопки
+
+-- Что сейчас делает умная кнопка оружием (FIRE, TASER, HEAL), если рядом нет подсказки ProximityPrompt.
+-- Заполняет Weapons.client (там курок и аптечка), читает SmartButton.client.
+export type Action = { label: string, icon: string, press: () -> (), release: () -> () }
+
+local weaponAction: (() -> Action?)? = nil
+
+function Mobile.setWeaponAction(fn: () -> Action?)
+	weaponAction = fn
+end
+
+function Mobile.weaponAction(): Action?
+	local fn = weaponAction
+	return if fn then fn() else nil
+end
+
 ---------------------------------------------------------------- круглая кнопка
 
 export type RoundButton = {

@@ -22,6 +22,7 @@ local WeaponModels = require(Shared:WaitForChild("WeaponModels"))
 local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
 local TouchButtons = require(script.Parent:WaitForChild("UI"):WaitForChild("TouchButtons"))
 local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelButton"))
+local Mobile = require(script.Parent:WaitForChild("UI"):WaitForChild("Mobile"))
 local Fx = require(script.Parent:WaitForChild("Fx"))
 local ActionProps = require(script.Parent:WaitForChild("ActionProps"))
 
@@ -828,18 +829,36 @@ if touchOnly then
 	touch.Crouch = TouchButtons.new({ place = "Crouch", icon = "Crouch", label = "CROUCH", onActivated = begin(onCrouchAction, CROUCH_ACTION) })
 	touch.LeanLeft = TouchButtons.new({ place = "LeanLeft", icon = "ArrowLeft", label = "LEAN", onActivated = begin(onLeanAction, LEAN_LEFT_ACTION) })
 	touch.LeanRight = TouchButtons.new({ place = "LeanRight", icon = "ArrowRight", label = "LEAN", onActivated = begin(onLeanAction, LEAN_RIGHT_ACTION) })
-	touch.Fire = TouchButtons.new({
-		place = "Fire",
-		icon = "Fire",
-		label = "FIRE",
-		big = true,
-		onPress = function()
-			onFireAction(FIRE_ACTION, Enum.UserInputState.Begin)
-		end,
-		onRelease = function()
-			onFireAction(FIRE_ACTION, Enum.UserInputState.End)
-		end,
-	})
+
+	-- Огонь — умная кнопка (этап 8, блок Q, SmartButton.client): FIRE в налёт, TASER ночью, HEAL с аптечкой.
+	-- Вне налёта огнестрел не стреляет — кнопка бледная (подсказка рядом всё равно важнее).
+	local function trigger(label: string, icon: string): Mobile.Action
+		return {
+			label = label,
+			icon = icon,
+			press = function()
+				onFireAction(FIRE_ACTION, Enum.UserInputState.Begin)
+			end,
+			release = function()
+				onFireAction(FIRE_ACTION, Enum.UserInputState.End)
+			end,
+		}
+	end
+	Mobile.setWeaponAction(function(): Mobile.Action?
+		if not onShift() or downed() or viewing() or spectating() or knocked() or reviving() then
+			return nil
+		end
+		local kind = equipped()
+		local night = GameState.phase() == GameState.Phase.Night
+		if FIREARMS[kind] and night and raidActive() then
+			return trigger("FIRE", "Fire")
+		elseif kind == "Taser" and night then
+			return trigger("TASER", "Taser")
+		elseif kind == "Medkit" then
+			return trigger("HEAL", "Medkit")
+		end
+		return nil
+	end)
 end
 
 local function showTouch(names: { string }, visible: boolean)
@@ -875,7 +894,7 @@ local function setBound(shift: boolean, holding: boolean)
 			taserReadyLocal = 0
 		end
 	end
-	-- На телефоне — большая кнопка «огонь», пока в руках оружие или аптечка (на геймпаде — правый курок)
+	-- На геймпаде — правый курок, пока в руках оружие или аптечка (на телефоне — умная кнопка, SmartButton.client)
 	local wantFire = shift and holding
 	if wantFire ~= fireBound then
 		fireBound = wantFire
@@ -889,7 +908,6 @@ local function setBound(shift: boolean, holding: boolean)
 	local show = shift and not viewing() and not downed()
 	showTouch({ "Crouch", "LeanLeft", "LeanRight" }, show)
 	showTouch({ "Reload" }, show and FIREARMS[equipped()] == true)
-	showTouch({ "Fire" }, show and wantFire)
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
