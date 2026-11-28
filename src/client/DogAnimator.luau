@@ -59,9 +59,6 @@ local POSE_KEYS = {
 	"bodyY", "sit", "rock", "roll", "headYaw", "headPitch", "headTilt", "jaw",
 	"tailYaw", "tailLift", "tail2Lift", "legFL", "legFR", "legBL", "legBR",
 }
-local FAST_KEYS: { [string]: boolean } = { -- в шаге эти части идут за ритмом сразу, без сглаживания
-	legFL = true, legFR = true, legBL = true, legBR = true, bodyY = true, rock = true, roll = true,
-}
 
 function DogAnimator.newPose(): Pose
 	return {
@@ -131,12 +128,10 @@ function DogAnimator.solve(rig: Rig, root: CFrame, pose: Pose, bulk: boolean)
 	end
 end
 
-local function blendPose(pose: Pose, target: Pose, dt: number, moving: boolean)
-	local slow = math.min(1, dt * Settings.BlendSpeed)
-	local fast = math.min(1, dt * 22)
+local function blendPose(pose: Pose, target: Pose, dt: number)
+	local a = 1 - math.exp(-dt * Settings.BlendSpeed)
 	local p, q = pose :: any, target :: any
 	for _, key in POSE_KEYS do
-		local a = if moving and FAST_KEYS[key] then fast else slow
 		p[key] += (q[key] - p[key]) * a
 	end
 end
@@ -551,7 +546,9 @@ local function updateView(view: View, dt: number, camera: Camera?)
 	elseif feet and ((feet - pos) * Vector3.new(1, 0, 1)).Magnitude > 1.2 then
 		desiredYaw = yawFor((feet - pos) * Vector3.new(1, 0, 1))
 	end
-	view.yaw = turnToward(view.yaw, desiredYaw, dt * (if moving then 10 else 5))
+	local turnDelta = (desiredYaw - view.yaw + math.pi) % (2 * math.pi) - math.pi
+	local turnLead = math.clamp(turnDelta, -0.7, 0.7)
+	view.yaw = turnToward(view.yaw, desiredYaw, 1 - math.exp(-dt * (if moving then 10 else 5)))
 	local rootCFrame = CFrame.new(pos) * CFrame.Angles(0, view.yaw, 0)
 
 	-- Куда смотрит голова
@@ -585,7 +582,7 @@ local function updateView(view: View, dt: number, camera: Camera?)
 	local t = clock
 	if moving then
 		local gallop = view.speed > Settings.RunSpeed
-		view.gait += step * (if gallop then Settings.GallopStride else Settings.TrotStride)
+		view.gait = (view.gait + step * (if gallop then Settings.GallopStride else Settings.TrotStride)) % (math.pi * 2)
 		local phase = view.gait
 		local s = math.sin(phase)
 		if gallop then
@@ -612,13 +609,15 @@ local function updateView(view: View, dt: number, camera: Camera?)
 			p.tailLift = 0.15
 			p.tailYaw = 0.35 * math.sin(t * 8)
 		end
-		p.headYaw = lookYaw * 0.4
+		p.headYaw = math.clamp(lookYaw * 0.4 + turnLead, -1.1, 1.1)
+		p.roll -= turnLead * 0.15
 	elseif sitting then
 		sitPose(p, t, lookYaw, lookPitch)
 	else
-		p.headYaw = lookYaw
-		p.headPitch = lookPitch
-		p.bodyY = 0.015 * math.sin(t * 2.5)
+		local breathe = math.sin(t * 2.5)
+		p.headYaw = math.clamp(lookYaw + turnLead * 0.5, -1.1, 1.1)
+		p.headPitch = lookPitch + 0.02 * breathe
+		p.bodyY = 0.015 * breathe
 		if alert then
 			-- Стойка: собрана, чуть вперёд, хвост трубой и мелко дрожит
 			p.bodyY += 0.04
@@ -643,7 +642,7 @@ local function updateView(view: View, dt: number, camera: Camera?)
 		p.legFL -= 0.12 * pulse
 		p.legFR -= 0.12 * pulse
 	end
-	blendPose(view.pose, p, dt, moving)
+	blendPose(view.pose, p, dt)
 
 	-- «!» над собакой, пока рядом вор
 	if view.alert and alert ~= view.alertShown then
@@ -655,9 +654,11 @@ local function updateView(view: View, dt: number, camera: Camera?)
 		end
 	end
 
-	-- Далеко от камеры — детали двигаем реже
-	local far = camera ~= nil and (camera.CFrame.Position - pos).Magnitude > Settings.CullDistance
-	if far and clock - view.lastSolve < 0.5 then
+	-- Далеко от камеры — детали двигаем реже (15 Гц за 80 стадов, ещё реже за CullDistance)
+	local dist = if camera then (camera.CFrame.Position - pos).Magnitude else 0
+	if dist > Settings.CullDistance and clock - view.lastSolve < 0.5 then
+		return
+	elseif dist > Config.Animations.LodDistance and clock - view.lastSolve < Config.Animations.LodInterval then
 		return
 	end
 	view.lastSolve = clock

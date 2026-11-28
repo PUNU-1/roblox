@@ -21,6 +21,7 @@ local PlayerAttr = GameState.PlayerAttr
 local Knock = Config.Knockdown
 local HealthSettings = Config.Health
 local Stance = Config.Stance
+local Anim = Config.Animations
 
 local localPlayer = Players.LocalPlayer
 
@@ -53,8 +54,10 @@ type Rig = {
 	current: Pose, -- наша поза (плавно догоняет нужную)
 	weights: { [string]: number }, -- 0 — сустав двигает обычная анимация, 1 — наша поза
 	phase: number, -- шаг (ползёт, идёт присев)
-	lastPosition: Vector3?,
 	speed: number,
+	lastYaw: number?,
+	turnLead: number,
+	breathOffset: number,
 }
 
 local rigs: { [Model]: Rig } = {}
@@ -280,6 +283,21 @@ local function standingPose(player: Player, _character: Model, rig: Rig, clock: 
 		pose.Waist = (pose.Waist or CFrame.identity) * R(0, 0, -lean * 0.38)
 		pose.Neck = (pose.Neck or CFrame.identity) * R(0, 0, lean * 0.15)
 	end
+	if math.abs(rig.turnLead) > 0.002 then
+		local lead = rig.turnLead
+		pose.Root = (pose.Root or CFrame.identity) * R(0, -lead * 0.15, 0)
+		pose.Waist = (pose.Waist or CFrame.identity) * R(0, lead * 0.25, 0)
+		pose.Neck = (pose.Neck or CFrame.identity) * R(0, lead * 0.3, 0)
+	end
+	local idle = 1 - math.clamp(rig.speed / 4, 0, 1)
+	if idle > 0.01 then
+		local b = math.sin(clock * Anim.BreathSpeed + rig.breathOffset) * idle
+		local chest = Anim.BreathChest * b
+		local arm = Anim.BreathArm * b
+		pose.Waist = (pose.Waist or CFrame.identity) * R(chest)
+		pose.LeftShoulder = (pose.LeftShoulder or CFrame.identity) * R(arm, 0, -arm * 0.5)
+		pose.RightShoulder = (pose.RightShoulder or CFrame.identity) * R(arm, 0, arm * 0.5)
+	end
 	return pose
 end
 
@@ -288,17 +306,17 @@ end
 local function poseFor(player: Player, character: Model, rig: Rig, clock: number): (Pose?, number)
 	local knocked = knockState(player, clock)
 	if knocked > 0 then
-		return knockPose(character, knocked, clock), 0.06 -- падение уже плавное (knockAmount): вес сразу
+		return knockPose(character, knocked, clock), 0.18
 	end
 	local down = downAmount(player, clock)
 	if down > 0 then
 		local move = math.clamp(rig.speed / HealthSettings.CrawlSpeed, 0, 1)
-		return crawlPose(character, down, rig.phase, move, clock), 0.06
+		return crawlPose(character, down, rig.phase, move, clock), 0.18
 	end
 	if number(player, PlayerAttr.ReviveTarget) ~= 0 then
 		return revivePose(clock), 0.25
 	end
-	return standingPose(player, character, rig, clock), 0.2
+	return standingPose(player, character, rig, clock), 0.25
 end
 
 local function countKeys(t: { [string]: Joint }): number
@@ -309,14 +327,31 @@ local function countKeys(t: { [string]: Joint }): number
 	return count
 end
 
-local function newRig(character: Model): Rig
+local function newRig(character: Model, userId: number): Rig
 	local joints = findJoints(character)
-	return { joints = joints, jointCount = countKeys(joints), lastScan = os.clock(), current = {}, weights = {}, phase = 0, lastPosition = nil, speed = 0 }
+	return {
+		joints = joints,
+		jointCount = countKeys(joints),
+		lastScan = os.clock(),
+		current = {},
+		weights = {},
+		phase = 0,
+		speed = 0,
+		lastYaw = nil,
+		turnLead = 0,
+		breathOffset = (userId * 1.618) % (math.pi * 2),
+	}
+end
+
+local function yawOf(cf: CFrame): number
+	local look = cf.LookVector
+	return math.atan2(-look.X, -look.Z)
 end
 
 local function step(dt: number)
 	local clock = Workspace:GetServerTimeNow()
-	local blend = 1 - math.exp(-dt * 14)
+	local clampedDt = math.min(dt, 0.1)
+	local blend = 1 - math.exp(-clampedDt * Anim.BlendSpeed)
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
 		if not character or player == localPlayer then
@@ -324,23 +359,42 @@ local function step(dt: number)
 		end
 		local rig = rigs[character]
 		if not rig then
-			rig = newRig(character)
+			rig = newRig(character, player.UserId)
 			rigs[character] = rig
 		end
-		-- Скорость по сдвигу корня: для шага ползком и присев
+		-- Фаза шага растёт от реальной горизонтальной скорости AssemblyLinearVelocity
 		local root = character:FindFirstChild("HumanoidRootPart")
 		if root and root:IsA("BasePart") then
-			local position = root.Position
-			local last = rig.lastPosition or position
-			local moved = Vector3.new(position.X - last.X, 0, position.Z - last.Z).Magnitude
-			rig.lastPosition = position
-			local instant = if dt > 0 then moved / dt else 0
-			rig.speed += (instant - rig.speed) * math.min(1, dt * 8)
-			rig.phase = (rig.phase + rig.speed * dt * 0.9) % (math.pi * 2)
+			local vel = root.AssemblyLinearVelocity
+			local horizVel = Vector3.new(vel.X, 0, vel.Z)
+			local horizSpeed = horizVel.Magnitude
+			if horizSpeed < 0.15 then
+				horizSpeed = 0
+			end
+			rig.speed += (horizSpeed - rig.speed) * math.min(1, clampedDt * 8)
+			local stride = if player:GetAttribute(PlayerAttr.Downed) == true then Anim.CrawlStride else Anim.CrouchStride
+			rig.phase = (rig.phase + horizSpeed * clampedDt * stride) % (math.pi * 2)
+
+			local currentYaw = yawOf(root.CFrame)
+			local lastYaw = rig.lastYaw or currentYaw
+			local deltaYaw = (currentYaw - lastYaw + math.pi) % (2 * math.pi) - math.pi
+			rig.lastYaw = currentYaw
+			local yawRate = if clampedDt > 0.0001 then deltaYaw / clampedDt else 0
+			local dirLead = 0
+			if horizSpeed > 0.5 then
+				local localVel = root.CFrame:VectorToObjectSpace(horizVel)
+				local velYawOffset = math.atan2(-localVel.X, -localVel.Z)
+				if math.abs(velYawOffset) < 2.2 then
+					dirLead = math.clamp(velYawOffset, -Anim.TurnLeadMax, Anim.TurnLeadMax)
+				end
+			end
+			local rateLead = math.clamp(yawRate * Anim.TurnLeadRateScale, -0.5, 0.5)
+			local targetLead = math.clamp(dirLead * 0.5 + rateLead, -Anim.TurnLeadMax, Anim.TurnLeadMax)
+			rig.turnLead += (targetLead - rig.turnLead) * (1 - math.exp(-clampedDt * Anim.TurnLeadSpeed))
 		end
 		local pose, fade = poseFor(player, character, rig, clock)
 		-- Плавно: наш вес по каждому суставу растёт к 1 (поза есть) или падает к 0 (обычная анимация)
-		local weightBlend = 1 - math.exp(-dt / math.max(0.05, fade) * 3)
+		local weightBlend = 1 - math.exp(-clampedDt / math.max(0.15, fade) * 3)
 		if rig.jointCount < #JOINTS and os.clock() - rig.lastScan >= 0.5 then
 			rig.joints = findJoints(character)
 			rig.jointCount = countKeys(rig.joints)
