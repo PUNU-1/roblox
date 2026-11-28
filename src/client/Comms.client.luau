@@ -21,6 +21,7 @@ local localPlayer = Players.LocalPlayer
 
 local gui = Theme.screenGui("Comms", 3)
 local keyboard = not Theme.touchOnly()
+local MobileMenu = require(script.Parent:WaitForChild("UI"):WaitForChild("MobileMenu"))
 
 local TOGGLE_ACTION = "QuickPhrases"
 local PICK_ACTION = "PickPhrase"
@@ -44,16 +45,31 @@ local toggleButton = PixelButton.new({
 toggleButton.root.AnchorPoint = Vector2.new(0, 0.5)
 toggleButton.root.Position = UDim2.new(0, 16, 0.45, 0)
 
+-- Телефон (этап 8, блок Q): кнопка SAY — в «Меню» (MobileMenu), список фраз — двумя столбиками слева сверху,
+-- под верхней полосой (слева внизу джойстик, справа кнопки). Видна ли кнопка — так же по toggleButton.root.Visible,
+-- только сама кнопка не на экране.
+local PHRASE_W, PHRASE_H = if keyboard then 280 else 230, if keyboard then 40 else 36
+local phraseRows = if keyboard then #Config.Comms.Phrases else math.ceil(#Config.Comms.Phrases / 2)
 list = Theme.new("Frame", {
 	Name = "PhraseList",
-	AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 16 + toggleButton.width() + 10, 0.45, 0),
-	Size = UDim2.new(0, 280, 0, #Config.Comms.Phrases * 46),
+	AnchorPoint = if keyboard then Vector2.new(0, 0.5) else Vector2.new(0, 0),
+	Position = if keyboard then UDim2.new(0, 16 + toggleButton.width() + 10, 0.45, 0) else UDim2.fromOffset(Config.Mobile.Margin, 62),
+	Size = UDim2.new(0, if keyboard then PHRASE_W else 2 * PHRASE_W + 6, 0, phraseRows * (PHRASE_H + 6)),
 	BackgroundTransparency = 1,
 	Visible = false,
 	Parent = gui,
 })
-Theme.new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = list })
+if keyboard then
+	Theme.new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = list })
+else
+	toggleButton.root.Parent = nil
+	Theme.new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(PHRASE_W, PHRASE_H),
+		CellPadding = UDim2.fromOffset(6, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = list,
+	})
+end
 
 local function say(index: number)
 	Remotes.get(Remotes.Names.QuickPhrase):FireServer(index)
@@ -64,7 +80,7 @@ for index, phrase in Config.Comms.Phrases do
 		text = string.upper(if keyboard and DIGIT_KEYS[index] then ("%d %s"):format(index, phrase) else phrase),
 		color = Colors.NavyLight,
 		textSize = 8,
-		size = UDim2.new(1, 0, 0, 40),
+		size = UDim2.new(1, 0, 0, PHRASE_H),
 		parent = list,
 		onActivated = function()
 			say(index)
@@ -124,11 +140,13 @@ local function setToggleBound(bound: boolean)
 	end
 end
 
--- Лента фраз слева сверху
+-- Лента фраз слева сверху (на телефоне — ниже плашки шага обучения и уже, до 3 строк)
+local FEED_LINE = if keyboard then 30 else 24
+local FEED_MAX = if keyboard then 4 else 3
 local feed = Theme.new("Frame", {
 	Name = "Feed",
-	Position = UDim2.new(0, 16, 0, 70),
-	Size = UDim2.new(0, 360, 0, 160),
+	Position = if keyboard then UDim2.new(0, 16, 0, 70) else UDim2.fromOffset(Config.Mobile.Margin, 128),
+	Size = if keyboard then UDim2.new(0, 360, 0, 160) else UDim2.new(0, 300, 0, FEED_MAX * (FEED_LINE + 4)),
 	BackgroundTransparency = 1,
 	Parent = gui,
 })
@@ -146,7 +164,7 @@ Remotes.get(Remotes.Names.PhraseShown).OnClientEvent:Connect(function(userId, in
 	feedOrder += 1
 	local line = Theme.label({
 		LayoutOrder = feedOrder,
-		Size = UDim2.new(1, 0, 0, 30),
+		Size = UDim2.new(1, 0, 0, FEED_LINE),
 		BackgroundTransparency = 0.25,
 		BackgroundColor3 = Colors.Navy,
 		RichText = true,
@@ -164,7 +182,7 @@ Remotes.get(Remotes.Names.PhraseShown).OnClientEvent:Connect(function(userId, in
 			table.insert(lines, child)
 		end
 	end
-	if #lines > 4 then
+	if #lines > FEED_MAX then
 		table.sort(lines, function(a, b)
 			return a.LayoutOrder < b.LayoutOrder
 		end)
@@ -185,6 +203,19 @@ Remotes.get(Remotes.Names.PhraseShown).OnClientEvent:Connect(function(userId, in
 		end)
 	end
 end)
+
+MobileMenu.add({
+	id = "Say",
+	icon = "Chat",
+	label = "SAY",
+	order = 4,
+	visible = function()
+		return toggleButton.root.Visible
+	end,
+	onActivated = function()
+		setListOpen(not list.Visible)
+	end,
+})
 
 -- Кнопка фраз нужна только на смене
 local accumulator = 0

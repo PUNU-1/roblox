@@ -21,6 +21,7 @@ local GoalBar = require(script.Parent:WaitForChild("UI"):WaitForChild("GoalBar")
 local PixelIcon = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelIcon"))
 local MvpShowcase = require(script.Parent:WaitForChild("UI"):WaitForChild("MvpShowcase"))
 local SettingsWindow = require(script.Parent:WaitForChild("UI"):WaitForChild("SettingsWindow"))
+local MobileMenu = require(script.Parent:WaitForChild("UI"):WaitForChild("MobileMenu"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -64,6 +65,26 @@ local settingsButton = PixelButton.new({
 })
 settingsButton.root.AnchorPoint = Vector2.new(1, 0)
 settingsButton.root.Position = UDim2.new(1, -12, 0, 62)
+if Theme.touchOnly() then
+	-- Телефон (этап 8, блок Q): SETTINGS — в «Меню»; видна ли — по settingsButton.root.Visible, кнопка не на экране
+	settingsButton.root.Parent = nil
+	MobileMenu.add({
+		id = "Settings",
+		icon = "Settings",
+		label = "SETTINGS",
+		order = 3,
+		visible = function()
+			return settingsButton.root.Visible
+		end,
+		onActivated = function()
+			if SettingsWindow.isOpen() then
+				SettingsWindow.close()
+			elseif canOpenSettings() then
+				SettingsWindow.open()
+			end
+		end,
+	})
+end
 
 local function updateSettingsButton()
 	local phase = GameState.phase()

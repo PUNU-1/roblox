@@ -900,6 +900,29 @@ Icons.Emotes = {
 	palette = { K = OUTLINE, Y = GOLD, h = GOLD_LIGHT, d = GOLD_DARK, r = "E0575B", w = WHITE },
 }
 
+-- Этап 8, блок Q: кнопка «Меню» на телефоне — три полоски
+Icons.Menu = {
+	rows = {
+		"................",
+		"................",
+		".KKKKKKKKKKKKKK.",
+		".KhhhhhhhhhhhhK.",
+		".KggggggggggggK.",
+		".KKKKKKKKKKKKKK.",
+		"................",
+		".KKKKKKKKKKKKKK.",
+		".KhhhhhhhhhhhhK.",
+		".KggggggggggggK.",
+		".KKKKKKKKKKKKKK.",
+		"................",
+		".KKKKKKKKKKKKKK.",
+		".KhhhhhhhhhhhhK.",
+		".KggggggggggggK.",
+		".KKKKKKKKKKKKKK.",
+	},
+	palette = { K = OUTLINE, h = WHITE, g = "C9CFDB" },
+}
+
 PixelIcon.Icons = Icons
 
 local function resolve(icon: Icon | string): Icon

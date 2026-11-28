@@ -18,6 +18,7 @@ local GameState = require(Shared:WaitForChild("GameState"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local PixelButton = require(UI:WaitForChild("PixelButton"))
+local MobileMenu = require(UI:WaitForChild("MobileMenu"))
 
 local Settings = Config.Spectate
 local Phase = GameState.Phase
@@ -123,8 +124,27 @@ local reenterButton = PixelButton.new({
 	end,
 })
 reenterButton.root.AnchorPoint = Vector2.new(1, 1)
-reenterButton.root.Position = if touchOnly then UDim2.new(1, -200, 1, -106) else UDim2.new(1, -24, 1, -20)
+reenterButton.root.Position = UDim2.new(1, -24, 1, -20)
 reenterButton.root.Visible = false
+if touchOnly then
+	-- Телефон (этап 8, блок Q): SPECTATE — в «Меню»; видна ли — по reenterButton.root.Visible, кнопка не на экране.
+	-- ◀ BACK ▶ — сверху под строкой WATCHING, правее середины: слева внизу джойстик (лёжа ползут им же).
+	reenterButton.root.Parent = nil
+	controlsBar.AnchorPoint = Vector2.new(0.5, 0)
+	controlsBar.Position = UDim2.new(0.58, 0, 0, 96)
+	MobileMenu.add({
+		id = "Spectate",
+		icon = "Eye",
+		label = "SPECTATE",
+		order = 8,
+		visible = function()
+			return reenterButton.root.Visible
+		end,
+		onActivated = function()
+			reenter()
+		end,
+	})
+end
 
 -- Указатели на кнопки (чтобы luau-lsp не ругался на неиспользуемые переменные)
 local _ = prevButton
@@ -322,6 +342,9 @@ local function updateWatchLabelPosition()
 	-- Во время налёта сверху висит плашка POLICE: 60 (Y = 64..126), опускаемся ниже
 	local y = if raid and inRound then 132 else 64
 	watchLabel.Position = UDim2.new(0.5, 0, 0, y)
+	if touchOnly then
+		controlsBar.Position = UDim2.new(0.58, 0, 0, y + 32)
+	end
 end
 
 local function refresh()

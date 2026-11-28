@@ -22,6 +22,7 @@ local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
 local Mobile = require(UI:WaitForChild("Mobile"))
+local MobileMenu = require(UI:WaitForChild("MobileMenu"))
 local ClassCards = require(UI:WaitForChild("ClassCards"))
 local PixelButton = require(UI:WaitForChild("PixelButton"))
 
@@ -74,6 +75,10 @@ local shopButton = PixelButton.new({
 shopButton.root.AnchorPoint = Vector2.new(1, 0)
 shopButton.root.Position = UDim2.new(1, -12, 0, 62)
 shopButton.root.Visible = false
+if touchOnly then
+	-- Телефон (этап 8, блок Q): SHOP — в «Меню»; видна ли она — по shopButton.root.Visible, сама кнопка не на экране
+	shopButton.root.Parent = nil
+end
 
 -- Короткая надпись внизу экрана: «Shop opens in the morning»
 local toast = Theme.label({
@@ -858,6 +863,23 @@ RunService.Heartbeat:Connect(function(dt)
 		dirty = true -- раз в 0.15 сек: «BUYING...» без ответа сервера гаснет сама
 	end
 end)
+
+MobileMenu.add({
+	id = "Shop",
+	icon = "Shop",
+	label = "SHOP",
+	order = 1,
+	visible = function()
+		return shopButton.root.Visible
+	end,
+	dim = function(): boolean
+		local available = canShop()
+		return not available
+	end,
+	onActivated = function()
+		toggle()
+	end,
+})
 
 RunService.RenderStepped:Connect(function(dt)
 	if not openFlag then

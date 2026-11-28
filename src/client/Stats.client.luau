@@ -20,6 +20,7 @@ local Theme = require(UI:WaitForChild("Theme"))
 local PixelIcon = require(UI:WaitForChild("PixelIcon"))
 local PixelButton = require(UI:WaitForChild("PixelButton"))
 local PixelWindow = require(UI:WaitForChild("PixelWindow"))
+local MobileMenu = require(UI:WaitForChild("MobileMenu"))
 
 local Settings = Config.Stats
 local Phase = GameState.Phase
@@ -93,6 +94,22 @@ local statsButton = PixelButton.new({
 statsButton.root.AnchorPoint = Vector2.new(1, 0)
 statsButton.root.Position = UDim2.new(1, -(12 + statsButton.width() + Settings.ButtonGap), 0, 62)
 statsButton.root.Visible = false
+if touchOnly then
+	-- Телефон (этап 8, блок Q): STATS — в «Меню»; видна ли — по statsButton.root.Visible, сама кнопка не на экране
+	statsButton.root.Parent = nil
+	MobileMenu.add({
+		id = "Stats",
+		icon = "Stats",
+		label = "STATS",
+		order = 2,
+		visible = function()
+			return statsButton.root.Visible
+		end,
+		onActivated = function()
+			onStatsButton()
+		end,
+	})
+end
 
 ---------------------------------------------------------------- таблица внутри окна
 
