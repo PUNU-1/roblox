@@ -49,11 +49,15 @@ type Rig = {
 	jointCount: number,
 	current: Pose,
 	phase: number,
-	lastPosition: Vector3,
 	speed: number,
+	lastYaw: number,
+	turnLead: number,
+	breathOffset: number,
+	lastUpdate: number,
 }
 
 local rigs: { [Model]: Rig } = {}
+local nextBreathSeed = 0
 
 ---------------------------------------------------------------- помощники
 
@@ -921,6 +925,85 @@ local function poseFor(state: any, t: number, clock: number, phase: number, move
 	return sneakPose(clock, phase, move)
 end
 
+local NO_BREATH_STATES: { [string]: boolean } = {
+	[Anim.Stunned] = true,
+	[Anim.Knockout] = true,
+	[Anim.Arrest] = true,
+	[Anim.Punch] = true,
+	[Anim.Strike] = true,
+	[Anim.Throw] = true,
+	[Anim.Kick] = true,
+	[Anim.Smash] = true,
+	[Anim.Climb] = true,
+	[Anim.Rappel] = true,
+	[Anim.Cut] = true,
+	[Anim.Work] = true,
+}
+
+local STATIONARY_BREATH_STATES: { [string]: boolean } = {
+	[Anim.Idle] = true,
+	[Anim.Hold] = true,
+	[Anim.Cover] = true,
+	[Anim.Surrender] = true,
+	[Anim.Steal] = true,
+	[TouristAnim.Admire] = true,
+	[TouristAnim.Photo] = true,
+	[TouristAnim.Sit] = true,
+	[TouristAnim.Point] = true,
+}
+
+local NO_TURN_LEAD_STATES: { [string]: boolean } = {
+	[Anim.Aim] = true,
+	[Anim.Stunned] = true,
+	[Anim.Knockout] = true,
+	[Anim.Arrest] = true,
+	[Anim.Punch] = true,
+	[Anim.Strike] = true,
+	[Anim.Throw] = true,
+	[Anim.Kick] = true,
+	[Anim.Smash] = true,
+	[Anim.Climb] = true,
+	[Anim.Rappel] = true,
+	[Anim.Cut] = true,
+	[Anim.Work] = true,
+	[Anim.Hold] = true,
+	[Anim.Cover] = true,
+	[Anim.Surrender] = true,
+	[Anim.Steal] = true,
+	[TouristAnim.Sit] = true,
+}
+
+local function yawOf(cf: CFrame): number
+	local look = cf.LookVector
+	return math.atan2(-look.X, -look.Z)
+end
+
+local function applyBreathing(pose: Pose, state: any, move: number, clock: number, offset: number)
+	if typeof(state) == "string" and NO_BREATH_STATES[state] then
+		return
+	end
+	local weight = if typeof(state) == "string" and STATIONARY_BREATH_STATES[state] then 1 else 1 - move
+	if weight <= 0.01 then
+		return
+	end
+	local b = math.sin(clock * Settings.BreathSpeed + offset) * weight
+	local chest = Settings.BreathChest * b
+	local arm = Settings.BreathArm * b
+	pose.Waist = (pose.Waist or CFrame.identity) * R(chest)
+	pose.LeftShoulder = (pose.LeftShoulder or CFrame.identity) * R(arm, 0, -arm * 0.5)
+	pose.RightShoulder = (pose.RightShoulder or CFrame.identity) * R(arm, 0, arm * 0.5)
+end
+
+local function applyTurnLead(pose: Pose, state: any, lead: number)
+	if math.abs(lead) < 0.002 or (typeof(state) == "string" and NO_TURN_LEAD_STATES[state]) then
+		return
+	end
+	-- Голова и плечи поворачиваются к цели/направлению движения чуть раньше таза и ног
+	pose.Root = (pose.Root or CFrame.identity) * R(0, -lead * 0.22, 0)
+	pose.Waist = (pose.Waist or CFrame.identity) * R(0, lead * 0.52, 0)
+	pose.Neck = (pose.Neck or CFrame.identity) * R(0, lead * 0.55, 0)
+end
+
 ---------------------------------------------------------------- воры в мире
 
 local function findJoints(model: Model): ({ [string]: Joint }, number)
@@ -946,14 +1029,18 @@ local function register(model: Instance)
 		return
 	end
 	local motors, count = findJoints(model)
+	nextBreathSeed += 1
 	rigs[model] = {
 		root = root,
 		motors = motors,
 		jointCount = count,
 		current = {},
 		phase = 0,
-		lastPosition = root.Position,
 		speed = 0,
+		lastYaw = yawOf(root.CFrame),
+		turnLead = 0,
+		breathOffset = (nextBreathSeed * 1.618) % (math.pi * 2),
+		lastUpdate = Workspace:GetServerTimeNow(),
 	}
 end
 
@@ -961,22 +1048,47 @@ local function step(dt: number)
 	local camera = Workspace.CurrentCamera
 	local cameraPosition = if camera then camera.CFrame.Position else Vector3.zero
 	local clock = Workspace:GetServerTimeNow()
-	local blend = 1 - math.exp(-dt * Settings.BlendSpeed)
+	local clampedDt = math.min(dt, 0.1)
 	for model, rig in rigs do
 		if not model.Parent then
 			rigs[model] = nil
 			shotAt[model] = nil
 			continue
 		end
-		-- Скорость считаем сами по сдвигу: так одинаково работает и у бегущего, и у замершего вора
 		local position = rig.root.Position
-		local moved = Vector3.new(position.X - rig.lastPosition.X, 0, position.Z - rig.lastPosition.Z).Magnitude
-		rig.lastPosition = position
-		local instant = if dt > 0 then moved / dt else 0
-		rig.speed += (instant - rig.speed) * math.min(1, dt * 8)
-		if (position - cameraPosition).Magnitude > Settings.CullDistance then
+		local dist = (position - cameraPosition).Magnitude
+		if dist > Settings.CullDistance then
+			rig.lastUpdate = clock
 			continue
 		end
+
+		local stepDt = clampedDt
+		if dist > Settings.LodDistance then
+			local elapsed = clock - rig.lastUpdate
+			if elapsed < Settings.LodInterval then
+				-- На пропущенных кадрах держим последнюю позу, чтобы встроенный Animator не сбросил Transform
+				for name, motor in rig.motors do
+					if motor.Parent then
+						local cached = rig.current[name]
+						if cached then
+							motor.Transform = cached
+						end
+					end
+				end
+				continue
+			end
+			stepDt = math.clamp(elapsed, 0.001, 0.25)
+		end
+		rig.lastUpdate = clock
+
+		-- Фаза шага растёт от реальной горизонтальной скорости AssemblyLinearVelocity
+		local vel = rig.root.AssemblyLinearVelocity
+		local horizVel = Vector3.new(vel.X, 0, vel.Z)
+		local horizSpeed = horizVel.Magnitude
+		if horizSpeed < 0.15 then
+			horizSpeed = 0
+		end
+		rig.speed += (horizSpeed - rig.speed) * math.min(1, stepDt * 8)
 
 		local state = model:GetAttribute(NpcAttr.AnimState)
 		local startedAt = model:GetAttribute(NpcAttr.AnimStateAt)
@@ -988,12 +1100,35 @@ local function step(dt: number)
 			elseif state == Anim.Prowl then Settings.ProwlStride
 			elseif state == Anim.Patrol then Settings.PatrolStride
 			else Settings.RunStride
-		rig.phase = (rig.phase + rig.speed * dt * stride) % (math.pi * 2)
-		local move = math.clamp(rig.speed / 6, 0, 1)
-
 		local humanoid = model:FindFirstChildOfClass("Humanoid")
 		local height = (if humanoid then humanoid.HipHeight else 2) + rig.root.Size.Y / 2
+		local scaleFactor = 3.0 / math.max(1.2, height)
+		rig.phase = (rig.phase + horizSpeed * stepDt * stride * scaleFactor) % (math.pi * 2)
+		local move = math.clamp(rig.speed / 6, 0, 1)
+
+		local currentYaw = yawOf(rig.root.CFrame)
+		local deltaYaw = (currentYaw - rig.lastYaw + math.pi) % (2 * math.pi) - math.pi
+		rig.lastYaw = currentYaw
+		local yawRate = if stepDt > 0.0001 then deltaYaw / stepDt else 0
+		local targetLead = 0
+		if not (typeof(state) == "string" and NO_TURN_LEAD_STATES[state]) then
+			local dirLead = 0
+			if horizSpeed > 0.5 then
+				local localVel = rig.root.CFrame:VectorToObjectSpace(horizVel)
+				local velYawOffset = math.atan2(-localVel.X, -localVel.Z)
+				if math.abs(velYawOffset) < 2.4 then
+					dirLead = math.clamp(velYawOffset, -Settings.TurnLeadMax, Settings.TurnLeadMax)
+				end
+			end
+			local rateLead = math.clamp(yawRate * Settings.TurnLeadRateScale, -0.55, 0.55)
+			targetLead = math.clamp(dirLead * 0.65 + rateLead, -Settings.TurnLeadMax, Settings.TurnLeadMax)
+		end
+		rig.turnLead += (targetLead - rig.turnLead) * (1 - math.exp(-stepDt * Settings.TurnLeadSpeed))
+
 		local target = poseFor(state, t, clock, rig.phase, move, height, model)
+		applyTurnLead(target, state, rig.turnLead)
+		applyBreathing(target, state, move, clock, rig.breathOffset)
+
 		-- Суставы догружаются по сети уже после появления вора (а Roblox может их пересобрать) — ищем заново
 		local stale = rig.jointCount < #JOINTS
 		if not stale then
@@ -1007,6 +1142,7 @@ local function step(dt: number)
 		if stale then
 			rig.motors, rig.jointCount = findJoints(model)
 		end
+		local blend = 1 - math.exp(-stepDt * Settings.BlendSpeed)
 		for name, motor in rig.motors do
 			local current = (rig.current[name] or CFrame.identity):Lerp(target[name] or CFrame.identity, blend)
 			rig.current[name] = current
