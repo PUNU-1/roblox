@@ -173,6 +173,20 @@ function Fx.shotSound(weapon: string, at: Vector3?)
 	Debris:AddItem(sound, 3)
 end
 
+-- Звук действия только у этого игрока (аптечка, бронежилет, отвёртка — этап 8, блок O). Пустой адрес — тишина.
+function Fx.sound(id: string, volume: number?)
+	if id == "" then
+		return
+	end
+	local sound = Instance.new("Sound")
+	sound.SoundId = id
+	sound.Volume = volume or Sounds.ActionVolume
+	bindEffects(sound)
+	sound.Parent = folder
+	sound:Play()
+	Debris:AddItem(sound, 4)
+end
+
 -- Короткий щелчок (перезарядка, пустой магазин, попадание): только у этого игрока.
 function Fx.click(speed: number, volume: number?)
 	if Sounds.Click == "" then

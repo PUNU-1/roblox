@@ -23,9 +23,11 @@ local Theme = require(script.Parent:WaitForChild("UI"):WaitForChild("Theme"))
 local TouchButtons = require(script.Parent:WaitForChild("UI"):WaitForChild("TouchButtons"))
 local PixelButton = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelButton"))
 local Fx = require(script.Parent:WaitForChild("Fx"))
+local ActionProps = require(script.Parent:WaitForChild("ActionProps"))
 
 local PlayerAttr = GameState.PlayerAttr
 local Weapons = Config.Weapons
+local Actions = Config.Actions
 local Keys = Config.Keys
 local Colors = Theme.Colors
 
@@ -113,8 +115,14 @@ local LEFT_ARM_DIR = Vector3.new(-0.45, -0.5, 1).Unit
 type View = {
 	kind: string,
 	built: WeaponModels.Built,
-	groups: { string? }, -- у каждой детали: Mag / Slide / Pump или nil
+	groups: { string? }, -- у каждой детали: Mag / Slide / Pump / Lid или nil
+	magBottom: Vector3?, -- низ магазина (в системе оружия): сюда левая рука вставляет новый
+	slideAt: Vector3?, -- затвор или его рукоять: сюда левая рука тянется в конце перезарядки
 }
+
+-- Крышка аптечки (этап 8, блок O): эти детали открываются на петле у переднего края
+local MEDKIT_LID = { LidBevelF = true, LidBevelB = true, LidTop = true, Label = true, Handle = true, HandleGrip = true, PostL = true, PostR = true, PostBaseL = true, PostBaseR = true }
+local MEDKIT_HINGE = CFrame.new(0, -0.32, -0.24)
 
 local container = Instance.new("Model")
 container.Name = "ViewModel"
@@ -183,15 +191,80 @@ local function buildView(kind: string)
 	end
 	local built = WeaponModels.build(kind)
 	local groups = {}
+	local magBottom: Vector3? = nil
+	local slideAt: Vector3? = nil
 	for index, part in built.parts do
 		part.Anchored = true
 		part.CastShadow = false
 		local name = part.Name
-		groups[index] = if name == "Mag" or name == "Slide" or name == "Pump" then name else nil
+		groups[index] = if name == "Mag" or name == "Slide" or name == "Pump" then name
+			elseif kind == "Medkit" and MEDKIT_LID[name] then "Lid"
+			else nil
+		local offset = built.offsets[index]
+		if name == "Mag" then
+			local bottom = (offset * CFrame.new(0, -part.Size.Y / 2, 0)).Position
+			if not magBottom or bottom.Y < magBottom.Y then
+				magBottom = bottom
+			end
+		elseif name == "Slide" and not slideAt then
+			slideAt = offset.Position
+		end
 	end
 	built.root.Anchored = true
 	built.model.Parent = container
-	view = { kind = kind, built = built, groups = groups }
+	view = { kind = kind, built = built, groups = groups, magBottom = magBottom, slideAt = slideAt }
+end
+
+---------------------------------------------------------------- вещи в руках (этап 8, блок O)
+
+-- Отвёртка, наручники, бинт, патрон дробовика, бронежилет (ActionProps): детали у камеры, видны только в своём действии.
+type Prop = { parts: { BasePart }, offsets: { CFrame } }
+
+local props: { [string]: Prop } = {}
+local usedProps: { [string]: boolean } = {}
+
+local function showProp(name: string, cframe: CFrame)
+	local prop = props[name]
+	if not prop then
+		prop = { parts = {}, offsets = {} }
+		for index, spec in ActionProps.Specs[name] do
+			local part = ActionProps.part(spec, true)
+			part.Parent = container
+			prop.parts[index] = part
+			prop.offsets[index] = spec.offset
+		end
+		props[name] = prop
+	end
+	usedProps[name] = true
+	for index, part in prop.parts do
+		part.CFrame = cframe * prop.offsets[index]
+		part.Transparency = 0
+	end
+end
+
+-- Вещи, которые в этом кадре не показали, прячутся.
+local function hideUnusedProps()
+	for name, prop in props do
+		if not usedProps[name] then
+			for _, part in prop.parts do
+				part.Transparency = 1
+			end
+		end
+	end
+	table.clear(usedProps)
+end
+
+-- Оружие убирается из кадра (руки заняты действием).
+local function hideWeapon(cf: CFrame)
+	local current = view
+	if not current then
+		return
+	end
+	local away = cf * CFrame.new(0, -20, 0)
+	current.built.root.CFrame = away
+	for _, part in current.built.parts do
+		part.CFrame = away
+	end
 end
 
 ---------------------------------------------------------------- состояние
@@ -215,6 +288,10 @@ local bobSpeed = 0
 local crouchBlend = 0
 local leanBlend = 0
 local healBlend = 0
+local healWasActive = false
+local holsterStarted = 0 -- убирает оружие (0 — нет)
+local actionKind = "" -- действие из атрибута Action, которое сейчас видно (этап 8, блок O)
+local actionStart = 0
 local holsterWarnUntil = 0
 
 local function ammoOf(weapon: string): number
@@ -833,44 +910,153 @@ end)
 ---------------------------------------------------------------- анимации у камеры
 
 -- Смещения подвижных частей (магазин, затвор, помпа) и левой руки при перезарядке.
-type Motion = { root: CFrame, mag: CFrame, slide: CFrame, pump: CFrame, left: CFrame, hideMag: boolean }
+-- leftAt — где левая рука (в системе оружия), если не у цевья; shellAt — патрон дробовика в руке.
+type Motion = { root: CFrame, mag: CFrame, slide: CFrame, pump: CFrame, left: CFrame, hideMag: boolean, leftAt: Vector3?, shellAt: Vector3? }
 
-local function reloadMotion(kind: string, p: number): Motion
-	local motion: Motion = { root = CFrame.identity, mag = CFrame.identity, slide = CFrame.identity, pump = CFrame.identity, left = CFrame.identity, hideMag = false }
+local function newMotion(): Motion
+	return { root = CFrame.identity, mag = CFrame.identity, slide = CFrame.identity, pump = CFrame.identity, left = CFrame.identity, hideMag = false }
+end
+
+-- Пояс с подсумками (в системе оружия): сюда левая рука тянется за магазином или патроном
+local BELT = Vector3.new(-0.95, -1.2, 0.85)
+
+-- Перезарядка заметнее (этап 8, блок O): пистолет и автомат — наклон, старый магазин выпадает, кувыркаясь,
+-- рука идёт к поясу и вставляет новый снизу, в конце — затвор (у автомата — рукоять затвора);
+-- дробовик — по патрону от пояса в окно снизу, потом помпа.
+local function reloadMotion(kind: string, p: number, current: View): Motion
+	local motion = newMotion()
+	local support = current.built.support.Position
 	if kind == "Shotgun" then
-		-- Наклон влево и патроны по одному: левая рука ныряет вниз за патроном и толкает его в окно снизу
-		local tilt = smooth(p / 0.12) * (1 - smooth((p - 0.88) / 0.12))
-		motion.root = CFrame.new(-0.08 * tilt, 0.1 * tilt, 0) * CFrame.Angles(0.12 * tilt, 0, 0.45 * tilt)
-		local cycle = math.clamp((p - 0.12) / 0.7, 0, 1) * 4
-		local inCycle = cycle % 1
-		local dip = if p > 0.12 and p < 0.82 then math.sin(inCycle * math.pi) else 0
-		motion.left = CFrame.new(0.12 * tilt, -0.55 * dip, 0.9 * tilt)
-		-- В конце — передёрнуть помпу
-		motion.pump = CFrame.new(0, 0, 0.35 * bump(p, 0.84, 0.98))
+		local tilt = smooth(p / 0.1) * (1 - smooth((p - 0.86) / 0.12))
+		motion.root = CFrame.new(-0.1 * tilt, 0.12 * tilt, 0.05 * tilt) * CFrame.Angles(0.15 * tilt, 0, 0.55 * tilt)
+		local port = support + Vector3.new(0, -0.12, 0.55)
+		if p >= 0.1 and p < 0.8 then
+			local cycle = ((p - 0.1) / 0.7 * 4) % 1
+			if cycle < 0.45 then
+				motion.leftAt = port:Lerp(BELT, smooth(cycle / 0.45))
+			else
+				local hand = BELT:Lerp(port, smooth((cycle - 0.45) / 0.45))
+				motion.leftAt = hand
+				motion.shellAt = hand
+			end
+		elseif p >= 0.8 and p < 0.84 then
+			motion.leftAt = port:Lerp(support, smooth((p - 0.8) / 0.04))
+		end
+		motion.pump = CFrame.new(0, 0, 0.4 * bump(p, 0.84, 0.98))
 		return motion
 	end
-	-- Пистолет и автомат: наклон, магазин выпадает, новый вставляется снизу, затвор
-	local tilt = smooth(p / 0.15) * (1 - smooth((p - 0.85) / 0.15))
-	motion.root = CFrame.new(-0.05 * tilt, 0.08 * tilt, 0) * CFrame.Angles(0.2 * tilt, 0.1 * tilt, 0.35 * tilt)
-	if p < 0.18 then
-		motion.mag = CFrame.identity
-	elseif p < 0.4 then
-		local k = (p - 0.18) / 0.22
-		motion.mag = CFrame.new(0, -2.2 * k * k, 0.1 * k)
+	local tilt = smooth(p / 0.12) * (1 - smooth((p - 0.86) / 0.14))
+	motion.root = CFrame.new(-0.06 * tilt, 0.1 * tilt, 0.04 * tilt) * CFrame.Angles(0.25 * tilt, 0.15 * tilt, 0.5 * tilt)
+	local magBottom = current.magBottom or (support + Vector3.new(0, -0.4, 0.6))
+	if p >= 0.1 and p < 0.32 then
+		local k = (p - 0.1) / 0.22
+		motion.mag = CFrame.new(0, -2.6 * k * k, 0.15 * k) * CFrame.Angles(0.9 * k, 0, 0.5 * k)
 		motion.hideMag = k > 0.85
-	elseif p < 0.55 then
+	elseif p >= 0.32 and p < 0.47 then
 		motion.hideMag = true
-		motion.mag = CFrame.new(0, -2, 0)
-	elseif p < 0.75 then
-		local k = smooth((p - 0.55) / 0.2)
-		motion.mag = CFrame.new(0, -1.1 * (1 - k), 0)
+		motion.leftAt = support:Lerp(BELT, smooth((p - 0.32) / 0.15))
+	elseif p >= 0.47 and p < 0.78 then
+		-- Новый магазин в левой руке: от пояса вверх в шахту, в конце — толчок снизу
+		local hand = BELT:Lerp(magBottom, smooth((p - 0.47) / 0.23)) + Vector3.new(0, 0.08 * bump(p, 0.7, 0.78), 0)
+		motion.leftAt = hand
+		motion.mag = CFrame.new(hand - magBottom)
+	elseif p >= 0.78 then
+		local slideAt = current.slideAt or (support + Vector3.new(0, 0.2, 0.4))
+		local pull = bump(p, 0.83, 0.95)
+		motion.slide = CFrame.new(0, 0, 0.3 * pull)
+		local slideHand = slideAt + Vector3.new(0, 0.04, 0.3 * pull)
+		if p < 0.83 then
+			motion.leftAt = magBottom:Lerp(slideHand, smooth((p - 0.78) / 0.05))
+		elseif p < 0.95 then
+			motion.leftAt = slideHand
+		else
+			motion.leftAt = slideHand:Lerp(support, smooth((p - 0.95) / 0.05))
+		end
 	end
-	-- Левая рука уходит вниз за новым магазином, приносит его и бьёт снизу
-	local reach = bump(p, 0.3, 0.78)
-	motion.left = CFrame.new(0, -0.9 * reach, 0.25 * reach)
-	-- Затвор (пистолет) / рукоять затвора (автомат) — в конце
-	motion.slide = CFrame.new(0, 0, 0.26 * bump(p, 0.8, 0.95))
 	return motion
+end
+
+-- Достать и убрать (этап 8, блок O): t = 1 — в руках, 0 — в кобуре. Пистолет — из кобуры на правом бедре,
+-- шокер — с левого бедра (правая рука тянется накрест), автомат и дробовик — из-за правого плеча со спины,
+-- аптечка — снизу.
+local function drawPose(kind: string, t: number): CFrame
+	local u = 1 - t
+	if kind == "Rifle" or kind == "Shotgun" then
+		return CFrame.new(0.25 * u, 1.0 * u, 0.8 * u) * CFrame.Angles(1.5 * u, 0, -0.5 * u)
+	elseif kind == "Pistol" then
+		return CFrame.new(0.15 * u, -1.1 * u, 0.45 * u) * CFrame.Angles(-1.3 * u, 0, -0.3 * u)
+	elseif kind == "Taser" then
+		return CFrame.new(-0.6 * u, -1.1 * u, 0.4 * u) * CFrame.Angles(-1.3 * u, 0, 0.4 * u)
+	end
+	return CFrame.new(0, -0.9 * u, 0.2 * u) * CFrame.Angles(-0.7 * u, 0, 0)
+end
+
+-- Действие из атрибута Action (сервер): что сейчас и насколько (0..1). Звук — в начале действия.
+local function currentAction(): (string, number)
+	local kind = localPlayer:GetAttribute(PlayerAttr.Action)
+	local untilTime = number(PlayerAttr.ActionUntil)
+	local time = now()
+	if typeof(kind) ~= "string" or kind == "" or untilTime <= time then
+		actionKind = ""
+		return "", 0
+	end
+	if kind ~= actionKind then
+		actionKind = kind
+		actionStart = time
+		if kind == "Vest" then
+			Fx.sound(Config.Sounds.VestOn)
+		elseif kind == "Repair" then
+			Fx.sound(Config.Sounds.Screwdriver)
+		end
+	end
+	return kind, math.clamp((time - actionStart) / math.max(0.05, untilTime - actionStart), 0, 1)
+end
+
+local function camPoint(cf: CFrame, x: number, y: number, z: number): Vector3
+	return (cf * CFrame.new(x, y, z)).Position
+end
+
+-- Руки в действии (оружие убрано из кадра): бронежилет через голову и застёгивает, покупка — правая рука
+-- тянется и берёт, ремонт — отвёртка крутится в правой руке, арест — наручники обеими руками вперёд-вниз.
+local function actionArms(action: string, p: number, cf: CFrame, up: Vector3, time: number)
+	setArmVisible(leftArm, true)
+	setArmVisible(rightArm, true)
+	local leftDir = cf:VectorToWorldSpace(LEFT_ARM_DIR)
+	local rightDir = cf:VectorToWorldSpace(RIGHT_ARM_DIR)
+	if action == "Vest" then
+		if p < 0.5 then
+			local over = smooth(p / 0.5)
+			local y, z = -1.05 + 1.75 * over, -1.35 + 1.1 * over
+			local l, r = camPoint(cf, -0.5, y, z), camPoint(cf, 0.5, y, z)
+			placeArm(leftArm, l, leftDir, up, -1)
+			placeArm(rightArm, r, rightDir, up, 1)
+			local mid = (l + r) / 2
+			showProp("Vest", CFrame.lookAt(mid, mid + cf.LookVector, up) * CFrame.new(0, -0.45, 0))
+		else
+			local side = 1 - smooth((p - 0.5) / 0.15)
+			local zip = smooth((p - 0.6) / 0.35)
+			placeArm(leftArm, camPoint(cf, -0.2 - 0.3 * side, -1.2, -0.75), leftDir, up, -1)
+			placeArm(rightArm, camPoint(cf, 0.12 + 0.35 * side, -1.3 + 0.45 * zip, -0.72), rightDir, up, 1)
+		end
+	elseif action == "Buy" then
+		local reach = math.sin(p * math.pi)
+		setArmVisible(leftArm, false)
+		placeArm(rightArm, camPoint(cf, 0.3 - 0.08 * reach, -0.6 + 0.2 * reach, -1.3 - 0.7 * reach), rightDir, up, 1)
+	elseif action == "Repair" then
+		local twist = math.sin(time * Actions.ScrewdriverSpeed) * 0.9
+		local hand = camPoint(cf, 0.22, -0.38, -1.45)
+		local handUp = cf:VectorToWorldSpace(Vector3.new(math.sin(twist) * 0.8, math.cos(twist), 0).Unit)
+		placeArm(rightArm, hand, rightDir, handUp, 1)
+		showProp("Screwdriver", CFrame.lookAt(hand, hand + cf.LookVector, handUp) * CFrame.new(0, 0, -0.08))
+		placeArm(leftArm, camPoint(cf, -0.32, -0.5, -1.4), leftDir, up, -1)
+	else
+		local shake = math.sin(time * 14) * 0.03
+		local l, r = camPoint(cf, -0.2, -0.78 + shake, -1.25), camPoint(cf, 0.2, -0.78 - shake, -1.25)
+		placeArm(leftArm, l, leftDir, up, -1)
+		placeArm(rightArm, r, rightDir, up, 1)
+		local mid = (l + r) / 2
+		showProp("Cuffs", CFrame.lookAt(mid, mid + cf.LookVector, up) * CFrame.new(0, -0.04, -0.18))
+	end
 end
 
 local function shotMotion(kind: string, since: number): (CFrame, CFrame)
@@ -928,9 +1114,17 @@ local function placeView(dt: number, camera: Camera)
 	spread *= math.exp(-clampedDt * 6)
 	local kick = CFrame.new(0, 0.03 * recoilKick, 0.22 * recoilKick) * CFrame.Angles(0.16 * recoilKick, 0, 0)
 
-	-- Достать: поднимается снизу
-	local equipT = smooth((time - equipStarted) / Weapons.EquipSeconds)
-	local raise = CFrame.new(0, -0.9 * (1 - equipT), 0.2 * (1 - equipT)) * CFrame.Angles(-0.7 * (1 - equipT), 0, 0)
+	-- Достать (из кобуры, со спины, снизу) или убрать обратно (этап 8, блок O)
+	local drawT = smooth((time - equipStarted) / Weapons.EquipSeconds)
+	if holsterStarted > 0 then
+		drawT = math.min(drawT, 1 - smooth((time - holsterStarted) / Actions.HolsterSeconds))
+	end
+	local raise = drawPose(kind, drawT)
+	-- Взмах шокером при ударе
+	if kind == "Taser" and lastShotKind == "Taser" then
+		local swing = bump(time - lastShotAt, 0, Actions.TaserSwingSeconds)
+		raise = raise * CFrame.new(-0.12 * swing, 0.06 * swing, -0.25 * swing) * CFrame.Angles(0.25 * swing, 0.35 * swing, -0.5 * swing)
+	end
 
 	-- Присел — оружие плавно опускается ниже; наклон — чуть повёрнуто
 	local downedNow = downed()
@@ -968,6 +1162,14 @@ local function placeView(dt: number, camera: Camera)
 		return
 	end
 
+	-- Действие (бронежилет, покупка, ремонт, арест): оружие из кадра, руки заняты (этап 8, блок O)
+	local action, actionP = currentAction()
+	if action ~= "" then
+		hideWeapon(cf)
+		actionArms(action, actionP, cf, up, time)
+		return
+	end
+
 	if not current then
 		setArmVisible(leftArm, false)
 		setArmVisible(rightArm, false)
@@ -975,27 +1177,35 @@ local function placeView(dt: number, camera: Camera)
 	end
 
 	-- Перезарядка и выстрел двигают части оружия и левую руку
-	local motion: Motion = { root = CFrame.identity, mag = CFrame.identity, slide = CFrame.identity, pump = CFrame.identity, left = CFrame.identity, hideMag = false }
+	local motion = newMotion()
 	local reloadUntil = number(PlayerAttr.ReloadUntil)
 	local info = (Weapons :: any)[kind]
 	if FIREARMS[kind] and reloadUntil > time then
-		motion = reloadMotion(kind, 1 - (reloadUntil - time) / info.ReloadSeconds)
+		motion = reloadMotion(kind, 1 - (reloadUntil - time) / info.ReloadSeconds, current)
 	end
 	if lastShotKind == kind then
 		local slide, pump = shotMotion(kind, time - lastShotAt)
 		motion.slide = motion.slide * slide
 		motion.pump = motion.pump * pump
 	end
-	-- Аптечка: подносит к груди и нажимает, в конце — зелёный «+» (возвращается плавно)
+	-- Аптечка (этап 8, блок O): подносит к груди, открывает крышку, левая рука берёт бинт и бинтует грудь,
+	-- кладёт обратно и закрывает (Weapons.Medkit.UseSeconds); возвращается плавно
 	local healUntil = number(PlayerAttr.HealUntil)
 	local healActive = kind == "Medkit" and healUntil > time
-	healBlend += ((if healActive then 1 else 0) - healBlend) * (1 - math.exp(-clampedDt * Config.Animations.BlendSpeed))
-	local healMotion = CFrame.identity
-	if kind == "Medkit" and healBlend > 0.002 then
-		local p = if healActive then 1 - (healUntil - time) / Weapons.Medkit.UseSeconds else 1
-		local k = smooth(p / 0.3) * healBlend
-		healMotion = CFrame.new(0, 0.15 * k - 0.05 * math.abs(math.sin(p * 18)) * k, 0.45 * k) * CFrame.Angles(-0.35 * k, 0, 0)
+	if healActive and not healWasActive then
+		Fx.sound(Config.Sounds.MedkitUse)
 	end
+	healWasActive = healActive
+	healBlend += ((if healActive then 1 else 0) - healBlend) * (1 - math.exp(-clampedDt * Config.Animations.BlendSpeed))
+	local healP = if healActive then math.clamp(1 - (healUntil - time) / Weapons.Medkit.UseSeconds, 0, 1) else 1
+	local healMotion = CFrame.identity
+	local lidOpen = 0
+	if kind == "Medkit" and healBlend > 0.002 then
+		local k = smooth(healP / 0.15) * healBlend
+		healMotion = CFrame.new(0.12 * k, 0.05 * k, 0.4 * k) * CFrame.Angles(0.35 * k, 0, 0)
+		lidOpen = smooth((healP - 0.12) / 0.15) * (1 - smooth((healP - 0.78) / 0.12)) * 1.35 * healBlend
+	end
+	local lidMotion = MEDKIT_HINGE * CFrame.Angles(-lidOpen, 0, 0) * MEDKIT_HINGE:Inverse()
 	-- Шокер на перезарядке: экран красный
 	local base = cf * crouchDrop * HOLD[kind] * stance * sway * bob * raise * kick * motion.root * healMotion
 	local built = current.built
@@ -1010,6 +1220,8 @@ local function placeView(dt: number, camera: Camera)
 			part.CFrame = base * motion.slide * offset
 		elseif group == "Pump" then
 			part.CFrame = base * motion.pump * offset
+		elseif group == "Lid" then
+			part.CFrame = base * lidMotion * offset
 		else
 			part.CFrame = base * offset
 		end
@@ -1023,7 +1235,28 @@ local function placeView(dt: number, camera: Camera)
 	setArmVisible(leftArm, true)
 	if kind == "Medkit" then
 		placeArm(rightArm, (base * CFrame.new(0.62, -0.5, 0)).Position, cf:VectorToWorldSpace(RIGHT_ARM_DIR), up, 1)
-		placeArm(leftArm, (base * CFrame.new(-0.62, -0.5, 0)).Position, cf:VectorToWorldSpace(LEFT_ARM_DIR), up, -1)
+		local leftHand = (base * CFrame.new(-0.62, -0.5, 0)).Position
+		if healActive then
+			local inside = (base * CFrame.new(-0.15, -0.2, 0)).Position
+			local chest = camPoint(cf, -0.05, -0.95, -0.7)
+			if healP >= 0.3 and healP < 0.4 then
+				leftHand = leftHand:Lerp(inside, smooth((healP - 0.3) / 0.1))
+			elseif healP >= 0.4 and healP < 0.5 then
+				leftHand = inside:Lerp(chest, smooth((healP - 0.4) / 0.1))
+			elseif healP >= 0.5 and healP < 0.7 then
+				-- Бинтует: два круга у груди
+				local q = (healP - 0.5) / 0.2
+				local radius = math.sin(q * math.pi)
+				local a = q * math.pi * 4
+				leftHand = chest + cf:VectorToWorldSpace(Vector3.new(math.cos(a) * 0.2 * radius, math.sin(a) * 0.12 * radius, 0))
+			elseif healP >= 0.7 and healP < 0.8 then
+				leftHand = chest:Lerp(leftHand, smooth((healP - 0.7) / 0.1))
+			end
+			if healP >= 0.36 and healP < 0.74 then
+				showProp("Bandage", CFrame.lookAt(leftHand, leftHand + cf.LookVector, up) * CFrame.new(0.05, 0.1, -0.1))
+			end
+		end
+		placeArm(leftArm, leftHand, cf:VectorToWorldSpace(LEFT_ARM_DIR), up, -1)
 		return
 	end
 	placeArm(rightArm, (base * CFrame.new(0.02, -0.08, 0.06)).Position, cf:VectorToWorldSpace(RIGHT_ARM_DIR), up, 1)
@@ -1031,7 +1264,12 @@ local function placeView(dt: number, camera: Camera)
 	if kind == "Shotgun" then
 		support = motion.pump * support
 	end
-	local leftHand = base * support * motion.left
+	local leftAt = motion.leftAt
+	local leftHand = if leftAt then base * CFrame.new(leftAt) else base * support * motion.left
+	local shellAt = motion.shellAt
+	if shellAt then
+		showProp("Shell", base * CFrame.new(shellAt) * CFrame.new(0, 0.12, -0.05))
+	end
 	placeArm(leftArm, leftHand.Position, cf:VectorToWorldSpace(LEFT_ARM_DIR), up, -1)
 end
 
@@ -1039,9 +1277,19 @@ end
 
 local function syncView()
 	local kind = equipped()
-	local show = onShift() and not viewing() and not downed() and not reviving() and kind ~= ""
+	local calm = onShift() and not viewing() and not downed() and not reviving()
+	local show = calm and kind ~= ""
 	local wanted = if show then kind else ""
-	if wanted ~= shownKind then
+	if wanted == shownKind then
+		holsterStarted = 0
+	elseif calm and shownKind ~= "" and shownKind ~= "Medkit" and (holsterStarted == 0 or now() < holsterStarted + Actions.HolsterSeconds) then
+		-- Сначала старое оружие уходит в кобуру или за спину (этап 8, блок O), потом достаётся новое
+		if holsterStarted == 0 then
+			holsterStarted = now()
+			triggerHeld = false
+		end
+	else
+		holsterStarted = 0
 		shownKind = wanted
 		buildView(wanted)
 		equipStarted = now()
@@ -1060,7 +1308,8 @@ local function step(dt: number)
 	local shift = onShift()
 	syncView()
 	setBound(shift, shownKind ~= "")
-	local visible = shift and not viewing() and not spectating() and (shownKind ~= "" or downed() or number(PlayerAttr.ReviveTarget) ~= 0)
+	local acting = currentAction() ~= ""
+	local visible = shift and not viewing() and not spectating() and (shownKind ~= "" or downed() or number(PlayerAttr.ReviveTarget) ~= 0 or acting)
 	if visible then
 		if container.Parent ~= camera then
 			container.Parent = camera
@@ -1069,6 +1318,7 @@ local function step(dt: number)
 	elseif container.Parent then
 		container.Parent = nil
 	end
+	hideUnusedProps()
 	-- Отдача уводит прицел: камера Roblox запоминает поворот сама, поэтому добавляем понемногу
 	if cameraKick > 0.0001 or math.abs(cameraKickYaw) > 0.0001 then
 		local part = math.min(1, dt * 28)
@@ -1083,7 +1333,7 @@ local function step(dt: number)
 		tryFire()
 	end
 	-- Прицел вместо стрелки мыши, пока в руках оружие
-	local aiming = visible and shownKind ~= "" and shownKind ~= "Medkit"
+	local aiming = visible and shownKind ~= "" and shownKind ~= "Medkit" and not acting
 	crosshair.Visible = aiming
 	-- Стрелку мыши прячем, только пока она заперта в центре (список фраз и экран камер её освобождают)
 	local hideMouse = aiming and UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter
@@ -1112,4 +1362,7 @@ localPlayer.CharacterAdded:Connect(function()
 	crouchBlend = 0
 	leanBlend = 0
 	healBlend = 0
+	healWasActive = false
+	holsterStarted = 0
+	actionKind = ""
 end)
