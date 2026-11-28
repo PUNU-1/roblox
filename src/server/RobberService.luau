@@ -1,6 +1,7 @@
 -- Налёт (блок 4): вооружённое ограбление вместо одной волны воров (решает WaveService).
---  • Грабителей — игроки × 3, все входят через одну дверь (дальнюю от охраны), с сиреной и надписью ARMED ROBBERY!
---    Вверху у всех отсчёт POLICE: 60 (атрибут GameState PoliceAt). Пока идёт налёт, огнестрел можно достать.
+--  • Грабителей — игроки × 5, двумя волнами (этап 8): 60 % — через дальнюю от охраны дверь, с сиреной и надписью
+--    ARMED ROBBERY!, остальные — через 40 сек через другую дверь (MORE ROBBERS INCOMING!).
+--    Вверху у всех отсчёт POLICE: 90 (атрибут GameState PoliceAt). Пока идёт налёт, огнестрел стреляет. Налёт — двумя волнами с разных сторон.
 --  • Стрелки (Gunner) прячутся за укрытиями (витрины, колонны, банкетки), выглядывают и стреляют по охране:
 --    у бота шанс попадания (пистолет 40%, автомат 25%, на следующих налётах выше), присед, укрытие и дым мешают.
 --    У каждого одна дымовая шашка. Охранника вплотную бьют прикладом.
@@ -114,7 +115,8 @@ local policeLights: { Instance } = {}
 local folder: Folder
 local active = false
 local raidIndex = 0 -- какой по счёту налёт в этом забеге (шанс попадания растёт)
-local spawningUntil = 0 -- пока грабители налёта ещё входят, налёт не может кончиться
+local spawningUntil = 0 -- пока грабители налёта ещё входят (и вторая волна не вошла), налёт не может кончиться
+local raidToken = 0 -- меняется в начале налёта и в конце ночи: старая вторая волна не войдёт в новую ночь
 local updateConnection: RBXScriptConnection? = nil
 local policeThread: thread? = nil
 local random = Random.new()
@@ -1357,23 +1359,45 @@ local function surrenderAll()
 	end)
 end
 
--- Дверь налёта: дальняя от охраны.
-local function raidEntrance(): BasePart?
+-- Дверь налёта: дальняя от охраны. except — эту дверь не брать, если есть другая (вторая волна).
+local function raidEntrance(except: BasePart?): BasePart?
 	local open = WingService.entrances()
 	local best, bestDistance = nil, -1
 	for _, entrance in open do
-		local distance = math.huge
-		for _, guard in guards() do
-			distance = math.min(distance, flatDistance(guard.root.Position, entrance.Position))
-		end
-		if distance > bestDistance then
-			best, bestDistance = entrance, distance
+		if entrance ~= except or #open == 1 then
+			local distance = math.huge
+			for _, guard in guards() do
+				distance = math.min(distance, flatDistance(guard.root.Position, entrance.Position))
+			end
+			if distance > bestDistance then
+				best, bestDistance = entrance, distance
+			end
 		end
 	end
 	return best
 end
 
--- Начать налёт: игроки × 3 грабителя через одну дверь, отсчёт полиции.
+-- Одна волна налёта: count грабителей (из них grabbers хватальщиков) друг за другом через дверь entrance.
+local function spawnRaidGroup(count: number, grabbers: number, rifleShare: number, entrance: BasePart, token: number)
+	for index = 1, count do
+		if not active or token ~= raidToken then
+			return
+		end
+		local role = if index % 3 == 0 and grabbers > 0 then "Grabber" else "Gunner"
+		if count - index < grabbers then
+			role = "Grabber" -- остаток — хватальщики
+		end
+		if role == "Grabber" then
+			grabbers -= 1
+		end
+		local gun = if role == "Gunner" then (if random:NextNumber() < rifleShare then "Rifle" else "Pistol") else nil
+		spawnRobber(role, gun, entrance)
+		task.wait(Raid.Stagger)
+	end
+end
+
+-- Начать налёт (этап 8, решение 101): игроки × PerPlayer грабителей двумя волнами. Первая (60 %) — через
+-- дальнюю от охраны дверь, вторая — через SecondWaveSeconds через другую дверь. Полиция — от начала налёта.
 function RobberService.startRaid(playerCount: number)
 	if not active or GameState.get(Attr.Raid) == true then
 		return
@@ -1383,32 +1407,36 @@ function RobberService.startRaid(playerCount: number)
 		return
 	end
 	raidIndex += 1
+	raidToken += 1
+	local token = raidToken
 	local total = math.max(1, playerCount) * Raid.PerPlayer
 	local grabbers = math.max(1, math.floor(total * Raid.GrabberShare + 0.5))
 	local rifleShare = math.clamp(Settings.RifleShare + Settings.RifleShareGrowth * (raidIndex - 1), 0, 0.8)
-	spawningUntil = now() + total * Raid.Stagger + 1.5
+	local secondCount = math.clamp(math.floor(total * Raid.SecondWaveShare + 0.5), 0, total - 1)
+	local firstCount = total - secondCount
+	local secondGrabbers = math.min(secondCount, math.floor(grabbers * Raid.SecondWaveShare + 0.5))
+	local firstGrabbers = math.min(firstCount, grabbers - secondGrabbers)
+	spawningUntil = now() + firstCount * Raid.Stagger + 1.5
+	if secondCount > 0 then
+		spawningUntil = math.max(spawningUntil, now() + Raid.SecondWaveSeconds + secondCount * Raid.Stagger + 1.5)
+	end
 	GameState.set(Attr.Raid, true)
 	GameState.set(Attr.PoliceArrived, false)
 	GameState.set(Attr.PoliceAt, now() + Raid.PoliceSeconds)
 	bannerRemote:FireAllClients("ARMED ROBBERY!", "danger")
 	Audio.alarm()
-	task.spawn(function()
-		for index = 1, total do
-			if not active then
+	task.spawn(spawnRaidGroup, firstCount, firstGrabbers, rifleShare, entrance, token)
+	if secondCount > 0 then
+		task.delay(Raid.SecondWaveSeconds, function()
+			if not active or token ~= raidToken or GameState.get(Attr.Raid) ~= true or GameState.get(Attr.PoliceArrived) == true then
 				return
 			end
-			local role = if index % 3 == 0 and grabbers > 0 then "Grabber" else "Gunner"
-			if total - index < grabbers then
-				role = "Grabber" -- остаток — хватальщики
-			end
-			if role == "Grabber" then
-				grabbers -= 1
-			end
-			local gun = if role == "Gunner" then (if random:NextNumber() < rifleShare then "Rifle" else "Pistol") else nil
-			spawnRobber(role, gun, entrance)
-			task.wait(Raid.Stagger)
-		end
-	end)
+			local other = raidEntrance(entrance) or entrance
+			bannerRemote:FireAllClients("MORE ROBBERS INCOMING!", "danger")
+			Audio.alarm()
+			spawnRaidGroup(secondCount, secondGrabbers, rifleShare, other, token)
+		end)
+	end
 	if policeThread then
 		pcall(task.cancel, policeThread)
 	end
@@ -1461,6 +1489,7 @@ end
 
 function RobberService.endNight()
 	active = false
+	raidToken += 1
 	if updateConnection then
 		updateConnection:Disconnect()
 		updateConnection = nil

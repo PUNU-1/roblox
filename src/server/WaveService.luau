@@ -576,14 +576,26 @@ function WaveService.beginNight(players: number, night: number, nightLength: num
 	if big then
 		waves = bigWave(waves)
 	end
-	-- Налёт: с Raid.FromNight с шансом Raid.Chance одна из волн (не первая, если можно, и не под самое утро)
+	-- Налёт: с Raid.FromNight с шансом Raid.Chance одна из волн (не первая, если можно, и не под самое утро).
+	-- Вторая волна налёта должна войти до утра (этап 8): налёт — не позже ночь − SecondWaveSeconds − LastSpawnBeforeEnd.
 	raidWave = nil
 	local raid = Config.Raid
 	local raidNight = Waves.TestUnlockAll or nightNumber >= raid.FromNight
 	if #waves > 0 and (raid.TestForce or (raidNight and random:NextNumber() < raid.Chance)) then
 		local last = math.max(1, math.ceil(#waves * 0.6))
 		local first = if #waves >= 2 and not raid.TestForce then 2 else 1
-		raidWave = random:NextInteger(first, math.max(first, last))
+		local latest = nightLength - raid.SecondWaveSeconds - Waves.LastSpawnBeforeEnd
+		local candidates = {}
+		for index = first, math.max(first, last) do
+			if waves[index] and waves[index].at <= latest then
+				table.insert(candidates, index)
+			end
+		end
+		if #candidates > 0 then
+			raidWave = candidates[random:NextInteger(1, #candidates)]
+		else
+			raidWave = 1 -- ночь короткая: налёт с первой волной, чтобы вторая успела
+		end
 	end
 	local fresh = newKinds(nightNumber)
 	if raidWave == 1 and #fresh > 0 then
