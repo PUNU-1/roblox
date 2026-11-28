@@ -52,6 +52,10 @@ local gui = Theme.screenGui("HubHUD", 1)
 
 -- На телефоне и планшете без клавиатуры вместо клавиш — кнопки на экране
 local touchOnly = Theme.touchOnly()
+local conns: { RBXScriptConnection } = {}
+local function track(conn: RBXScriptConnection)
+	table.insert(conns, conn)
+end
 
 ProgressFx.start() -- LEVEL UP, «Quest done», достижения, подарок новичку (этап 6, блок H1)
 SettingsWindow.start() -- применяем сохранённые настройки сразу при входе (этап 6, блок J1)
@@ -131,7 +135,7 @@ local function refreshFriendLine()
 	friendLine.Visible = true
 end
 for _, name in { PlayerAttr.FriendRecords, PlayerAttr.Stats } do
-	localPlayer:GetAttributeChangedSignal(name):Connect(refreshFriendLine)
+	track(localPlayer:GetAttributeChangedSignal(name):Connect(refreshFriendLine))
 end
 refreshFriendLine()
 
@@ -209,11 +213,11 @@ local function showBanner(text: string, kind: string?)
 	end)
 end
 
-Remotes.get(Remotes.Names.Banner).OnClientEvent:Connect(function(text, kind)
+track(Remotes.get(Remotes.Names.Banner).OnClientEvent:Connect(function(text, kind)
 	if typeof(text) == "string" then
 		showBanner(text, if typeof(kind) == "string" then kind else nil)
 	end
-end)
+end))
 
 ---------------------------------------------------------------- выбор класса (окно CLASSES)
 
@@ -281,20 +285,28 @@ local menu = Theme.new("Frame", {
 
 type MenuItem = { icon: string, label: string, key: string?, action: () -> () }
 
+local openEmotesPanel: () -> ()
+local closeEmotesPanel: () -> ()
+local toggleEmotesPanel: () -> ()
+local layoutEmotes: () -> ()
+
 local function openShop()
 	if not launching() then
+		closeEmotesPanel()
 		ClassShop.toggle()
 	end
 end
 
 local function openClasses()
 	if not launching() then
+		closeEmotesPanel()
 		ClassesWindow.toggle()
 	end
 end
 
 local function openSettings()
 	if not launching() then
+		closeEmotesPanel()
 		SettingsWindow.toggle()
 	end
 end
@@ -305,19 +317,41 @@ local ITEMS: { MenuItem } = {
 	{
 		icon = "Gift",
 		label = "GIFTS",
-		action = Gifts.toggle,
+		action = function()
+			closeEmotesPanel()
+			Gifts.toggle()
+		end,
 	},
-	{ icon = "Quests", label = "QUESTS", key = "Q", action = Quests.toggle }, -- задания и достижения (этап 6, блок H1)
-	{ icon = "Collection", label = "COLLECTION", action = Collection.toggle }, -- воры и экспонаты (этап 6, блок H2)
+	{
+		icon = "Quests",
+		label = "QUESTS",
+		key = "Q",
+		action = function()
+			closeEmotesPanel()
+			Quests.toggle()
+		end,
+	}, -- задания и достижения (этап 6, блок H1)
+	{
+		icon = "Collection",
+		label = "COLLECTION",
+		action = function()
+			closeEmotesPanel()
+			Collection.toggle()
+		end,
+	}, -- воры и экспонаты (этап 6, блок H2)
 	{
 		icon = "HowToPlay",
 		label = "HOW TO PLAY",
-		action = HowToPlay.toggle,
+		action = function()
+			closeEmotesPanel()
+			HowToPlay.toggle()
+		end,
 	},
 	{
 		icon = "Group",
 		label = "GROUP",
 		action = function()
+			closeEmotesPanel()
 			-- Группы пока нет (Config.Rewards.GroupId = 0): награду за вступление сделаем, когда владелец пришлёт номер
 			comingSoon("COMING SOON!", "Join our Roblox group and get a gift. Coming soon!")
 		end,
@@ -326,8 +360,16 @@ local ITEMS: { MenuItem } = {
 		icon = "Favorite",
 		label = "FAVORITE",
 		action = function()
+			closeEmotesPanel()
 			-- Roblox не даёт проверить, добавил ли игрок игру в избранное, — награды не будет, позже только окно Roblox
 			comingSoon("COMING SOON!", "Add Night Guard: Museum to your favorites. Coming soon!")
+		end,
+	},
+	{
+		icon = "Emotes",
+		label = "EMOTES",
+		action = function()
+			toggleEmotesPanel()
 		end,
 	},
 	{ icon = "Settings", label = "SETTINGS", key = Config.Settings.KeyLabel, action = openSettings }, -- настройки (этап 6, блок J1)
@@ -398,10 +440,154 @@ local function layoutMenu()
 		-- По центру высоты, если влезает под полоской уровня, иначе сразу под ней
 		menu.Position = UDim2.fromOffset(12, math.max(MENU_TOP, math.floor((viewport.Y - menu.Size.Y.Offset) / 2)))
 	end
+	if layoutEmotes then
+		layoutEmotes()
+	end
 end
+
+---------------------------------------------------------------- панель эмоций (этап 7, задание K2)
+
+local EmotesCfg = Config.Hub.Emotes
+local EMOTE_W = if touchOnly then EmotesCfg.PanelTouchWidth else EmotesCfg.PanelWidth
+local EMOTE_BTN_H = if touchOnly then EmotesCfg.ButtonTouchHeight else EmotesCfg.ButtonHeight
+local EMOTE_HEADER_H = if touchOnly then 16 else 20
+local EMOTE_PAD = 6
+
+local emotePanel = Theme.new("Frame", {
+	Name = "EmotePanel",
+	Size = UDim2.fromOffset(EMOTE_W, 100),
+	BackgroundTransparency = 1,
+	Visible = false,
+	ZIndex = 4,
+	Parent = gui,
+})
+local emoteInset = PixelWindow.box(emotePanel, Colors.Navy, Colors.Gold)
+local EMOTE_H = emoteInset * 2 + EMOTE_HEADER_H + EMOTE_PAD + #EmotesCfg.List * EMOTE_BTN_H + (#EmotesCfg.List - 1) * EmotesCfg.Gap + EMOTE_PAD
+emotePanel.Size = UDim2.fromOffset(EMOTE_W, EMOTE_H)
+
+Theme.pixelLabel({
+	Name = "Title",
+	Position = UDim2.fromOffset(emoteInset, emoteInset + 2),
+	Size = UDim2.new(1, -2 * emoteInset, 0, EMOTE_HEADER_H),
+	Text = "EMOTES",
+	TextColor3 = Colors.Gold,
+	ZIndex = 5,
+	Parent = emotePanel,
+}, if touchOnly then 10 else 12)
+
+local emoteListFrame = Theme.new("Frame", {
+	Name = "List",
+	Position = UDim2.fromOffset(emoteInset + 4, emoteInset + EMOTE_HEADER_H + EMOTE_PAD),
+	Size = UDim2.new(1, -2 * (emoteInset + 4), 1, -(emoteInset * 2 + EMOTE_HEADER_H + EMOTE_PAD * 2)),
+	BackgroundTransparency = 1,
+	ZIndex = 5,
+	Parent = emotePanel,
+})
+Theme.new("UIListLayout", {
+	Padding = UDim.new(0, EmotesCfg.Gap),
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	Parent = emoteListFrame,
+})
+
+layoutEmotes = function()
+	local camera = Workspace.CurrentCamera
+	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+	local targetX = menu.Position.X.Offset + menu.Size.X.Offset + 8
+	local maxX = math.max(8, viewport.X - EMOTE_W - 8)
+	local emoteBtn = buttons.Emotes
+	local anchorY = menu.Position.Y.Offset + (if emoteBtn then emoteBtn.root.Position.Y.Offset else 0)
+	local minY = MENU_TOP
+	local maxY = math.max(minY, viewport.Y - EMOTE_H - (if touchOnly then 8 else 12))
+	emotePanel.Position = UDim2.fromOffset(math.min(targetX, maxX), math.clamp(anchorY, minY, maxY))
+end
+
+closeEmotesPanel = function()
+	emotePanel.Visible = false
+end
+
+openEmotesPanel = function()
+	if launching() then
+		return
+	end
+	if PixelWindow.anyOpen() then
+		PixelWindow.closeAll()
+	end
+	layoutEmotes()
+	emotePanel.Visible = true
+end
+
+toggleEmotesPanel = function()
+	if emotePanel.Visible then
+		closeEmotesPanel()
+	else
+		openEmotesPanel()
+	end
+end
+
+local function isStandingStill(character: Model?): boolean
+	if not character then
+		return false
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		return false
+	end
+	local state = humanoid:GetState()
+	if humanoid.MoveDirection.Magnitude >= EmotesCfg.MaxMove
+		or humanoid.Jump
+		or humanoid.Sit
+		or state == Enum.HumanoidStateType.Jumping
+		or state == Enum.HumanoidStateType.Freefall
+		or state == Enum.HumanoidStateType.FallingDown
+		or state == Enum.HumanoidStateType.Seated
+	then
+		return false
+	end
+	return true
+end
+
+local function playEmote(emoteName: string)
+	if launching() then
+		closeEmotesPanel()
+		return
+	end
+	local character = localPlayer.Character
+	if not isStandingStill(character) then
+		showBanner("STAND STILL TO USE EMOTES", "info")
+		return
+	end
+	local animate = if character then character:FindFirstChild("Animate") else nil
+	local playFn = if animate then animate:FindFirstChild("PlayEmote") else nil
+	if not playFn or not playFn:IsA("BindableFunction") then
+		closeEmotesPanel()
+		return
+	end
+	pcall(function()
+		return playFn:Invoke(emoteName)
+	end)
+	closeEmotesPanel()
+end
+
+for index, entry in EmotesCfg.List do
+	local button = PixelButton.text({
+		name = "Emote_" .. entry.label,
+		text = entry.label,
+		color = Colors.NavyLight,
+		textSize = if touchOnly then 10 else 12,
+		cell = 2,
+		size = UDim2.new(1, 0, 0, EMOTE_BTN_H),
+		zIndex = 6,
+		parent = emoteListFrame,
+		onActivated = function()
+			playEmote(entry.emote)
+		end,
+	})
+	button.root.LayoutOrder = index
+end
+
 layoutMenu()
 if Workspace.CurrentCamera then
-	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layoutMenu)
+	track(Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layoutMenu))
 end
 
 ---------------------------------------------------------------- панель создателя команды
@@ -477,7 +663,7 @@ local function rescaleLeader()
 end
 rescaleLeader()
 if Workspace.CurrentCamera then
-	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescaleLeader)
+	track(Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescaleLeader))
 end
 
 ---------------------------------------------------------------- затемнение при телепорте
@@ -512,7 +698,7 @@ local overlayHint = Theme.pixelLabel({
 
 ---------------------------------------------------------------- клавиши
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
+track(UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
@@ -523,6 +709,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		openClasses()
 		return
 	elseif input.KeyCode == Enum.KeyCode.Q and not launching() then
+		closeEmotesPanel()
 		Quests.toggle()
 		return
 	elseif input.KeyCode == Config.Settings.Key then
@@ -547,7 +734,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	elseif input.KeyCode == Enum.KeyCode.G then
 		toggleFriends()
 	end
-end)
+end))
 
 ---------------------------------------------------------------- обновление
 
@@ -571,7 +758,7 @@ local function teamText(pad: BasePart?): string
 end
 
 local accumulator = 0
-RunService.Heartbeat:Connect(function(dt)
+track(RunService.Heartbeat:Connect(function(dt)
 	accumulator += dt
 	if accumulator < 0.1 then
 		return
@@ -596,6 +783,9 @@ RunService.Heartbeat:Connect(function(dt)
 			PixelWindow.closeAll() -- команда улетает — окна закрываем
 		end
 	end
+	if flying or PixelWindow.anyOpen() then
+		closeEmotesPanel()
+	end
 	menu.Visible = not flying
 	ClassesWindow.refresh()
 	-- Подарок можно забрать — красная точка на GIFTS (окно само не открываем)
@@ -613,4 +803,11 @@ RunService.Heartbeat:Connect(function(dt)
 		friendsButton.setText((if on then "FRIENDS ONLY: ON" else "FRIENDS ONLY: OFF") .. key)
 		friendsButton.setColor(if on then Config.Hub.FriendsColor else Colors.NavyLight)
 	end
+end))
+
+gui.Destroying:Connect(function()
+	for _, conn in conns do
+		conn:Disconnect()
+	end
+	table.clear(conns)
 end)
