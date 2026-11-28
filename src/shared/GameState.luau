@@ -112,6 +112,7 @@ GameState.NpcAttr = {
 }
 
 GameState.ThiefAnim = {
+	Idle = "Idle", -- стоит и оглядывается (голова и плечи влево-вправо)
 	Sneak = "Sneak", -- крадётся к экспонату на цыпочках
 	Run = "Run", -- убегает от охранника или загораживает путь
 	Steal = "Steal", -- оглядывается и снимает экспонат
@@ -148,6 +149,7 @@ GameState.ThiefAttr = {
 	Robber = "Robber", -- boolean, грабитель налёта (блок 4): в него попадают пули
 	RobberRole = "RobberRole", -- string, "Gunner" | "Grabber"
 	Surrendered = "Surrendered", -- boolean, сдался полиции: руки вверх
+	CarrySmall = "CarrySmall", -- boolean?, несёт маленький экспонат под мышкой (иначе — над головой)
 }
 
 -- Залы музея. Главный (центр, коридоры, входные холлы) открыт всегда,
@@ -234,6 +236,9 @@ GameState.TouristAnim = {
 	Stroll = "Stroll", -- спокойно гуляет
 	Admire = "Admire", -- стоит у экспоната, руки за спиной
 	Photo = "Photo", -- фотографирует экспонат
+	Sit = "Sit", -- сидит на скамейке
+	Point = "Point", -- показывает пальцем на экспонат
+	Skip = "Skip", -- ребёнок идёт вприпрыжку или бежит вокруг взрослого
 }
 
 -- Кнопки покупки (Purchase.luau на сервере, BuyPrompts.client на клиенте): тег и атрибуты ProximityPrompt.
