@@ -295,6 +295,7 @@ local function fire(player: Player, weapon: string, origin: Vector3, direction: 
 	if not state or not weaponInfo or player:GetAttribute(PlayerAttr.Equipped) ~= weapon then
 		return
 	end
+	-- Днём не стреляет ничего; шокер — ночью всегда, огнестрел — только в налёт (этап 8, решение 97)
 	if GameState.phase() ~= Phase.Night or not RoleService.canAct(player) then
 		return
 	end

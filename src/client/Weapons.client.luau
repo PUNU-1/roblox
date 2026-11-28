@@ -348,7 +348,17 @@ local function requestReload()
 	end
 end
 
+local showToast: (text: string) -> ()
+
+-- Не время стрелять (этап 8, решение 97): сухой щелчок и короткая надпись, патроны не тратятся.
+local function refuseShot(text: string)
+	Fx.click(Config.Sounds.EmptySpeed)
+	showToast(text)
+	triggerHeld = false
+end
+
 -- Можно ли сейчас выстрелить (сервер всё равно проверит сам).
+-- Огнестрел — только в налёт, шокер — ночью всегда, днём не стреляет ничего.
 local function tryFire()
 	local kind = equipped()
 	if kind == "Medkit" then
@@ -363,10 +373,15 @@ local function tryFire()
 	if not info or kind ~= shownKind or not onShift() or downed() or viewing() or knocked() or reviving() then
 		return
 	end
-	if GameState.phase() ~= GameState.Phase.Night then
+	if now() < equipStarted + Weapons.EquipSeconds or now() < nextShotAt then
 		return
 	end
-	if now() < equipStarted + Weapons.EquipSeconds or now() < nextShotAt then
+	if FIREARMS[kind] and not (raidActive() and GameState.phase() == GameState.Phase.Night) then
+		refuseShot("RAID ONLY")
+		return
+	end
+	if GameState.phase() ~= GameState.Phase.Night then
+		refuseShot("NIGHT ONLY")
 		return
 	end
 	if kind == "Taser" then
@@ -379,7 +394,7 @@ local function tryFire()
 		triggerHeld = false
 		return
 	end
-	if not raidActive() or reloading() then
+	if reloading() then
 		return
 	end
 	if predictedAmmo(kind) <= 0 then
@@ -530,7 +545,7 @@ Remotes.get(Remotes.Names.HitConfirm).OnClientEvent:Connect(function(kind)
 	Fx.click(Config.Sounds.HitSpeed, 0.5)
 end)
 
-local function showToast(text: string)
+showToast = function(text: string)
 	toast.Text = text
 	toast.Visible = true
 	holsterWarnUntil = os.clock() + 1.8

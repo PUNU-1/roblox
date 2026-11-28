@@ -40,7 +40,7 @@ local PAGES: { Page } = {
 	},
 	{
 		title = "NIGHT",
-		text = "Thieves come through the doors. " .. arrestKey .. " near a thief to arrest.",
+		text = "Thieves come through the doors. " .. arrestKey .. " near a thief to arrest. Taser works all night, guns - only in a raid.",
 		scene = { { icon = "Moon" }, { icon = "Thief" }, { icon = "KeyF" } },
 	},
 	{
