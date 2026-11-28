@@ -96,25 +96,41 @@ end
 
 ---------------------------------------------------------------- позы
 
+-- Стоит и оглядывается (Idle): голова и плечи поворачиваются влево-вправо.
+local function idlePose(clock: number): Pose
+	local pose: Pose = {}
+	local look = math.sin(clock * 1.4)
+	pose.Root = CFrame.new(0, -0.06, 0)
+	pose.Waist = R(-0.1, 0.32 * look, 0)
+	pose.Neck = R(0.08, 0.55 * look, 0)
+	pawArms(pose, 0.08 * look)
+	legs(pose, 0, 0, 0, 0, 0.08, 0)
+	return pose
+end
+
 -- Крадётся на цыпочках: сгорбился, голова вперёд и вертится, большие плавные шаги.
 local function sneakPose(clock: number, phase: number, move: number): Pose
 	local pose: Pose = {}
 	local s = math.sin(phase)
+	local idle = 1 - move
+	local look = math.sin(clock * 1.6)
 	pose.Root = CFrame.new(0, -0.18 + 0.1 * math.abs(s) * move, 0)
-	pose.Waist = R(-0.35, 0.12 * s * move, 0)
-	pose.Neck = R(0.3, 0.45 * math.sin(clock * 1.6), 0)
+	pose.Waist = R(-0.35, 0.12 * s * move + 0.26 * idle * look, 0)
+	pose.Neck = R(0.3, 0.45 * look, 0)
 	pawArms(pose, 0.15 * s * move)
 	legs(pose, phase, move, 0.65, 0.7, 0.25, -0.4)
 	return pose
 end
 
--- Бежит: наклон вперёд, руки машут навстречу ногам.
-local function runPose(phase: number, move: number): Pose
+-- Бежит: наклон вперёд, руки машут навстречу ногам; стоит — оглядывается.
+local function runPose(clock: number, phase: number, move: number): Pose
 	local pose: Pose = {}
 	local s = math.sin(phase)
+	local idle = 1 - move
+	local look = math.sin(clock * 1.4)
 	pose.Root = CFrame.new(0, -0.1 + 0.18 * math.abs(s) * move, 0)
-	pose.Waist = R(-0.25, 0.1 * s * move, 0)
-	pose.Neck = R(0.15)
+	pose.Waist = R(-0.25, 0.1 * s * move + 0.25 * idle * look, 0)
+	pose.Neck = R(0.15, 0.45 * idle * look, 0)
 	pose.LeftShoulder = R(-0.9 * s * move, 0, 0.1)
 	pose.RightShoulder = R(0.9 * s * move, 0, -0.1)
 	pose.LeftElbow = R(1.3)
@@ -123,7 +139,7 @@ local function runPose(phase: number, move: number): Pose
 	return pose
 end
 
--- Несёт экспонат над головой: руки вверх и чуть покачиваются, ноги бегут.
+-- Несёт большой экспонат двумя руками над головой: руки вверх и чуть покачиваются, ноги бегут.
 local function carryPose(phase: number, move: number): Pose
 	local pose: Pose = {}
 	local s = math.sin(phase)
@@ -136,6 +152,55 @@ local function carryPose(phase: number, move: number): Pose
 	pose.LeftElbow = R(0.35)
 	pose.RightElbow = R(0.35)
 	legs(pose, phase, move, 0.8, 1.0, 0.1, 0)
+	return pose
+end
+
+-- Несёт маленький экспонат под правой мышкой: правая рука прижимает добычу к боку, левая помогает при беге.
+local function carrySmallPose(phase: number, move: number): Pose
+	local pose: Pose = {}
+	local s = math.sin(phase)
+	pose.Root = CFrame.new(0, -0.1 + 0.15 * math.abs(s) * move, 0)
+	pose.Waist = R(-0.15, 0.08 * s * move, -0.06)
+	pose.Neck = R(0.1, -0.1 * s * move, 0)
+	pose.RightShoulder = R(0.38, 0, 0.32)
+	pose.RightElbow = R(1.38)
+	pose.RightWrist = R(0, 0, -0.25)
+	pose.LeftShoulder = R(-0.85 * s * move, 0, -0.08)
+	pose.LeftElbow = R(1.25)
+	legs(pose, phase, move, 0.85, 1.0, 0.12, 0)
+	return pose
+end
+
+-- Задел лазерную сетку: 0.6 сек спотыкается вперёд, взмахивая руками для равновесия.
+local function tripPose(tripT: number, carry: boolean, carrySmall: boolean): Pose
+	local pose: Pose = {}
+	local p = math.clamp(tripT / Settings.LaserTripSeconds, 0, 1)
+	local bump = if p < 0.35 then smooth(p / 0.35) else 1 - smooth((p - 0.35) / 0.65)
+	pose.Root = CFrame.new(0, -0.35 * bump, -0.22 * bump) * R(0, 0, 0.1 * math.sin(p * math.pi * 2) * bump)
+	pose.Waist = R(-0.65 * bump, 0.22 * bump, 0)
+	pose.Neck = R(-0.3 * bump, -0.15 * bump, 0)
+	pose.LeftHip = R(0.75 * bump)
+	pose.LeftKnee = R(-1.05 * bump)
+	pose.LeftAnkle = R(0.25 * bump)
+	pose.RightHip = R(-0.45 * bump)
+	pose.RightKnee = R(-0.35 * bump)
+	if carry and carrySmall then
+		pose.RightShoulder = R(0.38, 0, 0.32)
+		pose.RightElbow = R(1.38)
+		pose.RightWrist = R(0, 0, -0.25)
+		pose.LeftShoulder = R(1.1 * bump, 0, -0.65 * bump)
+		pose.LeftElbow = R(0.7)
+	elseif carry then
+		pose.LeftShoulder = R(2.9, 0, -0.15)
+		pose.RightShoulder = R(2.9, 0, 0.15)
+		pose.LeftElbow = R(0.35)
+		pose.RightElbow = R(0.35)
+	else
+		pose.LeftShoulder = R(1.15 * bump, 0, -0.65 * bump)
+		pose.RightShoulder = R(0.95 * bump, 0, 0.65 * bump)
+		pose.LeftElbow = R(0.75)
+		pose.RightElbow = R(0.75)
+	end
 	return pose
 end
 
@@ -168,18 +233,31 @@ local function stealPose(t: number): Pose
 	return pose
 end
 
--- Арест: резко руки вверх, потом руки вперёд и вместе (там наручники), голова вниз.
+-- Арест: сначала 0.4 сек дёргается плечами (вырывается), потом руки вверх, потом руки вперёд в наручники.
 local function arrestPose(t: number): Pose
 	local pose: Pose = {}
 	local upTime = Settings.ArrestHandsUpSeconds
+	local struggleTime = math.min(Settings.ArrestStruggleSeconds, upTime * 0.7)
 	local cuffTime = Settings.ArrestCuffSeconds
 	legs(pose, 0, 0, 0, 0, 0.05, 0)
+	if t < struggleTime then
+		local shake = math.sin(t * 28)
+		local sway = math.sin(t * 16)
+		pose.Root = CFrame.new(0, -0.08, 0) * R(0, 0, 0.08 * sway)
+		pose.Waist = R(-0.1 + 0.08 * math.abs(shake), 0.3 * sway, 0.12 * shake)
+		pose.Neck = R(0.15, -0.35 * sway, 0.1 * shake)
+		pose.LeftShoulder = R(0.6 + 0.45 * shake, 0, -0.35 + 0.25 * shake)
+		pose.RightShoulder = R(0.6 - 0.45 * shake, 0, 0.35 + 0.25 * shake)
+		pose.LeftElbow = R(1.25 + 0.3 * shake)
+		pose.RightElbow = R(1.25 - 0.3 * shake)
+		return pose
+	end
 	if t < upTime then
-		local k = smooth(t / upTime)
-		pose.LeftShoulder = R(lerp(0, 3.0, k), 0, lerp(0, -0.3, k))
-		pose.RightShoulder = R(lerp(0, 3.0, k), 0, lerp(0, 0.3, k))
-		pose.LeftElbow = R(0.2)
-		pose.RightElbow = R(0.2)
+		local k = smooth((t - struggleTime) / math.max(0.05, upTime - struggleTime))
+		pose.LeftShoulder = R(lerp(0.6, 3.0, k), 0, lerp(-0.35, -0.3, k))
+		pose.RightShoulder = R(lerp(0.6, 3.0, k), 0, lerp(0.35, 0.3, k))
+		pose.LeftElbow = R(lerp(1.25, 0.2, k))
+		pose.RightElbow = R(lerp(1.25, 0.2, k))
 		pose.Neck = R(0.2 * k)
 		return pose
 	end
@@ -244,9 +322,10 @@ local function stompPose(clock: number, phase: number, move: number): Pose
 	local pose: Pose = {}
 	local s = math.sin(phase)
 	local idle = 1 - move
+	local look = math.sin(clock * 1.1)
 	pose.Root = CFrame.new(0, -0.08 + 0.14 * math.abs(s) * move, 0) * R(0, 0, 0.07 * s * move)
-	pose.Waist = R(-0.12, 0.22 * s * move + 0.08 * idle * math.sin(clock * 0.8), 0)
-	pose.Neck = R(0.12, -0.15 * s * move, 0)
+	pose.Waist = R(-0.12, 0.22 * s * move + 0.2 * idle * look, 0)
+	pose.Neck = R(0.12, -0.15 * s * move + 0.4 * idle * look, 0)
 	pose.LeftShoulder = R(0.2 - 0.55 * s * move, 0, -0.38)
 	pose.RightShoulder = R(0.2 + 0.55 * s * move, 0, 0.38)
 	pose.LeftElbow = R(0.95 + 0.1 * idle * math.sin(clock * 2))
@@ -324,9 +403,11 @@ end
 local function prowlPose(clock: number, phase: number, move: number): Pose
 	local pose: Pose = {}
 	local s = math.sin(phase)
+	local idle = 1 - move
+	local look = math.sin(clock * 1.4)
 	pose.Root = CFrame.new(0, -0.42 + 0.05 * math.abs(s) * move, 0)
-	pose.Waist = R(-0.6, 0.08 * s * move, 0)
-	pose.Neck = R(0.55, 0.35 * math.sin(clock * 1.2), 0)
+	pose.Waist = R(-0.6, 0.08 * s * move + 0.24 * idle * look, 0)
+	pose.Neck = R(0.55, 0.35 * math.sin(clock * 1.2) + 0.2 * idle * look, 0)
 	pose.LeftShoulder = R(0.65 - 0.12 * s * move, 0, 0.35)
 	pose.RightShoulder = R(0.65 + 0.12 * s * move, 0, -0.35)
 	pose.LeftElbow = R(1.9)
@@ -467,6 +548,55 @@ local function photoPose(clock: number): Pose
 	pose.LeftElbow = R(1.1)
 	pose.RightElbow = R(1.1)
 	legs(pose, 0, 0, 0, 0, 0, 0)
+	return pose
+end
+
+-- Турист сидит на скамейке: колени согнуты, руки расслаблены, головой оглядывается по залу.
+local function sitPose(clock: number): Pose
+	local pose: Pose = {}
+	pose.Root = CFrame.new(0, 0.02 * math.sin(clock * 1.2), 0)
+	pose.Waist = R(0.08, 0.08 * math.sin(clock * 0.45), 0)
+	pose.Neck = R(0.05, 0.25 * math.sin(clock * 0.65), 0)
+	pose.LeftShoulder = R(0.25, 0, -0.1)
+	pose.RightShoulder = R(0.25, 0, 0.1)
+	pose.LeftElbow = R(0.95)
+	pose.RightElbow = R(0.95)
+	pose.LeftHip = R(1.45, 0, -0.05)
+	pose.RightHip = R(1.45, 0, 0.05)
+	pose.LeftKnee = R(-1.55)
+	pose.RightKnee = R(-1.55)
+	pose.LeftAnkle = R(0.1)
+	pose.RightAnkle = R(0.1)
+	return pose
+end
+
+-- Турист показывает пальцем на экспонат: правая рука вытянута к экспонату, голова туда же.
+local function pointPose(clock: number): Pose
+	local pose: Pose = {}
+	local bob = math.sin(clock * 2.2)
+	pose.Waist = R(-0.1, -0.18, 0)
+	pose.Neck = R(0.22, 0.08 + 0.06 * bob, 0)
+	pose.RightShoulder = R(1.75 + 0.05 * bob, 0, 0.08)
+	pose.RightElbow = R(0.12)
+	pose.LeftShoulder = R(-0.15, 0, -0.1)
+	pose.LeftElbow = R(0.35)
+	legs(pose, 0, 0, 0, 0, 0.03, 0)
+	return pose
+end
+
+-- Ребёнок-турист идёт вприпрыжку (или бегает вокруг взрослого): бодрые подскоки и взмахи руками.
+local function skipPose(clock: number, phase: number, move: number): Pose
+	local pose: Pose = {}
+	local s = math.sin(phase)
+	local hop = math.abs(math.sin(phase * 1.5))
+	pose.Root = CFrame.new(0, 0.35 * hop * move, 0)
+	pose.Waist = R(-0.12, 0.14 * s * move, 0.06 * s * move)
+	pose.Neck = R(0.08, 0.2 * math.sin(clock * 1.4), -0.05 * s * move)
+	pose.LeftShoulder = R(-0.85 * s * move + 0.2 * hop * move, 0, -0.18)
+	pose.RightShoulder = R(0.85 * s * move + 0.2 * hop * move, 0, 0.18)
+	pose.LeftElbow = R(0.85)
+	pose.RightElbow = R(0.85)
+	legs(pose, phase, move, 0.8, 1.15, 0.08, -0.1)
 	return pose
 end
 
@@ -694,7 +824,34 @@ Remotes.get(Remotes.Names.ShotFx).OnClientEvent:Connect(function(shooter)
 	end
 end)
 
+local NO_TRIP_STATES = {
+	[Anim.Arrest] = true,
+	[Anim.Stunned] = true,
+	[Anim.Surrender] = true,
+	[Anim.Knockout] = true,
+	[Anim.Climb] = true,
+	[Anim.Rappel] = true,
+	[Anim.Cut] = true,
+	[Anim.Hold] = true,
+	[Anim.Cover] = true,
+	[Anim.Throw] = true,
+	[Anim.Strike] = true,
+	[Anim.Punch] = true,
+}
+
 local function poseFor(state: any, t: number, clock: number, phase: number, move: number, height: number, model: Model): Pose
+	-- Задел лазерную сетку — 0.6 сек поза «споткнулся» (только вид; скорость/время не меняются)
+	if not NO_TRIP_STATES[state] then
+		local slowedUntil = model:GetAttribute("SlowedUntil")
+		if typeof(slowedUntil) == "number" then
+			local trippedAt = slowedUntil - Config.Traps.LaserGrid.SlowSeconds
+			local tripT = clock - trippedAt
+			if tripT >= 0 and tripT < Settings.LaserTripSeconds then
+				return tripPose(tripT, state == Anim.Carry, model:GetAttribute(GameState.ThiefAttr.CarrySmall) == true)
+			end
+		end
+	end
+
 	local gunValue = model:GetAttribute("RobberGun")
 	local gun = if typeof(gunValue) == "string" then gunValue else ""
 	if state == Anim.Stunned then
@@ -719,9 +876,20 @@ local function poseFor(state: any, t: number, clock: number, phase: number, move
 		return admirePose(clock)
 	elseif state == TouristAnim.Photo then
 		return photoPose(clock)
+	elseif state == TouristAnim.Sit then
+		return sitPose(clock)
+	elseif state == TouristAnim.Point then
+		return pointPose(clock)
+	elseif state == TouristAnim.Skip then
+		return skipPose(clock, phase, move)
+	elseif state == Anim.Idle then
+		return idlePose(clock)
 	elseif state == Anim.Run then
-		return runPose(phase, move)
+		return runPose(clock, phase, move)
 	elseif state == Anim.Carry then
+		if model:GetAttribute(GameState.ThiefAttr.CarrySmall) == true then
+			return carrySmallPose(phase, move)
+		end
 		return carryPose(phase, move)
 	elseif state == Anim.Steal then
 		return stealPose(t)
@@ -815,6 +983,7 @@ local function step(dt: number)
 		local t = if typeof(startedAt) == "number" then math.max(0, clock - startedAt) else 0
 		local stride = if state == Anim.Sneak then Settings.SneakStride
 			elseif state == TouristAnim.Stroll then Settings.StrollStride
+			elseif state == TouristAnim.Skip then Settings.SkipStride
 			elseif state == Anim.Stomp then Settings.StompStride
 			elseif state == Anim.Prowl then Settings.ProwlStride
 			elseif state == Anim.Patrol then Settings.PatrolStride
