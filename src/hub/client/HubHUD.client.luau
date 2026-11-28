@@ -38,6 +38,7 @@ local Collection = require(script.Parent:WaitForChild("Collection"))
 local ProgressFx = require(UI:WaitForChild("ProgressFx"))
 local GoalBar = require(UI:WaitForChild("GoalBar"))
 local SettingsWindow = require(UI:WaitForChild("SettingsWindow"))
+local MobileMenu = require(UI:WaitForChild("MobileMenu"))
 
 local PadAttr = GameState.PadAttr
 local PadState = GameState.PadState
@@ -60,10 +61,17 @@ end
 ProgressFx.start() -- LEVEL UP, «Quest done», достижения, подарок новичку (этап 6, блок H1)
 SettingsWindow.start() -- применяем сохранённые настройки сразу при входе (этап 6, блок J1)
 
--- Уровень и полоска опыта слева сверху, под кнопками Roblox (этап 6, блок H1); кнопки меню — под ней
-local LEVEL_TOP = if touchOnly then 60 else 64
+-- Уровень и полоска опыта слева сверху, под кнопками Roblox (этап 6, блок H1); кнопки меню — под ней.
+-- Телефон (этап 8, блок Q): кнопки слева спрятаны в «Меню» (MobileMenu, кнопка ☰ в верхней полосе Roblox),
+-- полоска уровня — справа под алмазами, чтобы слева сверху было свободно для панели меню и эмоций.
+local LEVEL_TOP = if touchOnly then 62 else 64
 local levelBar = LevelBar.new(gui, touchOnly)
-levelBar.frame.Position = UDim2.fromOffset(if touchOnly then 8 else 12, LEVEL_TOP)
+if touchOnly then
+	levelBar.frame.AnchorPoint = Vector2.new(1, 0)
+	levelBar.frame.Position = UDim2.new(1, -Config.Mobile.Margin, 0, LEVEL_TOP)
+else
+	levelBar.frame.Position = UDim2.fromOffset(12, LEVEL_TOP)
+end
 local MENU_TOP = LEVEL_TOP + levelBar.height + 10
 
 -- Свой круг и его состояние (nil — не в команде).
@@ -87,27 +95,34 @@ end
 
 ---------------------------------------------------------------- сверху по центру: класс и команда
 
+-- Телефон: уже (слева в верхней полосе — кнопки Roblox и ☰, справа — алмазы и уровень) и уменьшаются под длину
 local classLine = Theme.pixelLabel({
 	Name = "ClassLine",
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.5, 0, 0, 14),
-	Size = UDim2.new(0.6, 0, 0, 20),
+	Size = UDim2.new(if touchOnly then 0.4 else 0.6, 0, 0, 20),
+	TextScaled = touchOnly,
 	Parent = gui,
 }, 16)
 local teamLine = Theme.pixelLabel({
 	Name = "TeamLine",
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.5, 0, 0, 42),
-	Size = UDim2.new(0.7, 0, 0, 20),
+	Size = UDim2.new(if touchOnly then 0.44 else 0.7, 0, 0, if touchOnly then 28 else 20),
 	TextColor3 = Colors.Gold,
 	TextWrapped = true,
+	TextScaled = touchOnly,
 	Parent = gui,
 }, 16)
+if touchOnly then
+	Theme.new("UITextSizeConstraint", { MinTextSize = 8, MaxTextSize = 16, Parent = classLine })
+	Theme.new("UITextSizeConstraint", { MinTextSize = 8, MaxTextSize = 16, Parent = teamLine })
+end
 
 -- Полоска до ближайшей награды (этап 6, блок H2): под строками класса и команды
-local goalBar = GoalBar.new(gui, { width = if touchOnly then 300 else 380 })
+local goalBar = GoalBar.new(gui, { width = if touchOnly then 250 else 380 })
 goalBar.frame.AnchorPoint = Vector2.new(0.5, 0)
-goalBar.frame.Position = UDim2.new(0.5, 0, 0, 68)
+goalBar.frame.Position = UDim2.new(0.5, 0, 0, if touchOnly then 74 else 68)
 
 -- Рекорд друга (этап 6, блок H2): «YOUR FRIEND ALEX SURVIVED 9 NIGHTS - BEAT IT!». Нет данных — строки нет.
 local friendLine = Theme.pixelLabel({
@@ -375,6 +390,19 @@ local ITEMS: { MenuItem } = {
 	{ icon = "Settings", label = "SETTINGS", key = Config.Settings.KeyLabel, action = openSettings }, -- настройки (этап 6, блок J1)
 }
 
+if touchOnly then
+	for index, item in ITEMS do
+		MobileMenu.add({
+			id = item.label,
+			icon = item.icon,
+			label = item.label,
+			order = index,
+			dot = if item.icon == "Gift" then Gifts.canClaim else nil,
+			onActivated = item.action,
+		})
+	end
+end
+
 local buttons: { [string]: PixelButton.IconButton } = {}
 local buttonList: { PixelButton.IconButton } = {}
 for index, item in ITEMS do
@@ -492,6 +520,11 @@ Theme.new("UIListLayout", {
 layoutEmotes = function()
 	local camera = Workspace.CurrentCamera
 	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+	if touchOnly then
+		-- Телефон: слева сверху, под верхней полосой (кнопки слева спрятаны в «Меню»)
+		emotePanel.Position = UDim2.fromOffset(Config.Mobile.Margin, math.max(8, math.min(62, viewport.Y - EMOTE_H - 8)))
+		return
+	end
 	local targetX = menu.Position.X.Offset + menu.Size.X.Offset + 8
 	local maxX = math.max(8, viewport.X - EMOTE_W - 8)
 	local emoteBtn = buttons.Emotes
@@ -596,7 +629,8 @@ local LEADER_W, LEADER_H = 300, 210
 local leader = Theme.new("Frame", {
 	Name = "LeaderPanel",
 	AnchorPoint = Vector2.new(1, 0.5),
-	Position = UDim2.new(1, -16, 0.45, 0),
+	-- телефон: чуть ниже — над ней справа полоска уровня, под ней кнопка прыжка Roblox
+	Position = UDim2.new(1, -16, if touchOnly then 0.52 else 0.45, 0),
 	Size = UDim2.fromOffset(LEADER_W, LEADER_H),
 	BackgroundTransparency = 1,
 	Visible = false,
@@ -786,7 +820,8 @@ track(RunService.Heartbeat:Connect(function(dt)
 	if flying or PixelWindow.anyOpen() then
 		closeEmotesPanel()
 	end
-	menu.Visible = not flying
+	menu.Visible = not flying and not touchOnly -- телефон: эти кнопки — в «Меню»
+	MobileMenu.setHidden(flying)
 	ClassesWindow.refresh()
 	-- Подарок можно забрать — красная точка на GIFTS (окно само не открываем)
 	buttons.Gift.setDot(Gifts.canClaim())
