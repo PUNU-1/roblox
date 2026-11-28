@@ -3,7 +3,10 @@
 --  • удар Громилы: падает на спину, лежит со звёздочками, встаёт (KnockedAt / KnockedUntil);
 --  • без сил (блок 4): падает лицом вниз, лежит и ползёт, руки по очереди тянутся вперёд (Downed); встаёт (RevivedAt);
 --  • поднимает друга: на одном колене, руки вперёд-вниз, качается в такт (ReviveTarget);
---  • оружие в руках, выстрел, перезарядка, аптечка, присед, наклон (блок 4, позы — ниже, «стойка и оружие»).
+--  • оружие в руках, выстрел, перезарядка, аптечка, присед, наклон (блок 4, позы — ниже, «стойка и оружие»);
+--  • действия (этап 8, блок O): достать и убрать оружие (кобура на бедре, спина), взмах шокером, рука к поясу при
+--    перезарядке, аптечка с бинтом, бронежилет через голову, покупка в оружейной, отвёртка при ремонте, наручники
+--    при аресте (атрибуты Action / ActionUntil, Equipped, ReloadUntil, HealUntil); вещи в руке — ActionProps.
 -- Сам игрок своё тело не видит (вид от первого лица): ему — только камера (ниже, когда лежит, присел, наклон).
 -- Свои кнопки «Check ID» и «Revive» (их видят другие охранники) у себя прячем.
 -- Это только картинка: что с охранником, решает сервер.
@@ -16,12 +19,14 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
+local ActionProps = require(script.Parent:WaitForChild("ActionProps"))
 
 local PlayerAttr = GameState.PlayerAttr
 local Knock = Config.Knockdown
 local HealthSettings = Config.Health
 local Stance = Config.Stance
 local Anim = Config.Animations
+local Actions = Config.Actions
 
 local localPlayer = Players.LocalPlayer
 
@@ -58,6 +63,14 @@ type Rig = {
 	lastYaw: number?,
 	turnLead: number,
 	breathOffset: number,
+	-- этап 8, блок O: достать / убрать, действие и вещь в руке
+	lastEquipped: string,
+	equipFrom: string,
+	equipAt: number,
+	actionKind: string,
+	actionStart: number,
+	prop: Instance?,
+	propKind: string,
 }
 
 local rigs: { [Model]: Rig } = {}
@@ -229,8 +242,10 @@ local function armsPose(pose: Pose, weapon: string, kick: number, reload: number
 		pose.LeftElbow = R(0.22 + 0.6 * reload)
 		pose.Neck = R(0.02)
 	elseif weapon == "Taser" then
-		pose.RightShoulder = R(1.5 + 0.18 * kick, 0, -0.12)
-		pose.RightElbow = R(0.1)
+		-- Взмах при ударе (этап 8, блок O): kick — от 0 до 1 за Actions.TaserSwingSeconds
+		pose.RightShoulder = R(1.5 + 0.5 * kick, 0, -0.12 - 0.6 * kick)
+		pose.RightElbow = R(0.1 + 0.3 * kick)
+		pose.Waist = R(0, -0.25 * kick, 0)
 	elseif weapon == "Medkit" then
 		pose.RightShoulder = R(0.75 + 0.2 * heal, 0, -0.05)
 		pose.RightElbow = R(1.0 + 0.5 * heal)
@@ -238,6 +253,106 @@ local function armsPose(pose: Pose, weapon: string, kick: number, reload: number
 		pose.LeftElbow = R(1.0 + 0.5 * heal)
 		pose.Neck = R(-0.25 * heal)
 	end
+end
+
+-- Рука тянется к оружию в кобуре (этап 8, блок O): пистолет — правое бедро, шокер — левое бедро (накрест),
+-- автомат и дробовик — за правое плечо, к спине.
+local function reachHolster(pose: Pose, weapon: string)
+	if weapon == "Rifle" or weapon == "Shotgun" then
+		pose.RightShoulder = R(2.8, 0, 0.35)
+		pose.RightElbow = R(2.2)
+		pose.Neck = R(0, 0.3, 0)
+	elseif weapon == "Pistol" then
+		pose.RightShoulder = R(-0.25, 0, 0.15)
+		pose.RightElbow = R(0.3)
+	elseif weapon == "Taser" then
+		pose.RightShoulder = R(0.3, 0, -0.6)
+		pose.RightElbow = R(1.2)
+		pose.Waist = R(0, -0.2, 0)
+	end
+end
+
+-- Перезарядка заметнее для других: левая рука идёт к поясу за магазином и обратно к оружию;
+-- у дробовика — 4 раза за патронами, голова смотрит вниз.
+local function reloadArms(pose: Pose, weapon: string, p: number)
+	local belt
+	if weapon == "Shotgun" then
+		belt = if p > 0.1 and p < 0.8 then math.sin((((p - 0.1) / 0.7 * 4) % 1) * math.pi) else 0
+	else
+		belt = bump(p, 0.15, 0.75)
+	end
+	pose.LeftShoulder = (pose.LeftShoulder or CFrame.identity):Lerp(R(-0.35, 0, 0.12), belt)
+	pose.LeftElbow = (pose.LeftElbow or CFrame.identity):Lerp(R(0.5), belt)
+	pose.Waist = (pose.Waist or CFrame.identity) * R(0.08 * belt, 0, 0)
+	pose.Neck = (pose.Neck or CFrame.identity) * R(-0.25 * belt)
+end
+
+-- Аптечка (p от 0 до 1): подносит кейс к груди, левая рука берёт бинт и бинтует грудь кругами, кладёт обратно.
+local function medkitArms(pose: Pose, p: number)
+	local lift = smooth(p / 0.15) * (1 - smooth((p - 0.9) / 0.1))
+	local chest = bump(p, 0.35, 0.78)
+	local wrap = if p > 0.5 and p < 0.7 then math.sin((p - 0.5) / 0.2 * math.pi * 4) else 0
+	pose.RightShoulder = R(0.75 + 0.35 * lift, 0, -0.05)
+	pose.RightElbow = R(1.0 + 0.6 * lift)
+	pose.LeftShoulder = R(0.75 + 0.3 * lift + 0.2 * wrap, 0, 0.05 + 0.35 * chest)
+	pose.LeftElbow = R(1.0 + 0.7 * chest + 0.15 * wrap)
+	pose.Neck = R(-0.35 * lift)
+end
+
+-- Действие из атрибута Action: бронежилет через голову и застёгивает, покупка — рука к стойке,
+-- ремонт — правая рука вперёд и кисть крутит отвёртку, арест — наклон, обе руки вперёд-вниз с наручниками.
+local function actionPose(pose: Pose, action: string, p: number, clock: number)
+	if action == "Vest" then
+		if p < 0.5 then
+			local u = math.sin(p / 0.5 * math.pi)
+			pose.LeftShoulder = R(2.9 * u, 0, -0.25 * u)
+			pose.RightShoulder = R(2.9 * u, 0, 0.25 * u)
+			pose.LeftElbow = R(0.9 * u)
+			pose.RightElbow = R(0.9 * u)
+			pose.Neck = R(-0.2 * u)
+		else
+			local zip = math.sin((p - 0.5) / 0.5 * math.pi)
+			pose.LeftShoulder = R(0.6, 0, 0.35)
+			pose.LeftElbow = R(1.5)
+			pose.RightShoulder = R(0.5 + 0.5 * zip, 0, -0.35)
+			pose.RightElbow = R(1.6 - 0.3 * zip)
+			pose.Neck = R(-0.35)
+		end
+	elseif action == "Buy" then
+		local reach = math.sin(p * math.pi)
+		pose.RightShoulder = R(1.5 * reach, 0, -0.1 * reach)
+		pose.RightElbow = R(0.25 * reach)
+		pose.Waist = R(-0.15 * reach)
+	elseif action == "Repair" then
+		pose.RightShoulder = R(1.55, 0, -0.1)
+		pose.RightElbow = R(0.35)
+		pose.RightWrist = R(0, math.sin(clock * Actions.ScrewdriverSpeed) * 0.7, 0)
+		pose.LeftShoulder = R(1.3, 0, 0.25)
+		pose.LeftElbow = R(0.5)
+	elseif action == "Arrest" then
+		local shake = math.sin(clock * 14) * 0.06
+		pose.Waist = R(-0.35)
+		pose.Neck = R(0.2)
+		pose.LeftShoulder = R(0.95 + shake, 0, 0.18)
+		pose.RightShoulder = R(0.95 - shake, 0, -0.18)
+		pose.LeftElbow = R(0.35)
+		pose.RightElbow = R(0.35)
+	end
+end
+
+-- Действие игрока сейчас: вид и доля (0..1). Начало запоминается на клиенте, когда атрибут сменился.
+local function actionOf(player: Player, rig: Rig, clock: number): (string, number)
+	local kind = player:GetAttribute(PlayerAttr.Action)
+	local untilTime = number(player, PlayerAttr.ActionUntil)
+	if typeof(kind) ~= "string" or kind == "" or untilTime <= clock then
+		rig.actionKind = ""
+		return "", 0
+	end
+	if kind ~= rig.actionKind then
+		rig.actionKind = kind
+		rig.actionStart = clock
+	end
+	return kind, math.clamp((clock - rig.actionStart) / math.max(0.05, untilTime - rig.actionStart), 0, 1)
 end
 
 -- Ноги присевшего: колени согнуты, корпус ниже; идёт — короткие шаги на полусогнутых.
@@ -260,20 +375,36 @@ local function standingPose(player: Player, _character: Model, rig: Rig, clock: 
 	local crouch = player:GetAttribute(PlayerAttr.Crouch) == true
 	local lean = number(player, PlayerAttr.Lean)
 	local holding = typeof(weapon) == "string" and weapon ~= ""
-	if not holding and not crouch and lean == 0 then
+	local action, actionP = actionOf(player, rig, clock)
+	-- Достать или убрать (этап 8, блок O): первая половина — рука у кобуры или за спиной
+	local sinceEquip = clock - rig.equipAt
+	local drawing = holding and sinceEquip < Weapons.EquipSeconds
+	local holstering = not holding and rig.equipFrom ~= "" and sinceEquip < Actions.HolsterSeconds
+	if not holding and not crouch and lean == 0 and action == "" and not holstering then
 		return nil
 	end
 	local pose: Pose = {}
-	if holding then
-		local kick = bump(clock - (shotAt[player] or 0), 0, 0.14)
-		local reload = 0
+	if action ~= "" then
+		actionPose(pose, action, actionP, clock)
+	elseif holstering then
+		reachHolster(pose, rig.equipFrom)
+	elseif holding then
+		local kick = if weapon == "Taser"
+			then bump(clock - (shotAt[player] or 0), 0, Actions.TaserSwingSeconds)
+			else bump(clock - (shotAt[player] or 0), 0, 0.14)
+		local healUntil = number(player, PlayerAttr.HealUntil)
+		armsPose(pose, weapon :: string, kick, 0, 0)
+		if drawing and sinceEquip < Weapons.EquipSeconds / 2 then
+			reachHolster(pose, weapon :: string)
+		end
 		local reloadUntil = number(player, PlayerAttr.ReloadUntil)
 		local info = (Weapons :: any)[weapon]
 		if reloadUntil > clock and info and info.ReloadSeconds then
-			reload = bump(1 - (reloadUntil - clock) / info.ReloadSeconds, 0.1, 0.9)
+			reloadArms(pose, weapon :: string, 1 - (reloadUntil - clock) / info.ReloadSeconds)
 		end
-		local heal = if number(player, PlayerAttr.HealUntil) > clock then 0.6 + 0.4 * math.abs(math.sin(clock * 9)) else 0
-		armsPose(pose, weapon :: string, kick, reload, heal)
+		if weapon == "Medkit" and healUntil > clock then
+			medkitArms(pose, math.clamp(1 - (healUntil - clock) / Weapons.Medkit.UseSeconds, 0, 1))
+		end
 	end
 	if crouch then
 		crouchLegs(pose, rig.phase, math.clamp(rig.speed / Stance.CrouchSpeed, 0, 1))
@@ -340,7 +471,42 @@ local function newRig(character: Model, userId: number): Rig
 		lastYaw = nil,
 		turnLead = 0,
 		breathOffset = (userId * 1.618) % (math.pi * 2),
+		lastEquipped = "",
+		equipFrom = "",
+		equipAt = -math.huge,
+		actionKind = "",
+		actionStart = 0,
+		prop = nil,
+		propKind = "",
 	}
+end
+
+-- Вещь в руке другого охранника (ActionProps): отвёртка при ремонте, наручники при аресте, бинт с аптечкой.
+local function syncProp(player: Player, character: Model, rig: Rig, clock: number)
+	local kind = ""
+	local action = actionOf(player, rig, clock)
+	if action == "Repair" then
+		kind = "Screwdriver"
+	elseif action == "Arrest" then
+		kind = "Cuffs"
+	elseif player:GetAttribute(PlayerAttr.Equipped) == "Medkit" then
+		local healUntil = number(player, PlayerAttr.HealUntil)
+		local p = 1 - (healUntil - clock) / Weapons.Medkit.UseSeconds
+		if healUntil > clock and p >= 0.36 and p < 0.74 then
+			kind = "Bandage"
+		end
+	end
+	if kind == rig.propKind and (kind == "" or (rig.prop and rig.prop.Parent)) then
+		return
+	end
+	if rig.prop then
+		rig.prop:Destroy()
+		rig.prop = nil
+	end
+	rig.propKind = kind
+	if kind ~= "" then
+		rig.prop = ActionProps.attach(character, kind)
+	end
 end
 
 local function yawOf(cf: CFrame): number
@@ -392,7 +558,16 @@ local function step(dt: number)
 			local targetLead = math.clamp(dirLead * 0.5 + rateLead, -Anim.TurnLeadMax, Anim.TurnLeadMax)
 			rig.turnLead += (targetLead - rig.turnLead) * (1 - math.exp(-clampedDt * Anim.TurnLeadSpeed))
 		end
+		-- Сменилось оружие в руках: запоминаем, что было, — для анимации «достать / убрать» (этап 8, блок O)
+		local equippedNow = player:GetAttribute(PlayerAttr.Equipped)
+		local equippedName = if typeof(equippedNow) == "string" then equippedNow else ""
+		if equippedName ~= rig.lastEquipped then
+			rig.equipFrom = rig.lastEquipped
+			rig.lastEquipped = equippedName
+			rig.equipAt = clock
+		end
 		local pose, fade = poseFor(player, character, rig, clock)
+		syncProp(player, character, rig, clock)
 		-- Плавно: наш вес по каждому суставу растёт к 1 (поза есть) или падает к 0 (обычная анимация)
 		local weightBlend = 1 - math.exp(-clampedDt / math.max(0.15, fade) * 3)
 		if rig.jointCount < #JOINTS and os.clock() - rig.lastScan >= 0.5 then
