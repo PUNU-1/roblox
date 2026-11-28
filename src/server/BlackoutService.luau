@@ -252,6 +252,7 @@ function BlackoutService.init(map: Instance)
 			end)
 		end)
 		created.Triggered:Connect(onRestore)
+		GameState.holdAction(created, "Repair") -- отвёртка в руке, пока держит F (этап 8, блок O)
 		prompt = created
 	end
 	Players.PlayerRemoving:Connect(function(player)

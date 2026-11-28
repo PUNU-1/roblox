@@ -111,6 +111,12 @@ local function sell(player: Player, item: string, fromShop: boolean): boolean
 	elseif good.Kind == "Vest" then
 		HealthService.setArmor(player, Config.Weapons.Vest.Armor)
 	end
+	-- Анимация (этап 8, блок O): бронежилет надевает сразу, у стойки — тянется и берёт товар
+	if good.Kind == "Vest" then
+		GameState.setAction(player, "Vest", Config.Actions.VestSeconds)
+	elseif not fromShop then
+		GameState.setAction(player, "Buy", Config.Actions.BuySeconds)
+	end
 	return true
 end
 

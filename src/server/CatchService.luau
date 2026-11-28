@@ -163,6 +163,7 @@ local CHECK_PROMPT = "CheckIdPrompt"
 local checkActive = false
 
 local function hookHold(prompt: ProximityPrompt)
+	GameState.holdAction(prompt, "Arrest") -- охранник надевает наручники, пока держит F (этап 8, блок O)
 	prompt.PromptButtonHoldBegan:Connect(function(player)
 		if RoleService.canAct(player) then
 			holdStarted[player] = { prompt = prompt, at = Workspace:GetServerTimeNow() }

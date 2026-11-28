@@ -479,6 +479,7 @@ local function setupCamera(point: BasePart, index: number, spotsFolder: Instance
 		fix.Triggered:Connect(function(player)
 			repairOne(camera, player)
 		end)
+		GameState.holdAction(fix, "Repair") -- отвёртка в руке, пока держит F (этап 8, блок O)
 		camera.fixPrompt = fix
 	end
 	table.insert(cameras, camera)

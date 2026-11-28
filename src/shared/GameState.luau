@@ -342,6 +342,9 @@ GameState.PlayerAttr = {
 	TaserReadyAt = "TaserReadyAt", -- number, когда шокер снова заряжен
 	ReloadUntil = "ReloadUntil", -- number, перезарядка кончится (0 — не перезаряжает)
 	HealUntil = "HealUntil", -- number, аптечка подействует (0 — не лечится)
+	-- этап 8, блок O: действие для анимации (пишет сервер, позы рисуют клиенты — Weapons.client и Guards.client)
+	Action = "Action", -- string: "" | "Vest" (надевает бронежилет) | "Buy" (берёт товар в оружейной) | "Repair" (отвёртка у камеры или щитка) | "Arrest" (наручники)
+	ActionUntil = "ActionUntil", -- number, время сервера, когда действие кончится
 	-- блок 5: умение класса (пишет AbilityService)
 	AbilityReadyAt = "AbilityReadyAt", -- number, когда умение снова можно использовать (0 — готово)
 	AbilityUntil = "AbilityUntil", -- number, умение действует до этого времени (рывок)
@@ -559,6 +562,33 @@ function GameState.secondsLeft(): number
 		return 0
 	end
 	return math.max(0, endsAt - workspace:GetServerTimeNow())
+end
+
+-- Действие для анимации (этап 8, блок O). Только для сервера: пишет атрибуты Action / ActionUntil игрока.
+function GameState.setAction(player: Player, kind: string, seconds: number)
+	player:SetAttribute(GameState.PlayerAttr.Action, kind)
+	player:SetAttribute(GameState.PlayerAttr.ActionUntil, workspace:GetServerTimeNow() + seconds)
+end
+
+-- Действие кончилось раньше (отпустил F). Стирает, только если сейчас идёт именно kind.
+function GameState.clearAction(player: Player, kind: string)
+	if player:GetAttribute(GameState.PlayerAttr.Action) == kind then
+		player:SetAttribute(GameState.PlayerAttr.Action, "")
+		player:SetAttribute(GameState.PlayerAttr.ActionUntil, 0)
+	end
+end
+
+-- Пока игрок держит F у кнопки prompt — действие kind (ремонт, арест). Только для сервера.
+function GameState.holdAction(prompt: ProximityPrompt, kind: string)
+	prompt.PromptButtonHoldBegan:Connect(function(player)
+		GameState.setAction(player, kind, prompt.HoldDuration + Config.Actions.HoldSlack)
+	end)
+	prompt.PromptButtonHoldEnded:Connect(function(player)
+		GameState.clearAction(player, kind)
+	end)
+	prompt.Triggered:Connect(function(player)
+		GameState.clearAction(player, kind)
+	end)
 end
 
 return GameState
