@@ -345,6 +345,11 @@ GameState.PlayerAttr = {
 	-- этап 8, блок O: действие для анимации (пишет сервер, позы рисуют клиенты — Weapons.client и Guards.client)
 	Action = "Action", -- string: "" | "Vest" (надевает бронежилет) | "Buy" (берёт товар в оружейной) | "Repair" (отвёртка у камеры или щитка) | "Arrest" (наручники)
 	ActionUntil = "ActionUntil", -- number, время сервера, когда действие кончится
+	-- этап 8, блок P: игры в хабе (без наград, пишет HubGames)
+	RangeUntil = "RangeUntil", -- number, тир: этот игрок стреляет до этого времени (0 — не стреляет)
+	RangeScore = "RangeScore", -- number, тир: попаданий в этой стрельбе
+	CourseStartedAt = "CourseStartedAt", -- number, полоса препятствий: когда ушёл со старта (0 — не бежит)
+	CourseLast = "CourseLast", -- number, полоса препятствий: время последнего забега (сек)
 	-- блок 5: умение класса (пишет AbilityService)
 	AbilityReadyAt = "AbilityReadyAt", -- number, когда умение снова можно использовать (0 — готово)
 	AbilityUntil = "AbilityUntil", -- number, умение действует до этого времени (рывок)

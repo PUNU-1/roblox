@@ -37,6 +37,14 @@ local MapSchema = {
 	HubSpawn = "HubSpawn", -- SpawnLocation в хабе
 	LeaderboardAllTime = "LeaderboardAllTime", -- доска рекордов за всё время (SurfaceGui рисует LeaderboardService)
 	LeaderboardWeekly = "LeaderboardWeekly", -- доска рекордов за неделю
+	-- этап 8, блок P: игры в хабе (строит HubBuilder, оживляет HubGames)
+	HubGames = "HubGames", -- папка: тир и полоса препятствий
+	RangeGun = "RangeGun", -- деталь с кнопкой «Start range» у стойки тира
+	RangeTargetPrefix = "RangeTarget", -- мишень N — RangeTarget .. N (атрибут Index, деталь Face — куда стрелять)
+	RangeBoard = "RangeBoard", -- табло тира (SurfaceGui с текстом Text)
+	CourseStart = "CourseStart", -- старт полосы препятствий
+	CourseFinish = "CourseFinish", -- финиш полосы препятствий
+	CourseBoard = "CourseBoard", -- табло полосы препятствий
 	ClassShop = "ClassShop", -- витрина CLASS SHOP в хабе (этап 4, блок 1): подставки ClassStand_<класс>
 	ClassStandPrefix = "ClassStand_", -- подставка: модель с деталями Top (сюда клиент ставит модель класса) и Label (табличка)
 	MonitorScreens = "MonitorScreens", -- экраны стены мониторов (оживляет MonitorWall.client)

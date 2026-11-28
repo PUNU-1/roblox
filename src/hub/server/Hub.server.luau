@@ -17,6 +17,7 @@ local Server = script.Parent
 local HubBuilder = require(Server:WaitForChild("HubBuilder"))
 local PadService = require(Server:WaitForChild("PadService"))
 local LeaderboardService = require(Server:WaitForChild("LeaderboardService"))
+local HubGames = require(Server:WaitForChild("HubGames"))
 local Teleporter = require(Server:WaitForChild("Teleporter"))
 local PlaceFinder = require(Server:WaitForChild("PlaceFinder"))
 local Uniform = require(Server:WaitForChild("Uniform"))
@@ -44,6 +45,7 @@ FriendService.startRecords() -- рекорды друзей (этап 6, бло�
 local map, pads = HubBuilder.build()
 PadService.init(pads)
 LeaderboardService.init(map) -- доска рекордов: топ-10 команд за всё время и за неделю
+HubGames.init(map) -- тир и полоса препятствий (этап 8, блок P), без наград
 
 local bannerRemote = Remotes.get(Remotes.Names.Banner)
 

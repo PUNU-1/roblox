@@ -2,15 +2,18 @@
 -- (MapBuilder.newKit: стены с обоями и деревянными панелями, карниз, потолок, лампы, растения, таблички).
 -- Координаты ниже — геометрия комнаты, а не баланс, поэтому они здесь, а не в Config.
 --
---   Вид сверху (север вверху, −Z):
---   +------------------- стена мониторов, пульт с креслами -------------------+
---   | WANTED                                                          WANTED |
---   | шкафчики   (1)        (2)        (3)        (4)        (5)     доска    |
---   | банкетки                    5 светящихся кругов                рекордов |
---   |                                  ковёр                         кубок    |
---   | картина   доска HOW TO PLAY   [ дверь ]   кулер, кофе   CLASS SHOP (5 подставок) |
---   +--------------------------------- вход ------------------------------------+
---   Игроки появляются у южной двери лицом к кругам. Витрина CLASS SHOP (этап 4, блок 1) — у южной стены справа.
+--   Вид сверху (север вверху, −Z), этап 8, блок P — пост охраны музея ночью:
+--   +--окно-- WANTED --- стена мониторов, пульт с креслами --- WANTED --окно--+
+--   | ФИНИШ                    START SHIFT (вывеска)                ТИР:     |
+--   | столбики           (3)                                       стойка   |
+--   | балка         (2)         (4)                                мишени  |
+--   | прыжки     (1)   светящиеся дорожки   (5)                            |
+--   | СТАРТ   доска рекордов  [появление]  доска рекордов                   |
+--   | раздевалка   HOW TO PLAY   [ дверь ]  кулер, кофе   CLASS SHOP        |
+--   +--------------------------------- вход --------------------------------+
+--   Игроки появляются лицом к кругам: все 5 — дугой на одном расстоянии (до края круга не дальше 25 стадов),
+--   к каждому — светящаяся дорожка на полу. Мраморный пол, колонны, окна с ночным городом, тёплый свет.
+--   Вдоль западной стены — полоса препятствий, в северо-восточном углу — тир (HubGames; без наград).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -19,6 +22,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local GameState = require(Shared:WaitForChild("GameState"))
 local MapSchema = require(Shared:WaitForChild("MapSchema"))
+local WeaponModels = require(Shared:WaitForChild("WeaponModels"))
 
 local Server = script.Parent
 local MapBuilder = require(Server:WaitForChild("MapBuilder"))
@@ -32,15 +36,14 @@ local HubBuilder = {}
 
 local HALF_X, HALF_Z = 50, 36 -- пол комнаты: x от −50 до 50, z от −36 до 36
 local HEIGHT = 20
-local SPAWN = Vector3.new(0, 0.5, 29)
--- Круги дугой: средний дальше всех, крайние ближе к двери — со входа видны все пять
-local PAD_CENTERS = {
-	Vector3.new(-32, 0, 4),
-	Vector3.new(-16, 0, -1),
-	Vector3.new(0, 0, -3),
-	Vector3.new(16, 0, -1),
-	Vector3.new(32, 0, 4),
-}
+local SPAWN = Vector3.new(0, 0.5, 16)
+-- Круги дугой вокруг точки появления (этап 8, блок P): все на одном расстоянии, со спавна видны сразу
+local PAD_CENTERS: { Vector3 } = {}
+for index = 1, Config.Hub.Pads do
+	local angle = math.rad((index - (Config.Hub.Pads + 1) / 2) * Config.Hub.PadArcStep)
+	local radius = Config.Hub.PadArcRadius
+	table.insert(PAD_CENTERS, Vector3.new(SPAWN.X + math.sin(angle) * radius, 0, SPAWN.Z - math.cos(angle) * radius))
+end
 
 local STEEL = hex("5A6E8C")
 local STEEL_LIGHT = hex("6F84A3")
@@ -92,6 +95,8 @@ local NAVY = hex("1E2A44")
 local NAVY_DARK = hex("141B2E")
 local MARBLE = hex("E8DCC4")
 local MARBLE_DARK = hex("2B2F3A")
+local MARBLE_WARM = hex("D2C3A6") -- шахматка мраморного пола
+local LAVA = hex("8A2A22") -- пол под полосой препятствий
 local RED = hex("C8343A")
 local CYAN = hex("3BC6C1")
 local WOOD = hex("5A3A22")
@@ -704,59 +709,106 @@ end
 
 -- Западная стена: раздевалка — три ряда шкафчиков, банкетки, сумки, вывеска LOCKER ROOM.
 local function buildLockerRoom(kit: Kit)
+	-- Раздевалка у южной стены слева от двери (этап 8, блок P: западная стена — под полосу препятствий)
 	local k = kit.kit
-	local wallX = -HALF_X
-	local number = 0
-	for _, bankZ in { -20, 0, 20 } do
-		for i = 1, 6 do
-			number += 1
-			local z = bankZ + (i - 3.5) * 2.45
-			local position = Vector3.new(wallX + 1.05, 0, z)
-			local locker = k.place(Models.Locker, CFrame.lookAt(position, position + Vector3.new(1, 0, 0)), LOCKER_STUB)
-			local plate = locker:FindFirstChild("Plate", true)
-			if plate and plate:IsA("BasePart") then
-				k.textOn(plate, Enum.NormalId.Front, tostring(number), hex("1E2A44"), 1)
-			end
+	local wallZ = HALF_Z
+	local centerX = -31
+	for i = 1, 6 do
+		local x = centerX + (i - 3.5) * 2.45
+		local position = Vector3.new(x, 0, wallZ - 1.05)
+		local locker = k.place(Models.Locker, CFrame.lookAt(position, position + Vector3.new(0, 0, -1)), LOCKER_STUB)
+		local plate = locker:FindFirstChild("Plate", true)
+		if plate and plate:IsA("BasePart") then
+			k.textOn(plate, Enum.NormalId.Front, tostring(i), hex("1E2A44"), 1)
 		end
-		-- Банкетка перед рядом и сумка на ней
-		k.place(Models.Bench, CFrame.new(wallX + 6, 0, bankZ) * CFrame.Angles(0, math.rad(90), 0), k.bench)
-		local bag = k.decor("DuffelBag", Vector3.new(2.2, 1, 1), CFrame.new(wallX + 6, 2.1, bankZ + 1.3) * CFrame.Angles(0, math.rad(90), 0), hex("1E2A44"), Enum.Material.Fabric)
-		bag.Shape = Enum.PartType.Cylinder
-		k.decor("DuffelStripe", Vector3.new(0.3, 1.05, 1.05), CFrame.new(wallX + 6, 2.1, bankZ + 1.3) * CFrame.Angles(0, math.rad(90), 0), hex("D4A93A"), Enum.Material.Fabric).Shape = Enum.PartType.Cylinder
 	end
-	k.sign(Vector3.new(wallX, 10.5, 0), Vector3.new(1, 0, 0), 16, 1.8, "LOCKER ROOM")
-	-- Зеркало у раздевалки
-	k.decor("MirrorFrame", Vector3.new(0.12, 4.4, 3.2), CFrame.new(wallX + 0.06, 10.5, -30.5), hex("D4A93A"), Enum.Material.Metal)
-	local mirror = k.decor("Mirror", Vector3.new(0.1, 4, 2.8), CFrame.new(wallX + 0.12, 10.5, -30.5), hex("CFE3EC"), Enum.Material.Glass)
-	mirror.Reflectance = 0.4
+	-- Банкетка перед шкафчиками и сумка на ней
+	k.place(Models.Bench, CFrame.new(centerX, 0, wallZ - 6), k.bench)
+	local bag = k.decor("DuffelBag", Vector3.new(2.2, 1, 1), CFrame.new(centerX + 1.4, 2.1, wallZ - 6), hex("1E2A44"), Enum.Material.Fabric)
+	bag.Shape = Enum.PartType.Cylinder
+	k.decor("DuffelStripe", Vector3.new(0.3, 1.05, 1.05), CFrame.new(centerX + 1.4, 2.1, wallZ - 6), hex("D4A93A"), Enum.Material.Fabric).Shape = Enum.PartType.Cylinder
+	k.sign(Vector3.new(centerX, 10.5, wallZ), Vector3.new(0, 0, -1), 14, 1.6, "LOCKER ROOM")
 end
 
--- Восточная стена: две доски рекордов (за всё время и за неделю), вывеска HALL OF FAME, кубок.
+-- Доски рекордов у точки появления (этап 8, блок P): две большие доски на ножках слева и справа, лицом к спавну —
+-- за всё время и за неделю. Над каждой — HALL OF FAME и лампы, рядом — кубок.
 local function buildHallOfFame(kit: Kit, map: Folder)
 	local k = kit.kit
 	local colors = k.colors
-	local wallX = HALF_X
-	local width, height = 16, 11.5
-	local y = 8.6
-	for _, spec in { { z = -10, name = MapSchema.LeaderboardAllTime }, { z = 10, name = MapSchema.LeaderboardWeekly } } do
-		local center = Vector3.new(wallX - 0.2, y, spec.z)
-		local look = CFrame.lookAt(center, center + Vector3.new(-1, 0, 0))
+	local width, height = 12, 8.6
+	local y = 7.6 -- центр доски
+	for _, spec in { { x = -14, name = MapSchema.LeaderboardAllTime }, { x = 14, name = MapSchema.LeaderboardWeekly } } do
+		local center = Vector3.new(spec.x, y, SPAWN.Z + 1)
+		local look = CFrame.lookAt(center, center + Vector3.new(-math.sign(spec.x), 0, 0))
 		k.decor("BoardFrame", Vector3.new(width + 0.8, height + 0.8, 0.3), look * CFrame.new(0, 0, 0.05), colors.Gold, Enum.Material.Metal)
+		k.decor("BoardBack", Vector3.new(width + 0.8, height + 0.8, 0.2), look * CFrame.new(0, 0, 0.3), NAVY_DARK)
 		local board = kit.part(map, spec.name, Vector3.new(width, height, 0.2), look * CFrame.new(0, 0, -0.15), hex("141B2E"))
 		board.CanCollide = false
 		board.CastShadow = false
-		-- Лампы-подсветки над доской
-		for _, dz in { -5, 0, 5 } do
-			k.decor("BoardLampArm", Vector3.new(1.2, 0.15, 0.15), CFrame.new(wallX - 0.6, y + height / 2 + 0.9, spec.z + dz), colors.Gold, Enum.Material.Metal)
-			k.lamp(Vector3.new(wallX - 1.2, y + height / 2 + 0.8, spec.z + dz), Vector3.new(0.5, 0.3, 0.9), Config.Lighting.LobbyLamp)
+		for _, dx in { -width / 2 + 1.2, width / 2 - 1.2 } do
+			k.solid("BoardLeg", Vector3.new(0.5, y, 0.5), look * CFrame.new(dx, -y / 2, 0.55), STEEL_DARK, Enum.Material.Metal)
+		end
+		k.decor("BoardFoot", Vector3.new(width - 1, 0.3, 1.6), look * CFrame.new(0, -y + 0.15, 0.55), STEEL_DARK, Enum.Material.Metal)
+		k.sign((look * CFrame.new(0, height / 2 + 1.3, -0.1)).Position, look.LookVector, 10, 1.4, "HALL OF FAME")
+		for _, dz in { -4, 0, 4 } do
+			k.lamp((look * CFrame.new(dz, height / 2 + 0.2, -0.9)).Position, Vector3.new(0.9, 0.3, 0.5), Config.Lighting.LobbyLamp)
 		end
 	end
-	k.sign(Vector3.new(wallX, 17.6, 0), Vector3.new(-1, 0, 0), 26, 2, "HALL OF FAME")
-	local trophy = k.place(Models.Trophy, CFrame.lookAt(Vector3.new(wallX - 3, 0, 0), Vector3.new(wallX - 10, 0, 0)), TROPHY_STUB)
+	local trophyAt = Vector3.new(-9, 0, SPAWN.Z + 10)
+	local trophy = k.place(Models.Trophy, CFrame.lookAt(trophyAt, Vector3.new(0, 0, trophyAt.Z)), TROPHY_STUB)
 	labelOnPart(kit, trophy, "PlaqueFace", "BEST SHIFT\nTROPHY", GOLD, Enum.Font.FredokaOne, 0.3)
 	labelOnPart(kit, trophy, "PlinthTag", "#1 GUARD TEAM", NAVY_DARK, Enum.Font.GothamBold, 0.5)
-	k.plant(wallX - 2.5, -HALF_Z + 3)
-	k.plant(wallX - 2.5, HALF_Z - 3)
+end
+
+-- Окно с ночным городом (этап 8, блок P): картинка на стене светится сама (небо, звёзды, луна, дома с окнами),
+-- перед ней лёгкое стекло (не материал Glass: за ним пропадает картинка), рама с переплётом и подоконник.
+local function nightWindow(kit: Kit, center: Vector3, facing: Vector3, width: number, height: number, seed: number)
+	local k = kit.kit
+	local look = CFrame.lookAt(center, center + facing)
+	local view = k.decor("WindowView", Vector3.new(width, height, 0.1), look * CFrame.new(0, 0, -0.06), hex("0B1230"))
+	local gui = k.surfaceGui(view, Enum.NormalId.Front, 20, 0)
+	local root = k.guiFrame(gui, UDim2.new(), UDim2.fromScale(1, 1), Color3.new(1, 1, 1), 1)
+	root.ClipsDescendants = true
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new(hex("0B1230"), hex("3A2A5C"))
+	gradient.Rotation = 90
+	gradient.Parent = root
+	local random = Random.new(seed)
+	for _ = 1, 16 do
+		k.guiFrame(root, UDim2.fromScale(random:NextNumber(), random:NextNumber(0, 0.45)), UDim2.fromOffset(2, 2), hex("FFF4D6"), 2)
+	end
+	if seed % 2 == 1 then
+		local moon = k.guiFrame(root, UDim2.fromScale(0.72, 0.08), UDim2.fromScale(0.1, 0.1 * width / height), hex("FFF1C9"), 2)
+		k.corner(moon, UDim.new(0.5, 0))
+	end
+	local x = random:NextNumber(-0.04, 0)
+	while x < 1 do
+		local w = random:NextNumber(0.08, 0.16)
+		local h = random:NextNumber(0.25, 0.62)
+		local house = k.guiFrame(root, UDim2.fromScale(x, 1 - h), UDim2.fromScale(w, h), hex("161B33"), 3)
+		for row = 0, math.floor(h / 0.06) - 1 do
+			for col = 0, math.floor(w / 0.04) - 1 do
+				if random:NextNumber() < 0.35 then
+					k.guiFrame(house, UDim2.fromScale((col * 0.04 + 0.012) / w, (row * 0.06 + 0.02) / h), UDim2.fromScale(0.018 / w, 0.03 / h), hex("FFD27A"), 4)
+				end
+			end
+		end
+		x += w + random:NextNumber(0, 0.02)
+	end
+	local glass = k.decor("WindowGlass", Vector3.new(width, height, 0.04), look * CFrame.new(0, 0, -0.2), hex("9FC4E8"))
+	glass.Transparency = 0.88
+	local frameColor = WOOD_DARK
+	for _, bar in {
+		{ Vector3.new(width + 0.8, 0.4, 0.3), CFrame.new(0, height / 2 + 0.2, -0.15) },
+		{ Vector3.new(width + 0.8, 0.4, 0.3), CFrame.new(0, -height / 2 - 0.2, -0.15) },
+		{ Vector3.new(0.4, height, 0.3), CFrame.new(-width / 2 - 0.2, 0, -0.15) },
+		{ Vector3.new(0.4, height, 0.3), CFrame.new(width / 2 + 0.2, 0, -0.15) },
+		{ Vector3.new(0.18, height, 0.2), CFrame.new(0, 0, -0.22) },
+		{ Vector3.new(width, 0.18, 0.2), CFrame.new(0, height * 0.15, -0.22) },
+	} do
+		k.decor("WindowFrame", bar[1], look * bar[2], frameColor, Enum.Material.Wood)
+	end
+	k.decor("WindowSill", Vector3.new(width + 1.2, 0.25, 0.8), look * CFrame.new(0, -height / 2 - 0.5, -0.4), GOLD, Enum.Material.Metal)
 end
 
 -- Южная стена: двойная дверь входа, логотип игры, доска HOW TO PLAY, кулер, кофемашина, часы.
@@ -991,9 +1043,10 @@ local function buildPads(kit: Kit, map: Folder): { BasePart }
 			stud.Shape = Enum.PartType.Cylinder
 			stud.CFrame = stud.CFrame * CFrame.Angles(0, 0, math.rad(90))
 		end
-		-- Номер круга на полу перед ним (со стороны входа)
-		local platePoint = center + Vector3.new(0, 0.04, settings.PadRadius + 2.4)
-		local plateCFrame = CFrame.lookAt(platePoint, platePoint + Vector3.new(0, 1, 0), Vector3.new(0, 0, -1))
+		-- Номер круга на полу перед ним (со стороны точки появления)
+		local toSpawn = (Vector3.new(SPAWN.X, 0, SPAWN.Z) - Vector3.new(center.X, 0, center.Z)).Unit
+		local platePoint = center + Vector3.new(0, 0.04, 0) + toSpawn * (settings.PadRadius + 2.4)
+		local plateCFrame = CFrame.lookAt(platePoint, platePoint + Vector3.new(0, 1, 0), -toSpawn)
 		k.decor("PadPlateFrame", Vector3.new(3.4, 2.4, 0.06), plateCFrame, colors.Gold, Enum.Material.Metal).CanQuery = false
 		local plate = k.decor("PadPlate", Vector3.new(3, 2, 0.08), plateCFrame * CFrame.new(0, 0, -0.01), colors.Navy)
 		plate.CanQuery = false
@@ -1007,7 +1060,7 @@ end
 local function buildFloorAndCeiling(kit: Kit)
 	local k = kit.kit
 	local colors = k.colors
-	local runnerStart, runnerEnd = HALF_Z - 0.5, 8
+	local runnerStart, runnerEnd = HALF_Z - 0.5, SPAWN.Z + 3.5 -- от двери до точки появления
 	local length = runnerStart - runnerEnd
 	local runner = k.decor("Runner", Vector3.new(8, 0.04, length), CFrame.new(0, 0.02, (runnerStart + runnerEnd) / 2), colors.Navy, Enum.Material.Fabric)
 	runner.CanQuery = false
@@ -1039,7 +1092,165 @@ local function buildFloorAndCeiling(kit: Kit)
 	end
 	-- Картины по краям северной и южной стен
 	local r = kit.rect(-HALF_X, HALF_X, -HALF_Z, HALF_Z)
-	kit.paintingOn(r, "S", -38, 8.5, 6, 4) -- справа на южной стене — витрина CLASS SHOP
+	kit.paintingOn(r, "S", -44, 8.5, 6, 4) -- справа на южной стене — витрина CLASS SHOP, у двери — раздевалка
+end
+
+---------------------------------------------------------------- путь к кругам (этап 8, блок P)
+
+-- От точки появления к каждому кругу — светящаяся дорожка с шевронами; над кругами — большая вывеска START SHIFT.
+local function buildGuide(kit: Kit)
+	local k = kit.kit
+	local colors = k.colors
+	local settings = Config.Hub
+	local color = settings.GuideColor
+	local origin = Vector3.new(SPAWN.X, 0.07, SPAWN.Z)
+	for _, center in PAD_CENTERS do
+		local flat = Vector3.new(center.X, 0.07, center.Z) - origin
+		local dir = flat.Unit
+		local from, to = 3.5, flat.Magnitude - settings.PadRadius - 4.2 -- до таблички TEAM N
+		local a, b = origin + dir * from, origin + dir * to
+		local length = to - from
+		local strip = k.decor("GuideStrip", Vector3.new(0.6, 0.05, length), CFrame.lookAt((a + b) / 2, b), color, Enum.Material.Neon)
+		strip.CanQuery = false
+		strip.CastShadow = false
+		strip.Transparency = 0.15
+		for d = 2, length - 1, 3 do
+			local point = a + dir * d
+			for _, side in { -1, 1 } do
+				local arm = k.decor("GuideChevron", Vector3.new(0.3, 0.05, 1.2), CFrame.lookAt(point, point + dir) * CFrame.new(side * 0.42, 0, 0.3) * CFrame.Angles(0, side * math.rad(40), 0), color, Enum.Material.Neon)
+				arm.CanQuery = false
+				arm.CastShadow = false
+				arm.Transparency = 0.3
+			end
+		end
+	end
+	-- Вывеска START SHIFT на цепях над средним кругом, лицом к точке появления
+	local middle = PAD_CENTERS[math.ceil(#PAD_CENTERS / 2)] or Vector3.new(0, 0, -14)
+	local signY = 15.4
+	local signPoint = Vector3.new(middle.X, signY, middle.Z)
+	local look = CFrame.lookAt(signPoint, signPoint + Vector3.new(0, 0, 1))
+	k.decor("StartSignGlow", Vector3.new(31, 4.6, 0.3), look * CFrame.new(0, 0, 0.1), color, Enum.Material.Neon)
+	local sign = k.decor("StartSign", Vector3.new(30, 3.8, 0.4), look * CFrame.new(0, 0, -0.1), NAVY_DARK)
+	k.textOn(sign, Enum.NormalId.Front, "START SHIFT", colors.Gold, 0)
+	local sub = k.decor("StartSignSub", Vector3.new(22, 1.2, 0.3), look * CFrame.new(0, -3, -0.1), NAVY)
+	k.textOn(sub, Enum.NormalId.Front, "STAND IN A CIRCLE WITH YOUR TEAM", colors.Marble, 0)
+	for _, dx in { -12, 12 } do
+		local top = HEIGHT - 0.2
+		local bottom = signY + 2.3
+		k.decor("StartSignChain", Vector3.new(0.15, top - bottom, 0.15), look * CFrame.new(dx, (top + bottom) / 2 - signY, 0), GOLD, Enum.Material.Metal)
+	end
+	for _, dx in { -9, 9 } do
+		k.decor("StartSubChain", Vector3.new(0.1, 1.4, 0.1), look * CFrame.new(dx, -2, 0), GOLD, Enum.Material.Metal)
+	end
+end
+
+---------------------------------------------------------------- тир (этап 8, блок P)
+
+-- Северо-восточный угол: стойка с игрушечным пистолетом лицом на восток, 6 мишеней у восточной стены
+-- (поднимает и опускает HubGames), табло и вывеска SHOOTING RANGE. Без наград — только для удовольствия.
+local RANGE = { counterX = 36, minZ = -31, maxZ = -7, targetX = 47 }
+
+local function buildRange(kit: Kit, folder: Folder)
+	local k = kit.kit
+	local colors = k.colors
+	local midZ = (RANGE.minZ + RANGE.maxZ) / 2
+	local length = RANGE.maxZ - RANGE.minZ - 4
+	k.solid("RangeCounter", Vector3.new(1.6, 3, length), CFrame.new(RANGE.counterX, 1.5, midZ), WOOD, Enum.Material.Wood)
+	k.decor("RangeCounterTop", Vector3.new(1.9, 0.2, length + 0.3), CFrame.new(RANGE.counterX, 3.1, midZ), GOLD, Enum.Material.Metal)
+	k.decor("RangeMat", Vector3.new(HALF_X - RANGE.counterX - 1, 0.04, RANGE.maxZ - RANGE.minZ), CFrame.new((RANGE.counterX + 1 + HALF_X) / 2, 0.03, midZ), hex("23262E"), Enum.Material.Rubber)
+	for _, z in { RANGE.minZ - 0.3, RANGE.maxZ + 0.3 } do
+		k.solid("RangeRail", Vector3.new(HALF_X - RANGE.counterX, 1.2, 0.3), CFrame.new((RANGE.counterX + HALF_X) / 2, 0.6, z), STEEL_DARK, Enum.Material.Metal)
+		k.decor("RangeRailStripe", Vector3.new(HALF_X - RANGE.counterX, 0.2, 0.32), CFrame.new((RANGE.counterX + HALF_X) / 2, 1.1, z), GOLD_BRIGHT, Enum.Material.Metal)
+	end
+	k.decor("RangeBackdrop", Vector3.new(0.2, 10, RANGE.maxZ - RANGE.minZ), CFrame.new(HALF_X - 0.15, 5, midZ), STEEL_DARK, Enum.Material.Metal)
+	-- Игрушечный пистолет на стойке и деталь с кнопкой «Start range» (кнопку ставит HubGames)
+	local gunAt = CFrame.new(RANGE.counterX, 3.35, midZ) * CFrame.Angles(0, -math.pi / 2, 0) * CFrame.Angles(0, 0, math.pi / 2)
+	local gun = WeaponModels.build("Pistol")
+	WeaponModels.anchor(gun, gunAt)
+	gun.model.Name = "ToyPistol"
+	gun.model.Parent = folder
+	local holder = kit.part(folder, MapSchema.RangeGun, Vector3.new(1, 1, 1), CFrame.new(RANGE.counterX - 0.5, 3.6, midZ), GOLD)
+	holder.Transparency = 1
+	holder.CanCollide = false
+	holder.CanQuery = false
+	-- Мишени: стойка на полу, щит на петле внизу (HubGames поднимает и кладёт его — PivotTo модели)
+	local heights = { 2, 3.4, 2.4, 3.8, 2.8, 2 }
+	local count = Config.Hub.Range.Targets
+	for index = 1, count do
+		local z = RANGE.minZ + 2 + (index - 0.5) * (RANGE.maxZ - RANGE.minZ - 4) / count
+		local h = heights[(index - 1) % #heights + 1]
+		k.solid("TargetPost", Vector3.new(0.3, h, 0.3), CFrame.new(RANGE.targetX + 0.6, h / 2, z), STEEL, Enum.Material.Metal)
+		local hinge = CFrame.lookAt(Vector3.new(RANGE.targetX, h, z), Vector3.new(RANGE.targetX - 1, h, z))
+		local target = Instance.new("Model")
+		target.Name = MapSchema.RangeTargetPrefix .. index
+		local rings = { { 2.4, colors.Red, "Face" }, { 1.8, Color3.new(1, 1, 1), "Ring" }, { 1.2, colors.Red, "Ring" }, { 0.6, GOLD_BRIGHT, "Ring" } }
+		for ringIndex, ring in rings do
+			local part = kit.part(target, ring[3], Vector3.new(0.2 + ringIndex * 0.02, ring[1], ring[1]), hinge * CFrame.new(0, 1.3, -ringIndex * 0.02) * CFrame.Angles(0, math.pi / 2, 0), ring[2])
+			part.Shape = Enum.PartType.Cylinder
+			part.CanCollide = false
+			part.CanQuery = ring[3] == "Face"
+			part.CastShadow = false
+		end
+		target.WorldPivot = hinge
+		target:SetAttribute("Index", index)
+		target.Parent = folder
+	end
+	k.sign(Vector3.new(HALF_X, 15.6, midZ), Vector3.new(-1, 0, 0), 16, 2, "SHOOTING RANGE")
+	local board = kit.part(folder, MapSchema.RangeBoard, Vector3.new(0.2, 3.6, 12), CFrame.new(HALF_X - 0.35, 11.6, midZ), NAVY_DARK)
+	board.CanCollide = false
+	board.CanQuery = false
+	k.decor("RangeBoardFrame", Vector3.new(0.15, 4, 12.4), CFrame.new(HALF_X - 0.25, 11.6, midZ), GOLD, Enum.Material.Metal)
+	local label = k.textOn(board, Enum.NormalId.Left, "SHOOTING RANGE\nPress F at the toy pistol • 30 sec", colors.Gold, 0)
+	label.Name = "Text"
+end
+
+---------------------------------------------------------------- полоса препятствий (этап 8, блок P)
+
+-- Вдоль западной стены с юга на север: старт, 4 прыжка по ступеням, балка, 4 столбика, финиш.
+-- Время считает HubGames (касание старта и финиша), лучшее — на табло. Без наград. Упал — назад на старт.
+local COURSE_X = -44
+
+local function buildCourse(kit: Kit, folder: Folder)
+	local k = kit.kit
+	local colors = k.colors
+	k.decor("CourseFloor", Vector3.new(9, 0.04, 58), CFrame.new(COURSE_X, 0.03, -2), LAVA, Enum.Material.Slate)
+	local start = kit.part(folder, MapSchema.CourseStart, Vector3.new(6, 0.4, 4), CFrame.new(COURSE_X, 0.2, 25), hex("3FB56B"), Enum.Material.Neon)
+	start.CanTouch = true
+	k.textOn(start, Enum.NormalId.Top, "START", colors.Navy, 0)
+	-- Прыжки: ступени всё выше
+	for index, spec in { { 19, 1.5 }, { 14, 2.6 }, { 9, 3.6 }, { 4, 2.6 } } do
+		local top = spec[2]
+		k.solid("CourseStep", Vector3.new(3.5, top, 3.5), CFrame.new(COURSE_X, top / 2, spec[1]), if index % 2 == 0 then NAVY else STEEL_LIGHT, Enum.Material.Metal)
+		k.decor("CourseStepEdge", Vector3.new(3.6, 0.15, 3.6), CFrame.new(COURSE_X, top + 0.02, spec[1]), GOLD_BRIGHT, Enum.Material.Metal)
+	end
+	-- Балка шириной 1 на высоте 2.6
+	local beamFrom, beamTo = 2.25, -10
+	k.solid("CourseBeam", Vector3.new(1, 0.6, beamFrom - beamTo), CFrame.new(COURSE_X, 2.3, (beamFrom + beamTo) / 2), GOLD, Enum.Material.Metal)
+	for _, z in { -1.5, -7.5 } do
+		k.solid("CourseBeamLeg", Vector3.new(0.4, 2, 0.4), CFrame.new(COURSE_X, 1, z), STEEL_DARK, Enum.Material.Metal)
+	end
+	-- Столбики
+	for _, spec in { { -13.5, 3.2 }, { -17, 4.2 }, { -20.5, 3.4 }, { -24, 2.4 } } do
+		local post = k.solid("CoursePost", Vector3.new(spec[2], 2.2, 2.2), CFrame.new(COURSE_X, spec[2] / 2, spec[1]) * CFrame.Angles(0, 0, math.pi / 2), STEEL_LIGHT, Enum.Material.Metal)
+		post.Shape = Enum.PartType.Cylinder
+	end
+	-- Финиш
+	k.solid("CourseFinishBase", Vector3.new(6, 2, 4), CFrame.new(COURSE_X, 1, -28.5), NAVY, Enum.Material.Metal)
+	local finish = kit.part(folder, MapSchema.CourseFinish, Vector3.new(6, 0.2, 4), CFrame.new(COURSE_X, 2.1, -28.5), GOLD_BRIGHT, Enum.Material.Neon)
+	finish.CanTouch = true
+	k.textOn(finish, Enum.NormalId.Top, "FINISH", colors.Navy, 0)
+	-- Канат вдоль полосы (без столкновений) и вывески
+	for z = -30, 20, 5 do
+		k.decor("CourseRopePost", Vector3.new(0.3, 2.2, 0.3), CFrame.new(-38.6, 1.1, z), GOLD, Enum.Material.Metal)
+	end
+	k.decor("CourseRope", Vector3.new(0.12, 0.12, 50), CFrame.new(-38.6, 1.9, -5), RED, Enum.Material.Fabric)
+	k.sign(Vector3.new(-HALF_X, 15.6, 0), Vector3.new(1, 0, 0), 18, 2, "OBSTACLE COURSE")
+	local board = kit.part(folder, MapSchema.CourseBoard, Vector3.new(0.2, 4, 10), CFrame.new(-HALF_X + 0.35, 9.4, 0), NAVY_DARK)
+	board.CanCollide = false
+	board.CanQuery = false
+	k.decor("CourseBoardFrame", Vector3.new(0.15, 4.4, 10.4), CFrame.new(-HALF_X + 0.25, 9.4, 0), GOLD, Enum.Material.Metal)
+	local label = k.textOn(board, Enum.NormalId.Right, "OBSTACLE COURSE\nStep on START, run to FINISH", colors.Gold, 0)
+	label.Name = "Text"
 end
 
 ---------------------------------------------------------------- сборка
@@ -1064,15 +1275,14 @@ function HubBuilder.build(): (Instance, { BasePart })
 	map.Parent = Workspace
 	local kit = MapBuilder.newKit(map)
 	local k = kit.kit
-	local colors = k.colors
 
 	kit.room({
 		name = "Hub",
 		rect = kit.rect(-HALF_X, HALF_X, -HALF_Z, HALF_Z),
 		height = HEIGHT,
 		style = k.styles.Guard,
-		floorColor = colors.Wood,
-		floorMaterial = Enum.Material.WoodPlanks,
+		floorColor = MARBLE, -- мраморный пол (этап 8, блок P)
+		floorMaterial = Enum.Material.Marble,
 		lampSpacing = 0,
 		ceilingColor = hex("2B3550"), -- тёмный потолок: светлый под потолочными лампами пересвечен
 	}, "Hub")
@@ -1091,6 +1301,7 @@ function HubBuilder.build(): (Instance, { BasePart })
 	spawn.CanTouch = false
 	spawn.Parent = map
 
+	kit.checker(kit.rect(-HALF_X, HALF_X, -HALF_Z, HALF_Z), 4, MARBLE_WARM)
 	buildFloorAndCeiling(kit)
 	buildMonitorWall(kit, map)
 	buildLockerRoom(kit)
@@ -1098,10 +1309,28 @@ function HubBuilder.build(): (Instance, { BasePart })
 	buildEntrance(kit)
 	buildClassShop(kit, map) -- этап 4, блок 1
 	local northWall = -HALF_Z
-	wantedPoster(kit, Vector3.new(-40, 9, northWall), Vector3.new(0, 0, 1), "THE BRUTE", hex("3A3F4B"), -4)
-	wantedPoster(kit, Vector3.new(-33, 9.4, northWall), Vector3.new(0, 0, 1), "THE SHADOW", hex("1C1C24"), 3)
-	wantedPoster(kit, Vector3.new(33, 9.4, northWall), Vector3.new(0, 0, 1), "THE MINER", hex("C27C2C"), -3)
-	wantedPoster(kit, Vector3.new(40, 9, northWall), Vector3.new(0, 0, 1), "POWER CUTTER", hex("3B5A8C"), 4)
+	wantedPoster(kit, Vector3.new(-31.5, 9, northWall), Vector3.new(0, 0, 1), "THE BRUTE", hex("3A3F4B"), -4)
+	wantedPoster(kit, Vector3.new(-27.5, 9.4, northWall), Vector3.new(0, 0, 1), "THE SHADOW", hex("1C1C24"), 3)
+	wantedPoster(kit, Vector3.new(27.5, 9.4, northWall), Vector3.new(0, 0, 1), "THE MINER", hex("C27C2C"), -3)
+	wantedPoster(kit, Vector3.new(31.5, 9, northWall), Vector3.new(0, 0, 1), "POWER CUTTER", hex("3B5A8C"), 4)
+	-- Этап 8, блок P: окна с ночным городом, путь к кругам, тир и полоса препятствий
+	nightWindow(kit, Vector3.new(-40, 9.5, northWall), Vector3.new(0, 0, 1), 10, 8, 1)
+	nightWindow(kit, Vector3.new(40, 9.5, northWall), Vector3.new(0, 0, 1), 10, 8, 2)
+	for index, z in { -16, 16 } do
+		nightWindow(kit, Vector3.new(-HALF_X, 14, z), Vector3.new(1, 0, 0), 8, 4.5, 2 + index)
+	end
+	for index, z in { 4, 18 } do
+		nightWindow(kit, Vector3.new(HALF_X, 14, z), Vector3.new(-1, 0, 0), 8, 4.5, 4 + index)
+	end
+	for _, spot in { { -47.5, -33.5 }, { 47.5, -33.5 }, { 47.5, 33 } } do
+		k.plant(spot[1], spot[2])
+	end
+	buildGuide(kit)
+	local games = Instance.new("Folder")
+	games.Name = MapSchema.HubGames
+	games.Parent = map
+	buildRange(kit, games)
+	buildCourse(kit, games)
 	local pads = buildPads(kit, map)
 	return map, pads
 end

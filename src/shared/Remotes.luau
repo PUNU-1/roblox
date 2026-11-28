@@ -28,6 +28,7 @@ local NAMES: { [string]: string } = {
 	-- блок 6: хаб и конец забега
 	PadAction = "PadAction", -- (action: string, value: any) хаб, создатель круга: "Start" — старт сейчас, "FriendsOnly" (value: boolean)
 	GameOverChoice = "GameOverChoice", -- (choice: string) музей, конец забега: "PlayAgain" | "Lobby"
+	RangeShot = "RangeShot", -- (target: number) хаб, тир (этап 8, блок P): попал в мишень с этим номером; сервер проверяет, что стреляешь ты и мишень поднята
 	-- этап 4, блок 1: магазин классов в хабе
 	BuyClass = "BuyClass", -- (role: string) купить класс за алмазы; сервер проверяет класс, цену и алмазы
 	-- этап 4, блок 1b: окно магазина в музее
