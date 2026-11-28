@@ -613,6 +613,44 @@ for index, button in cameraButtons do
 	end)
 end
 
+-- Телефон (этап 8, блок Q): кнопки камер в панели мелкие — крупные ◀ ▶ по бокам картинки и EXIT справа сверху.
+-- Видны вместе с экраном камер (gui.Enabled). Нажатие по картинке между ними по-прежнему ставит метку на вора.
+if touchOnly then
+	local Mobile = require(script.Parent:WaitForChild("UI"):WaitForChild("Mobile"))
+	local prevButton = Mobile.roundButton({ name = "CamPrev", icon = "ArrowLeft", parent = gui, onActivated = function()
+		cycle(-1)
+	end })
+	local nextButton = Mobile.roundButton({ name = "CamNext", icon = "ArrowRight", parent = gui, onActivated = function()
+		cycle(1)
+	end })
+	local exitButton = Mobile.roundButton({
+		name = "CamExit",
+		icon = "Close",
+		label = "EXIT",
+		parent = gui,
+		color = Colors.Red,
+		onActivated = function()
+			requestCameras:FireServer(false)
+		end,
+	})
+	for _, round in { prevButton, nextButton, exitButton } do
+		round.root.ZIndex = 4
+		round.root.Modal = true -- курсор свободен, пока виден экран камер
+	end
+	Mobile.bind(function()
+		local s = Mobile.scale()
+		local size = math.floor(Config.Mobile.AbilitySize * s)
+		local edge = math.floor(22 * s + size / 2) -- рамка телефона 14 + отступ
+		local middle = (1 - PANEL_HEIGHT) / 2 -- середина картинки над панелью
+		prevButton.root.Size = UDim2.fromOffset(size, size)
+		nextButton.root.Size = UDim2.fromOffset(size, size)
+		exitButton.root.Size = UDim2.fromOffset(size, size)
+		prevButton.root.Position = UDim2.new(0, edge, middle, 0)
+		nextButton.root.Position = UDim2.new(1, -edge, middle, 0)
+		exitButton.root.Position = UDim2.new(1, -edge, 0, edge)
+	end)
+end
+
 
 ---------------------------------------------------------------- метка на вора
 

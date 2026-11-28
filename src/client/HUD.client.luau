@@ -22,6 +22,7 @@ local PixelIcon = require(script.Parent:WaitForChild("UI"):WaitForChild("PixelIc
 local MvpShowcase = require(script.Parent:WaitForChild("UI"):WaitForChild("MvpShowcase"))
 local SettingsWindow = require(script.Parent:WaitForChild("UI"):WaitForChild("SettingsWindow"))
 local MobileMenu = require(script.Parent:WaitForChild("UI"):WaitForChild("MobileMenu"))
+local Mobile = require(script.Parent:WaitForChild("UI"):WaitForChild("Mobile"))
 
 local Phase = GameState.Phase
 local Attr = GameState.Attr
@@ -262,7 +263,9 @@ local COL_GAP = 16
 
 local resultsFrame = Theme.new("Frame", {
 	Name = "Results",
-	Size = UDim2.fromScale(1, 1),
+	-- телефон (этап 8, блок Q): ScreenGui в безопасной зоне — затемнение шире, чтобы закрыть и вырез
+	Position = if TOUCH_TOP then UDim2.fromOffset(-100, -100) else UDim2.new(),
+	Size = if TOUCH_TOP then UDim2.new(1, 200, 1, 200) else UDim2.fromScale(1, 1),
 	BackgroundColor3 = Colors.Dark,
 	BackgroundTransparency = 0.3,
 	Visible = false,
@@ -504,7 +507,9 @@ local function rescaleResults()
 		else UDim2.new(1, 0, 0, 392)
 	local camera = Workspace.CurrentCamera
 	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
-	resultsScale.Scale = math.clamp(math.min((viewport.X - 24) / panelW, (viewport.Y - 24) / totalH), 0.35, 1)
+	resultsScale.Scale = if TOUCH_TOP
+		then Mobile.fitScale(panelW, totalH, gui.AbsoluteSize) -- телефон: по безопасной зоне, отступ меньше
+		else math.clamp(math.min((viewport.X - 24) / panelW, (viewport.Y - 24) / totalH), 0.35, 1)
 end
 
 local viewportConn: RBXScriptConnection? = nil
