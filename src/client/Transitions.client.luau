@@ -33,7 +33,7 @@ local destroyed = false
 
 ---------------------------------------------------------------- экран, звук и цветокоррекция
 
-local gui: ScreenGui = Theme.screenGui("Transitions", 15)
+local gui: ScreenGui = Theme.screenGui("Transitions", 15, true) -- на весь экран и на телефоне
 gui.IgnoreGuiInset = true
 
 local colorEffect = Instance.new("ColorCorrectionEffect")

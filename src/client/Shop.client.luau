@@ -21,6 +21,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local MapSchema = require(Shared:WaitForChild("MapSchema"))
 local UI = script.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
+local Mobile = require(UI:WaitForChild("Mobile"))
 local ClassCards = require(UI:WaitForChild("ClassCards"))
 local PixelButton = require(UI:WaitForChild("PixelButton"))
 
@@ -34,7 +35,8 @@ local ShopConfig = Config.Shop
 local localPlayer = Players.LocalPlayer
 local touchOnly = Theme.touchOnly()
 
-local PANEL_W, PANEL_H = 960, 640
+-- На телефоне (этап 8, блок Q) окно ниже: карточки и так прокручиваются, а низкое окно меньше уменьшается по высоте
+local PANEL_W, PANEL_H = 960, if touchOnly then 440 else 640
 local CARD_W, CARD_H, GAP = 168, 236, 12
 local GRID_TOP = 152
 
@@ -139,7 +141,8 @@ Theme.bindEffects(purchaseSound)
 
 local overlay = Theme.new("Frame", {
 	Name = "Shop",
-	Size = UDim2.fromScale(1, 1),
+	Position = if touchOnly then UDim2.fromOffset(-100, -100) else UDim2.new(), -- телефон: закрывает и вырез экрана
+	Size = if touchOnly then UDim2.new(1, 200, 1, 200) else UDim2.fromScale(1, 1),
 	BackgroundColor3 = Colors.Dark,
 	BackgroundTransparency = 0.45,
 	Active = true, -- клики мимо окна не уходят в игру (стрельба)
@@ -165,14 +168,13 @@ local panel = Theme.new("Frame", {
 })
 local panelScale = Theme.new("UIScale", { Parent = panel })
 local function rescale()
-	local camera = Workspace.CurrentCamera
-	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
-	panelScale.Scale = math.clamp(math.min((viewport.X - 24) / PANEL_W, (viewport.Y - 24) / PANEL_H), 0.4, 1)
+	panelScale.Scale = Mobile.fitScale(PANEL_W, PANEL_H, gui.AbsoluteSize)
 end
 rescale()
 if Workspace.CurrentCamera then
 	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 end
+gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
 
 local header = Theme.label({
 	Position = UDim2.fromOffset(28, 14),
@@ -186,10 +188,12 @@ local header = Theme.label({
 })
 Theme.new("UIStroke", { Color = Colors.Dark, Thickness = 2, Parent = header })
 
+-- На телефоне крестик крупнее: после уменьшения окна (около 0.68) он всё равно не меньше пальца
+local CLOSE_SIZE = if touchOnly then 66 else 48
 local walletPill = Theme.new("Frame", {
 	Name = "Wallet",
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -84, 0, 18),
+	Position = UDim2.new(1, -(36 + CLOSE_SIZE), 0, 18),
 	Size = UDim2.fromOffset(170, 44),
 	BackgroundColor3 = Colors.Dark,
 	BackgroundTransparency = 0.2,
@@ -201,8 +205,8 @@ local walletLabel = Theme.label({ Size = UDim2.fromScale(1, 1), TextColor3 = Col
 local closeButton = Theme.button({
 	Name = "Close",
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -20, 0, 18),
-	Size = UDim2.fromOffset(48, 44),
+	Position = UDim2.new(1, -20, 0, if touchOnly then 10 else 18),
+	Size = UDim2.fromOffset(CLOSE_SIZE, if touchOnly then 66 else 44),
 	BackgroundColor3 = Colors.Red,
 	Text = "✕",
 	MaxTextSize = 26,

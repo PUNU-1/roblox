@@ -3,7 +3,8 @@
 -- Общий модуль: хаб (CLASS SHOP, Classes, Gifts, How to play, Coming soon), позже — музей (блок D).
 --
 -- Открыто только одно окно за раз: открыл новое — прежнее закрылось. Меню Roblox (Esc) закрывает все окна.
--- На маленьком экране окно уменьшается целиком (UIScale).
+-- На маленьком экране окно уменьшается целиком (UIScale). На телефоне (этап 8, блок Q) — по безопасной зоне экрана
+-- (UI/Mobile.fitScale), затемнение закрывает и вырез, у крестика зона нажатия не меньше пальца (Config.Mobile.MinTouch).
 
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,6 +16,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Theme = require(script.Parent:WaitForChild("Theme"))
 local PixelIcon = require(script.Parent:WaitForChild("PixelIcon"))
 local PixelButton = require(script.Parent:WaitForChild("PixelButton"))
+local Mobile = require(script.Parent:WaitForChild("Mobile"))
 
 local Colors = Theme.Colors
 
@@ -58,9 +60,11 @@ function PixelWindow.new(props: Props): Window
 	local gui = Theme.screenGui(props.name, props.displayOrder or 5)
 
 	-- Затемнение экрана: ловит нажатия, чтобы они не уходили в мир за окном
+	-- На телефоне ScreenGui окна — в безопасной зоне, поэтому затемнение шире на 100 с каждой стороны (закрывает вырез)
 	local overlay = Theme.new("Frame", {
 		Name = "Overlay",
-		Size = UDim2.fromScale(1, 1),
+		Position = if Mobile.enabled then UDim2.fromOffset(-100, -100) else UDim2.new(),
+		Size = if Mobile.enabled then UDim2.new(1, 200, 1, 200) else UDim2.fromScale(1, 1),
 		BackgroundColor3 = Colors.Dark,
 		BackgroundTransparency = 0.4,
 		Active = true,
@@ -103,10 +107,14 @@ function PixelWindow.new(props: Props): Window
 	local openFlag = false
 	local window: Window
 
+	local closeHit: TextButton? = nil
 	local function rescale()
-		local camera = Workspace.CurrentCamera
-		local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
-		scale.Scale = math.clamp(math.min((viewport.X - 24) / props.width, (viewport.Y - 24) / props.height), 0.4, 1)
+		scale.Scale = Mobile.fitScale(props.width, props.height, gui.AbsoluteSize)
+		local hit = closeHit
+		if hit then
+			local size = Mobile.touchSize(54, scale.Scale)
+			hit.Size = UDim2.fromOffset(size, size)
+		end
 	end
 	rescale()
 	if Workspace.CurrentCamera then
@@ -144,14 +152,35 @@ function PixelWindow.new(props: Props): Window
 		end
 	end
 
-	PixelButton.new({
+	local closeButton = PixelButton.new({
 		icon = "Close",
 		name = "Close",
 		cell = 3,
 		zIndex = 4,
 		parent = panel,
 		onActivated = close,
-	}).root.Position = UDim2.new(1, -inset - 54, 0, inset + 2)
+	})
+	closeButton.root.Position = UDim2.new(1, -inset - 54, 0, inset + 2)
+	if Mobile.enabled then
+		-- Невидимая зона нажатия вокруг крестика: после уменьшения окна крестик меньше пальца, а зона — нет
+		local hit = Theme.new("TextButton", {
+			Name = "CloseHit",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(1, -inset - 27, 0, inset + 2 + 24),
+			Size = UDim2.fromOffset(54, 54),
+			BackgroundTransparency = 1,
+			Text = "",
+			ZIndex = 3,
+			Parent = panel,
+		})
+		hit.Activated:Connect(function()
+			PixelButton.click()
+			close()
+		end)
+		closeHit = hit
+		rescale()
+		gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
+	end
 
 	window = {
 		gui = gui,

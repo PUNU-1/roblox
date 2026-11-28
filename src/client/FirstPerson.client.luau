@@ -40,7 +40,7 @@ end
 if touchOnly then
 	-- Невидимая кнопка с Modal = true: пока она на экране, Roblox не запирает курсор в центре,
 	-- и касание попадает в кнопку под пальцем. Сама касаний не ловит (Active = false, размер 0).
-	local gui = Theme.screenGui("TouchUnlock", 0)
+	local gui = Theme.screenGui("TouchUnlock", 0, true)
 	Theme.new("TextButton", {
 		Name = "Unlock",
 		Size = UDim2.fromOffset(0, 0),

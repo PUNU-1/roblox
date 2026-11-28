@@ -241,7 +241,7 @@ function ProgressFx.start()
 	end
 	started = true
 	touchOnly = Theme.touchOnly()
-	gui = Theme.screenGui("ProgressFx", 15)
+	gui = Theme.screenGui("ProgressFx", 15, true)
 	sound = Instance.new("Sound")
 	sound.SoundId = Config.Sounds.Purchase
 	sound.Volume = Config.Sounds.PurchaseVolume

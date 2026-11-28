@@ -138,20 +138,35 @@ function Theme.padding(pixels: number): UIPadding
 	return Theme.new("UIPadding", { PaddingTop = p, PaddingBottom = p, PaddingLeft = p, PaddingRight = p })
 end
 
-function Theme.screenGui(name: string, displayOrder: number?): ScreenGui
+-- fullScreen — на весь экран и на телефоне (затемнения, переходы, рамка камер). Иначе на телефоне ScreenGui — в безопасной
+-- зоне (этап 8, блок Q): вырез экрана и полоска «домой» ничего не закрывают. На компьютере — как раньше.
+function Theme.screenGui(name: string, displayOrder: number?, fullScreen: boolean?): ScreenGui
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local existing = playerGui:FindFirstChild(name)
 	if existing then
 		existing:Destroy()
 	end
-	return Theme.new("ScreenGui", {
+	local gui = Theme.new("ScreenGui", {
 		Name = name,
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 		DisplayOrder = displayOrder or 0,
-		Parent = playerGui,
 	})
+	if not fullScreen and Theme.touchOnly() then
+		gui.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets -- после IgnoreGuiInset: он сам меняет ScreenInsets
+	end
+	gui.Parent = playerGui
+	return gui
+end
+
+-- Надписи TextScaled на телефоне не мельче Config.Mobile.MinTextSize (этап 8, блок Q); на компьютере — как раньше.
+local touchCache: boolean? = nil
+local function minTextSize(maxSize: number): number
+	if touchCache == nil then
+		touchCache = Theme.touchOnly()
+	end
+	return if touchCache then math.min(Config.Mobile.MinTextSize, maxSize) else 1
 end
 
 function Theme.label(props: { [string]: any }): TextLabel
@@ -168,7 +183,8 @@ function Theme.label(props: { [string]: any }): TextLabel
 		end
 	end
 	local label = Theme.new("TextLabel", defaults)
-	Theme.new("UITextSizeConstraint", { MaxTextSize = props.MaxTextSize or 36, Parent = label })
+	local maxSize = props.MaxTextSize or 36
+	Theme.new("UITextSizeConstraint", { MaxTextSize = maxSize, MinTextSize = minTextSize(maxSize), Parent = label })
 	return label
 end
 
@@ -188,7 +204,8 @@ function Theme.button(props: { [string]: any }): TextButton
 	end
 	local button = Theme.new("TextButton", defaults)
 	Theme.corner(10).Parent = button
-	Theme.new("UITextSizeConstraint", { MaxTextSize = props.MaxTextSize or 28, Parent = button })
+	local maxSize = props.MaxTextSize or 28
+	Theme.new("UITextSizeConstraint", { MaxTextSize = maxSize, MinTextSize = minTextSize(maxSize), Parent = button })
 	Theme.padding(6).Parent = button
 	return button
 end
