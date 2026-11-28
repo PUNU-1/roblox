@@ -83,9 +83,14 @@ end
 
 -- Переводит готовые надписи на пиксельный шрифт (этап 5, блок D: деньги, таймер, здоровье, патроны в музее).
 -- Надпись остаётся TextScaled; если у неё ещё нет обводки — добавляется чёрная.
+-- На телефоне минимум 14 (Theme.label) снят до 8: пиксельный шрифт широкий, и длинная надпись иначе вылезла бы из рамки.
 function Theme.pixelize(...: TextLabel)
 	for _, label in { ... } do
 		label.FontFace = Theme.PixelFont
+		local constraint = label:FindFirstChildOfClass("UITextSizeConstraint")
+		if constraint and constraint.MinTextSize > 8 then
+			constraint.MinTextSize = 8
+		end
 		if not label:FindFirstChildOfClass("UIStroke") then
 			Theme.new("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 2, LineJoinMode = STROKE_JOIN, Parent = label })
 		end

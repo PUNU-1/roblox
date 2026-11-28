@@ -137,12 +137,6 @@ local topBar = Theme.new("Frame", {
 })
 local topLabel = Theme.label({ Size = UDim2.fromScale(1, 1), MaxTextSize = 20, TextWrapped = TOUCH_TOP, Parent = topBar })
 Theme.padding(if TOUCH_TOP then 2 else 6).Parent = topBar
-if TOUCH_TOP then
-	local constraint = topLabel:FindFirstChildOfClass("UITextSizeConstraint")
-	if constraint then
-		constraint.MinTextSize = 10 -- пиксельный шрифт широкий: длинной строке лобби можно чуть мельче, зато влезает
-	end
-end
 
 local moneyFrame = Theme.new("Frame", {
 	Name = "Money",

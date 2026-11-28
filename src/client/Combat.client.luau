@@ -105,7 +105,8 @@ local function refreshHealth()
 	local fraction = health / maxHealth
 	healthFill.Size = UDim2.fromScale(fraction, 1)
 	healthFill.BackgroundColor3 = healthColor(fraction)
-	healthLabel.Text = ("HEALTH %d / %d"):format(math.ceil(health), maxHealth)
+	-- телефон: короче — полоска узкая (между джойстиком и умной кнопкой)
+	healthLabel.Text = (if touchOnly then "HP %d/%d" else "HEALTH %d / %d"):format(math.ceil(health), maxHealth)
 	armorBack.Visible = armor > 0
 	armorFill.Size = UDim2.fromScale(math.clamp(armor / Config.Weapons.Vest.Armor, 0, 1), 1)
 	armorLabel.Text = ("ARMOR %d"):format(math.ceil(armor))
