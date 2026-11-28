@@ -862,8 +862,21 @@ function ExhibitService.take(exhibit: Exhibit, thief: Model): boolean
 		end
 	end
 	copy.Name = exhibit.model.Name .. "_Carried"
-	local offset = Config.Painting.CarryOffset
-	ModelLibrary.weldTo(copy, head, head.CFrame * CFrame.new(offset.X, offset.Y, offset.Z))
+	local size = if copy:IsA("Model")
+		then copy:GetExtentsSize()
+		elseif copy:IsA("BasePart") then copy.Size
+		else Vector3.new(3, 3, 3)
+	local isSmall = not exhibit.isMain and math.max(size.X, size.Y, size.Z) <= Config.Painting.SmallMaxSize
+	local torso = if isSmall then thief:FindFirstChild("UpperTorso") else nil
+	if isSmall and torso and torso:IsA("BasePart") then
+		local smallOffset = Config.Painting.SmallCarryOffset
+		ModelLibrary.weldTo(copy, torso, torso.CFrame * CFrame.new(smallOffset.X, smallOffset.Y - size.Y * 0.35, smallOffset.Z))
+		thief:SetAttribute(GameState.ThiefAttr.CarrySmall, true)
+	else
+		local offset = Config.Painting.CarryOffset
+		ModelLibrary.weldTo(copy, head, head.CFrame * CFrame.new(offset.X, offset.Y, offset.Z))
+		thief:SetAttribute(GameState.ThiefAttr.CarrySmall, false)
+	end
 	copy.Parent = thief -- пропадёт вместе с вором
 	exhibit.carryCopy = copy
 	exhibit.model:PivotTo(exhibit.home - Vector3.new(0, ExhibitConfig.HideDepth, 0))
@@ -876,6 +889,9 @@ end
 -- Экспонат возвращается на место (вора поймали, или ночь кончилась).
 function ExhibitService.returnHome(exhibit: Exhibit)
 	setStealer(exhibit, nil)
+	if exhibit.carrier then
+		exhibit.carrier:SetAttribute(GameState.ThiefAttr.CarrySmall, nil)
+	end
 	exhibit.carrier = nil
 	destroyCopy(exhibit)
 	exhibit.model:PivotTo(exhibit.home)

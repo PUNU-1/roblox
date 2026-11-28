@@ -111,6 +111,7 @@ type Thief = {
 	nextPunch: number,
 	special: Special?, -- подкоп или крыша
 	stunUntil: number, -- шокер (блок 4): лежит до этого времени
+	standing: boolean,
 	footsteps: Sound?,
 	connections: { RBXScriptConnection },
 }
@@ -275,6 +276,8 @@ local function animFor(thief: Thief): string
 		return Anim.Steal
 	elseif state == "Hold" and thief.holdArrived then
 		return Anim.Hold
+	elseif thief.standing and (state == "Approach" or state == "Block") and not thief.options.disguise then
+		return Anim.Idle
 	end
 	-- Идёт: приманка бежит, у Громилы и Тени своя походка, остальные крадутся
 	if thief.options.loud then
@@ -342,6 +345,7 @@ local function computePath(thief: Thief, target: Vector3)
 end
 
 local function moveTowards(thief: Thief, target: Vector3, speed: number)
+	thief.standing = false
 	thief.humanoid.WalkSpeed = speed
 	local needPath = thief.pathTarget == nil
 		or (thief.pathTarget :: Vector3 - target).Magnitude > ThiefConfig.PathRecomputeDistance
@@ -359,6 +363,7 @@ local function moveTowards(thief: Thief, target: Vector3, speed: number)
 end
 
 local function stand(thief: Thief)
+	thief.standing = true
 	thief.humanoid:MoveTo(thief.root.Position)
 end
 
@@ -1155,6 +1160,7 @@ function ThiefService.spawnSpecial(options: Options): Model?
 		nextPunch = 0,
 		special = nil,
 		stunUntil = 0,
+		standing = false,
 		footsteps = nil,
 		connections = {},
 	}
