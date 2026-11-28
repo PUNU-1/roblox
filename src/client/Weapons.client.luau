@@ -1467,6 +1467,68 @@ local function placeView(dt: number, camera: Camera)
 	placeArm(leftArm, leftHand.Position, cf:VectorToWorldSpace(LEFT_ARM_DIR), up, -1)
 end
 
+---------------------------------------------------------------- автострельба на телефоне (решение 103)
+
+-- В налёт, огнестрел в руках: луч из центра камеры (как при выстреле) попал в грабителя в пределах дальности оружия —
+-- клиент сам жмёт курок с обычной скорострельностью (tryFire). Стены луч не проходит — грабитель виден.
+-- Сервер проверяет выстрел как обычно (решение 97: только в налёт).
+local AutoFire = Config.Mobile.AutoFire
+local ThiefAttr = GameState.ThiefAttr
+local ThiefAnim = GameState.ThiefAnim
+local NOT_TARGET = { [ThiefAnim.Knockout] = true, [ThiefAnim.Arrest] = true, [ThiefAnim.Surrender] = true }
+local autoUntil = 0
+local autoCheckAt = 0
+
+local function robberInSight(kind: string): boolean
+	local camera = Workspace.CurrentCamera
+	local thieves = Workspace:FindFirstChild(MapSchema.Thieves)
+	if not camera or not thieves then
+		return false
+	end
+	local info = (Weapons :: any)[kind]
+	local range = info.Range * AutoFire.RangeFactor
+	local result = Workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * range, rayParams(false))
+	if not result or not result.Instance:IsDescendantOf(thieves) then
+		return false
+	end
+	local model: Instance? = result.Instance
+	while model and model.Parent ~= thieves do
+		model = model.Parent
+	end
+	if not model then
+		return false
+	end
+	if model:GetAttribute(ThiefAttr.Robber) ~= true or model:GetAttribute(ThiefAttr.Surrendered) == true then
+		return false
+	end
+	local anim = model:GetAttribute(GameState.NpcAttr.AnimState)
+	return not (typeof(anim) == "string" and NOT_TARGET[anim])
+end
+
+-- true — автострельба сейчас жмёт курок
+local function autoTrigger(): boolean
+	if not touchOnly or not AutoFire.Enabled then
+		return false
+	end
+	local kind = shownKind
+	if not FIREARMS[kind] or kind ~= equipped() or not raidActive() or GameState.phase() ~= GameState.Phase.Night then
+		autoUntil = 0
+		return false
+	end
+	if not onShift() or downed() or viewing() or spectating() or knocked() or reviving() or reloading() or predictedAmmo(kind) <= 0 then
+		autoUntil = 0
+		return false
+	end
+	local clock = os.clock()
+	if clock >= autoCheckAt then
+		autoCheckAt = clock + 0.05 -- луч 20 раз в секунду, не каждый кадр
+		if robberInSight(kind) then
+			autoUntil = clock + AutoFire.HoldSeconds
+		end
+	end
+	return clock < autoUntil
+end
+
 ---------------------------------------------------------------- кадр
 
 local function syncView()
@@ -1523,7 +1585,7 @@ local function step(dt: number)
 			camera.CFrame = camera.CFrame * CFrame.Angles(pitch, yaw, 0)
 		end
 	end
-	if triggerHeld then
+	if triggerHeld or autoTrigger() then
 		tryFire()
 	end
 	-- Прицел вместо стрелки мыши, пока в руках оружие
